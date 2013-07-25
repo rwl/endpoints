@@ -3,11 +3,12 @@ package endpoints
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
+//	"fmt"
 	"net/http"
-	"strings"
+//	"strings"
 
-	"appengine"
+	//"appengine"
+	"log"
 )
 
 // Levels that can be specified for a LogMessage.
@@ -55,10 +56,9 @@ type BackendService struct {
 // responds with a config suitable for generating Discovery doc.
 // 
 // Responds with a list of active APIs and their configuration files.
-func (s *BackendService) GetApiConfigs(
-	r *http.Request, req *GetApiConfigsRequest, resp *ApiConfigsList) error {
+func (s *BackendService) GetApiConfigs(r *http.Request, req *GetApiConfigsRequest, resp *ApiConfigsList) error {
 
-	if req.AppRevision != "" {
+	/*if req.AppRevision != "" {
 		c := appengine.NewContext(r)
 		revision := strings.Split(appengine.VersionID(c), ".")[1]
 		if req.AppRevision != revision {
@@ -66,7 +66,7 @@ func (s *BackendService) GetApiConfigs(
 				"API backend app revision %s not the same as expected %s",
 				revision, req.AppRevision)
 		}
-	}
+	}*/
 
 	resp.Items = make([]string, 0)
 	for _, service := range s.server.services.services {
@@ -87,19 +87,17 @@ func (s *BackendService) GetApiConfigs(
 }
 
 // LogMessages writes a log message from the Swarm FE to the log.
-func (s *BackendService) LogMessages(
-	r *http.Request, req *LogMessagesRequest, _ *VoidMessage) error {
+func (s *BackendService) LogMessages(r *http.Request, req *LogMessagesRequest, _ *VoidMessage) error {
 
-	c := appengine.NewContext(r)
+	//c := appengine.NewContext(r)
 	for _, msg := range req.Messages {
-		writeLogMessage(c, msg.Level, msg.Message)
+		writeLogMessage(msg.Level, msg.Message)
 	}
 	return nil
 }
 
 // This is a test method and will be removed sooner or later.
-func (s *BackendService) GetFirstConfig(
-	r *http.Request, _ *VoidMessage, resp *ApiDescriptor) error {
+func (s *BackendService) GetFirstConfig(r *http.Request, _ *VoidMessage, resp *ApiDescriptor) error {
 
 	for _, service := range s.server.services.services {
 		if !service.internal {
@@ -109,9 +107,10 @@ func (s *BackendService) GetFirstConfig(
 	return errors.New("Not Found: No public API found")
 }
 
-func writeLogMessage(c appengine.Context, level logLevel, msg string) {
+func writeLogMessage(level logLevel, msg string) {
 	const fmt = "%s"
-	switch level {
+	log.Printf(fmt, msg)
+	/*switch level {
 	case levelDebug:
 		c.Debugf(fmt, msg)
 	case levelWarning:
@@ -122,7 +121,7 @@ func writeLogMessage(c appengine.Context, level logLevel, msg string) {
 		c.Criticalf(fmt, msg)
 	default:
 		c.Infof(fmt, msg)
-	}
+	}*/
 }
 
 func newBackendService(server *Server) *BackendService {
