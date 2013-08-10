@@ -5,12 +5,12 @@ import (
 	"sync"
 	"encoding/json"
 	"fmt"
-	"encoding/base64"
 	"regexp"
 	"log"
 	"strings"
 	"errors"
 	"sort"
+	"encoding/base32"
 )
 
 const _PATH_VARIABLE_PATTERN = `[a-zA-Z_][a-zA-Z_.\d]*`
@@ -41,7 +41,7 @@ type lookupKey struct {
 type restMethod struct {
 	compiled_path_pattern *regexp.Regexp
 	path string
-	methods []method
+	methods map[string]method
 }
 
 type method struct {
@@ -310,7 +310,8 @@ func (m *ApiConfigManager) add_discovery_config() {
 // Returns:
 //   A string that"s safe to be used as a regex group name.
 func to_safe_path_param_name(matched_parameter string) string {
-	return "_" + base64.b32encode(matched_parameter).rstrip("=")
+	safe := "_" + base32.StdEncoding.EncodeToString([]byte(matched_parameter))
+	return strings.TrimRight(safe, "=")
 }
 
 // Takes a safe regex group name and converts it back to the original value.
@@ -325,15 +326,19 @@ func to_safe_path_param_name(matched_parameter string) string {
 //
 // Returns:
 //   A string, the parameter matched from the URL template.
-func from_safe_path_param_name(safe_parameterstring ) string {
-	if !safe_parameter.startswith("_") {
-		panic()
+func from_safe_path_param_name(safe_parameter string) (string, error) {
+	if !strings.HasPrefix(safe_parameter, "_") {
+		return "", fmt.Errorf(`Safe parameter lacks "_" prefix: %s`, safe_parameter)
 	}
-	safe_parameter_as_base32 = safe_parameter[1:]
+	safe_parameter_as_base32 := safe_parameter[1:]
 
-	padding_length = - len(safe_parameter_as_base32) % 8
-	padding = "=" * padding_length
-	return base64.b32decode(safe_parameter_as_base32 + padding)
+	padding_length := - len(safe_parameter_as_base32) % 8
+	padding := strings.Repeat("=", padding_length)
+	data, err := base32.StdEncoding.DecodeString(safe_parameter_as_base32 + padding)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // Generates a compiled regex pattern for a path pattern.
@@ -346,7 +351,7 @@ func from_safe_path_param_name(safe_parameterstring ) string {
 //
 // Returns:
 // A compiled regex object to match this path pattern.
-func compile_path_pattern(pattern) *regexp.Regexp {
+func compile_path_pattern(pattern string) *regexp.Regexp {
 
 	// Replaces a {variable} with a regex to match it by name.
 	//
@@ -365,7 +370,8 @@ func compile_path_pattern(pattern) *regexp.Regexp {
 	replace_variable := func(match *regexp.Regexp) string {
 		if match.lastindex > 1 {
 			var_name = to_safe_path_param_name(match.group(2))
-			return fmt.Sprintf("%s(?P<%s>%s)", match.group(1), var_name, _PATH_VALUE_PATTERN)
+			return fmt.Sprintf("%s(?P<%s>%s)", match.group(1), var_name,
+				_PATH_VALUE_PATTERN)
 		}
 		return match.group(0)
 	}
@@ -373,6 +379,9 @@ func compile_path_pattern(pattern) *regexp.Regexp {
 	pattern = re.sub(fmt.Sprintf("(/|^){(%s)}(?=/|$)", _PATH_VARIABLE_PATTERN),
 		replace_variable, pattern)
 	re, err := regexp.Compile(pattern + "/?$")
+	if err != nil {
+
+	}
 	return re
 }
 
@@ -386,7 +395,7 @@ func compile_path_pattern(pattern) *regexp.Regexp {
 //   method: A dict containing the method descriptor (as in the api config
 //     file).
 func (m *ApiConfigManager) save_rpc_method(method_name, version string, method *ApiMethod) {
-	m.rpc_method_dict[methodKey{method_name, version}] = method
+	m.rpc_method_dict[lookupKey{method_name, version}] = method
 }
 
 // Store Rest api methods in a list for lookup at call time.
@@ -422,17 +431,22 @@ func (m *ApiConfigManager) save_rpc_method(method_name, version string, method *
 //   method: A dict containing the method descriptor (as in the api config
 //     file).
 func (m *ApiConfigManager) save_rest_method(method_name, api_name, version string, method *ApiMethod) {
-	path_pattern = api_name + "/" + version + "/" + method.Path
-	http_method = strings.ToLower(method.HttpMethod)
-	for _, path, methods := range m.rest_methods {
-		if path == path_pattern {
-			methods[http_method] = method_name, method
+	path_pattern := api_name + "/" + version + "/" + method.Path
+	http_method := strings.ToLower(method.HttpMethod)
+	for _, rm := range m.rest_methods {
+		if rm.path == path_pattern {
+			rm.methods[http_method] = method{method_name, method}
 			break
 		} else {
-			m.rest_methods.append(
-				(compile_path_pattern(path_pattern),
-				path_pattern,
-				{http_method: (method_name, method)}))
+			rm.rest_methods = append(m.rest_methods,
+				method{
+					compile_path_pattern(path_pattern),
+					path_pattern,
+					map[string]*method{
+						http_method: method{method_name, method},
+					},
+				},
+			)
 		}
 	}
 }
