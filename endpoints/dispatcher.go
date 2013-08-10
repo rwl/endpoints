@@ -337,7 +337,7 @@ func (ed *EndpointsDispatcher) lookup_rest_method(orig_request) (string, []strin
 // Returns:
 // The RPC method descriptor that was found for the current request, or None
 // if none was found.
-func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request) {
+func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request) *ApiMethod {
 	if !orig_request.body_json {
 		return nil
 	}

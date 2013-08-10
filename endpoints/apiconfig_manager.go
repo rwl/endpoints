@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"encoding/base64"
 	"regexp"
+	"log"
+	"strings"
+	"errors"
+	"sort"
 )
 
 const _PATH_VARIABLE_PATTERN = `[a-zA-Z_][a-zA-Z_.\d]*`
@@ -14,19 +18,35 @@ const _PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
 
 // Manages loading api configs and method lookup.
 type ApiConfigManager struct {
-	rpc_method_dict map[string]interface{}
-	rest_methods []string
-	configs map[string]interface{}
+	rpc_method_dict map[lookupKey]*ApiMethod
+	rest_methods []restMethod
+	configs map[lookupKey]*ApiDescriptor
 	config_lock sync.Mutex
 }
 
 func NewApiConfigManager() *ApiConfigManager {
 	return &ApiConfigManager{
-		rpc_method_dict: make(map[string]interface{}),
+		rpc_method_dict: make(map[lookupKey]*ApiMethod),
 		rest_methods: make([]string, 0),
-		configs: make(map[string]interface{}),
+		configs: make(map[lookupKey]*ApiDescriptor),
 		config_lock: sync.Mutex{},
 	}
+}
+
+type lookupKey struct {
+	method_name string
+	version string
+}
+
+type restMethod struct {
+	compiled_path_pattern *regexp.Regexp
+	path string
+	methods []method
+}
+
+type method struct {
+	name string
+	api_method *ApiMethod
 }
 
 // Switch the URLs in one API configuration to use HTTP instead of HTTPS.
@@ -40,6 +60,17 @@ func NewApiConfigManager() *ApiConfigManager {
 //
 // Args:
 //   config: A dict with the JSON configuration for an API.
+func convert_https_to_http(config *ApiDescriptor) {
+	if config.Adapter != nil && len(config.Adapter.Bns) > 0 {
+		bns := config.Adapter.Bns
+		if strings.HasPrefix(bns, "https://") {
+			config.Adapter.Bns = strings.Replace(bns, "https://", "http://", 1)
+		}
+	}
+	if strings.HasPrefix(config.Root, "https://") {
+		config.Root = strings.Replace(config.Root, "https://", "http://", 1)
+	}
+}
 /*func _convert_https_to_http(config map[string]interface{}) {
 	if "adapter" in config and "bns" in config["adapter"]:
 		bns_adapter = config["adapter"]["bns"]
@@ -59,78 +90,105 @@ func NewApiConfigManager() *ApiConfigManager {
 //   body: A string, the JSON body of the getApiConfigs response.
 func (m *ApiConfigManager) parse_api_config_response(body string) error {
 	var response_obj map[string]interface{}
-	err := json.Marshal(body, &response_obj)
+	err := json.Unmarshal(body, &response_obj)
 	if err != nil {
-		return fmt.Errorf("Cannot parse BackendService.getApiConfigs response: %s", body)
+		return fmt.Errorf("Cannot parse BackendService.getApiConfigs response: %s",
+			body)
 	}
+
 	m.config_lock.Lock()
 	defer m.config_lock.Unlock()
+
 	m.add_discovery_config()
 	items, ok := response_obj["items"]
 	if !ok {
-		items = make([]string, 0)
+		return errors.New(`BackendService.getApiConfigs response missing "items" key.`)
 	}
-	for _, api_config_json := range items {
-		var config map[string]interface{}
-		err := json.Marshal(api_config_json, config)
+	item_array, ok := items.([]string)
+	if !ok {
+		return errors.New(`Invalid type for "items" value in response`)
+	}
+
+	for _, api_config_json := range item_array {
+		var config *ApiDescriptor
+		err := json.Unmarshal(api_config_json, config)
 		if err != nil {
 			return fmt.Errorf("Can not parse API config: %s", api_config_json)
 		}
-		lookup_key = config.get("name", ""), config.get("version", "")
-		_convert_https_to_http(config)
+		lookup_key := lookupKey{config.Name, config.Version}
+		convert_https_to_http(config)
 		m.configs[lookup_key] = config
 	}
 
 	for _, config := range m.configs {
-		name = config.get("name", "")
-		version = config.get("version", "")
-		sorted_methods = self._get_sorted_methods(config.get("methods", {}))
-	}
+		name := config.Name
+		version := config.Version
+		sorted_methods := get_sorted_methods(config.Methods)
 
-	for method_name, method := range sorted_methods {
-		m.save_rpc_method(method_name, version, method)
-		m.save_rest_method(method_name, name, version, method)
+		for method_name, method := range sorted_methods {
+			m.save_rpc_method(method_name, version, method)
+			m.save_rest_method(method_name, name, version, method)
+		}
 	}
+	return nil
 }
 
-type methodInfo struct {
-	name string
-	info map[string]string
+// Get a copy of "methods" sorted the way they would be on the live server.
+//
+// Args:
+//   methods: JSON configuration of an API"s methods.
+//
+// Returns:
+//   The same configuration with the methods sorted based on what order
+//   they"ll be checked by the server.
+func get_sorted_methods(methods map[string]*ApiMethod) []*ApiMethod {
+	if methods == nil {
+		return nil
+	}
+	methods := make([]*ApiMethod, len(methods))
+	i := 0
+	for _, m := range methods {
+		methods[i] = m
+		i++
+	}
+	sort.Sort(ByPath(methods))
+	return methods
 }
 
-type ByMethod []ApiDescriptor
+type ByPath []*ApiMethod
 
-func (by ByMethod) Len() int {
+func (by ByPath) Len() int {
 	return len(by)
 }
-func (by ByMethod) Less(i, j int) bool {
+
+// Less returns whether the element with index i should sort
+// before the element with index j.
+func (by ByPath) Less(i, j int) bool {
 	method_info1 := by[i]
 	method_info2 := by[j]
 
-	path1 := method_info1.info["path"]
-	path2 := method_info2.info["path"]
+	path1 := method_info1.Path
+	path2 := method_info2.Path
 
-	// Higher path scores come first.
 	path_score1 := score_path(path1)
 	path_score2 := score_path(path2)
 	if path_score1 != path_score2 {
-//		return path_score2 - path_score1
-		return path_score1 < path_score2
+		// Higher path scores come first.
+		return path_score1 > path_score2
 	}
 
 	// Compare by path text next, sorted alphabetically.
-//	path_result = cmp(path1, path2)
 	if path1 != path2 {
 		return path1 < path2
 	}
 
 	// All else being equal, sort by HTTP method.
-	httpMethod1 := method_info1.info["httpMethod"]
-	httpMethod2 := method_info2.info["httpMethod"]
+	httpMethod1 := method_info1.HttpMethod
+	httpMethod2 := method_info2.HttpMethod
 	return httpMethod1 < httpMethod2
 }
 
-func (by ByMethod) Swap(i, j int) {
+func (by ByPath) Swap(i, j int) {
 	by[i], by[j] = by[j], by[i]
 }
 
@@ -147,8 +205,8 @@ func (by ByMethod) Swap(i, j int) {
 // Returns:
 //   The score for the given path.
 func score_path(path string) int {
-	score = 0
-	parts = path.split("/")
+	score := 0
+	parts := strings.Split(path, "/")
 	for _, part := range parts {
 		score <<= 1
 		if part == nil || part[0] != "{" {
@@ -193,7 +251,7 @@ func get_path_params(match) map[string]string {
 func (m *ApiConfigManager) lookup_rpc_method(method_name, version string) string {
 	m.config_lock.Lock()
 	defer m.config_lock.Unlock()
-	method, ok := m.rpc_method_dict[(method_name, version)]
+	method, _ := m.rpc_method_dict[lookupKey{method_name, version}]
 	return method
 }
 
@@ -212,29 +270,28 @@ func (m *ApiConfigManager) lookup_rpc_method(method_name, version string) string
 //     <method name> is the string name of the method that was matched.
 //     <method> is the descriptor as specified in the API configuration. -and-
 //     <params> is a dict of path parameters matched in the rest request.
-func (m *ApiConfigManager) lookup_rest_method(path, http_method string) {
+func (m *ApiConfigManager) lookup_rest_method(path, http_method string) (string, *ApiMethod, map[string]string) {
 	m.config_lock.Lock()
 	defer m.config_lock.Unlock()
-	for compiled_path_pattern, unused_path, methods := range m.rest_methods {
-		match = compiled_path_pattern.match(path)
+	for _, rm := range m.rest_methods {
+		match := rm.compiled_path_pattern.Match(path)
 		if match {
-			params = get_path_params(match)
-			method_key = http_method.lower()
-			method_name, method = methods.get(method_key, (nil, nil))
-			if method {
+			params := get_path_params(match)
+			method_key := strings.ToLower(http_method)
+			method, ok := rm.methods[method_key]
+			if ok {
 				//break
-				return method_name, method, params
+				return method.name, method.api_method, params
 			}
 		}
 	}
-	log.Warn("No endpoint found for path: %s", path)
-	return nil, nil, nil
+	log.Printf("No endpoint found for path: %s", path)
+	return "", nil, nil
 }
 
 func (m *ApiConfigManager) add_discovery_config() {
-	lookup_key = (DiscoveryService.API_CONFIG["name"],
-		DiscoveryService.API_CONFIG["version"])
-	m.configs[lookup_key] = DiscoveryService.API_CONFIG
+	lookup_key := lookupKey{DISCOVERY_API_CONFIG.Name, DISCOVERY_API_CONFIG.Version}
+	m.configs[lookup_key] = DISCOVERY_API_CONFIG
 }
 
 // Creates a safe string to be used as a regex group name.
@@ -252,7 +309,7 @@ func (m *ApiConfigManager) add_discovery_config() {
 //
 // Returns:
 //   A string that"s safe to be used as a regex group name.
-func to_safe_path_param_name(matched_parameterstring ) string {
+func to_safe_path_param_name(matched_parameter string) string {
 	return "_" + base64.b32encode(matched_parameter).rstrip("=")
 }
 
@@ -328,8 +385,8 @@ func compile_path_pattern(pattern) *regexp.Regexp {
 //   version: A string containing the version of the API.
 //   method: A dict containing the method descriptor (as in the api config
 //     file).
-func (m *ApiConfigManager) save_rpc_method(method_name, version, method string) {
-	m.rpc_method_dict[(method_name, version)] = method
+func (m *ApiConfigManager) save_rpc_method(method_name, version string, method *ApiMethod) {
+	m.rpc_method_dict[methodKey{method_name, version}] = method
 }
 
 // Store Rest api methods in a list for lookup at call time.
@@ -364,9 +421,9 @@ func (m *ApiConfigManager) save_rpc_method(method_name, version, method string) 
 //   version: A string containing the version of the API.
 //   method: A dict containing the method descriptor (as in the api config
 //     file).
-func (m *ApiConfigManager) save_rest_method(method_name, api_name, version, method) {
-	path_pattern = "/".join((api_name, version, method.get("path", "")))
-	http_method = method.get("httpMethod", "").lower()
+func (m *ApiConfigManager) save_rest_method(method_name, api_name, version string, method *ApiMethod) {
+	path_pattern = api_name + "/" + version + "/" + method.Path
+	http_method = strings.ToLower(method.HttpMethod)
 	for _, path, methods := range m.rest_methods {
 		if path == path_pattern {
 			methods[http_method] = method_name, method
