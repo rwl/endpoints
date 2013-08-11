@@ -71,7 +71,7 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config, api_format) 
 //
 // Returns:
 // The API directory as JSON string.
-func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []string) {
+func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []string) string {
 	request_dict = {"configs": api_configs}
 	request_body = json.dumps(request_dict)
 	return dispatch_discovery_request("apis/generate/directory", request_body)
