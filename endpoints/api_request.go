@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"errors"
 )
 
 const _API_PREFIX = "/_ah/api/"
+
+type JsonObject map[string]interface{}
 
 // Simple data object representing an API request.
 type ApiRequest struct {
@@ -18,7 +21,8 @@ type ApiRequest struct {
 
 	relative_url string
 	is_batch bool
-	body_json interface{}
+	body_json JsonObject
+	request_id string
 }
 
 func newApiRequest(r *http.Request) (*ApiRequest, error) {
@@ -39,34 +43,50 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 		self.parameters = {}
 	}*/
 
-	body, _ := ioutil.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Problem parsing request body: %s", r.Body)
+	}
+	var body_json interface{}
 	if len(body) > 0 {
-		err := json.Unmarshal(body, &ar.body_json)
+		err := json.Unmarshal(body, &body_json)
 		if err != nil {
+			return nil, fmt.Errorf("Problem unmarshalling request body: %s", body)
 		}
 	} else {
-		ar.body_json = make(map[string]interface{})
+		body_json = make(JsonObject)
 	}
 
-//	ar.request_id = nil
+	ar.request_id = ""//nil
 
 	// Check if it's a batch request.  We'll only handle single-element batch
 	// requests on the dev server (and we need to handle them because that's
 	// what RPC and JS calls typically show up as).  Pull the request out of the
 	// list and record the fact that we're processing a batch.
-	body_json_array, ok := ar.body_json.([]interface{})
+	body_json_array, ok := body_json.([]interface{})
 	if ok {
-		if len(body_json_array) > 1 {
+		switch n := len(body_json_array); n {
+		case 0:
+			return nil, errors.New("Batch request has zero parts")
+		case 1:
+		default:
 			log.Printf(`Batch requests with more than 1 element aren't
-				supported in devappserver2. Only the first element
-				will be handled. Found %d elements.`, len(body_json_array))
-		} else {
-			log.Print("Converting batch request to single request.")
-			ar.body_json = body_json_array[0]
-			ar.Body = json.Marshal(ar.body_json)
-			ar.is_batch = true
+				supported. Only the first element
+				will be handled. Found %d elements.`, n)
 		}
+		log.Print("Converting batch request to single request.")
+		body_json = body_json_array[0]
+		ar.body_json, ok := body_json.(JsonObject)
+		if !ok {
+			return nil, fmt.Errorf("JSON request body must be a map: %s", body_json)
+		}
+		ar.Body = json.Marshal(ar.body_json)
+		ar.is_batch = true
 	} else {
+		ar.body_json, ok := body_json.(JsonObject)
+		if !ok {
+			return nil, fmt.Errorf("JSON request body must be a map: %s", body_json)
+		}
 		ar.is_batch = false
 	}
 	return ar, nil

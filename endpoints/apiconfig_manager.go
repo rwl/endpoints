@@ -140,7 +140,7 @@ func (m *ApiConfigManager) parse_api_config_response(body string) error {
 //
 // Returns:
 //   The same configuration with the methods sorted based on what order
-//   they"ll be checked by the server.
+//   they'll be checked by the server.
 func get_sorted_methods(methods map[string]*ApiMethod) []*ApiMethod {
 	if methods == nil {
 		return nil
@@ -248,7 +248,7 @@ func get_path_params(match) map[string]string {
 //
 // Returns:
 //   Method descriptor as specified in the API configuration.
-func (m *ApiConfigManager) lookup_rpc_method(method_name, version string) string {
+func (m *ApiConfigManager) lookup_rpc_method(method_name, version string) *ApiMethod {
 	m.config_lock.Lock()
 	defer m.config_lock.Unlock()
 	method, _ := m.rpc_method_dict[lookupKey{method_name, version}]
