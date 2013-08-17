@@ -19,7 +19,7 @@ type JsonObject map[string]interface{}
 type ApiRequest struct {
 	*http.Request
 
-	relative_url string
+//	relative_url string
 	is_batch bool
 	body_json JsonObject
 	request_id string
@@ -28,7 +28,7 @@ type ApiRequest struct {
 func newApiRequest(r *http.Request) (*ApiRequest, error) {
 	ar := &ApiRequest{
 		r,
-		reconstruct_relative_url(r),
+//		reconstruct_relative_url(r),
 		false,
 	}
 
@@ -103,13 +103,13 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 //
 // Returns:
 //   The portion of the URL from the request after the server and port.
-func reconstruct_relative_url(r *http.Request) string {
-	/*url = urllib.quote(environ.get('SCRIPT_NAME', ''))
-	url += urllib.quote(environ.get('PATH_INFO', ''))
-	if environ.get('QUERY_STRING')
-	url += '?' + environ['QUERY_STRING']*/
-	return r.URL.RequestURI
-}
+//func reconstruct_relative_url(r *http.Request) string {
+//	/*url = urllib.quote(environ.get('SCRIPT_NAME', ''))
+//	url += urllib.quote(environ.get('PATH_INFO', ''))
+//	if environ.get('QUERY_STRING')
+//	url += '?' + environ['QUERY_STRING']*/
+//	return r.URL.RequestURI
+//}
 
 func (ar *ApiRequest) copy(other *ApiRequest) *ApiRequest {
 //	return &ApiRequest{

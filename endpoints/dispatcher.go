@@ -102,7 +102,7 @@ func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, r *http.Request) 
 // handles.  Otherwise, returns the response body.
 func (ed *EndpointsDispatcher) dispatch_non_api_requests(w http.ResponseWriter, r *http.Request) (string, error) {
 	for _, d := range ed.dispatchers {
-		if d.path_regex.Match([]byte(r.URL.RequestURI)) { // TODO: check relative_url
+		if d.path_regex.Match([]byte(r.URL.RequestURI)) {
 			return ed.dispatch_func(w, r), nil
 		}
 	}
@@ -122,7 +122,7 @@ func (ed *EndpointsDispatcher) dispatch_non_api_requests(w http.ResponseWriter, 
 func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter, request *http.Request) string {
 	base_url := fmt.Sprintf("http://%s/_ah/api", request.URL.Host)
 	redirect_url := _API_EXPLORER_URL + base_url
-	return send_redirect_response(redirect_url, w, nil)
+	return send_redirect_response(redirect_url, w, request, nil)
 }
 
 // Handler for requests to _ah/api/static/.*.
@@ -136,7 +136,7 @@ func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter
 // Returns:
 // A string containing the response body.
 func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, request *http.Request) string {
-	response, body := get_static_file(request.URL.RequestURI) // TODO: check relative_url
+	response, body := get_static_file(request.URL.RequestURI)
 //	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
@@ -433,36 +433,31 @@ func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, f
 	return NewEnumRejectionError(parameter_name, value, enum_values)
 }
 
-// Checks if the parameter value is valid against all parameter rules.
+// Recursively calls check_parameter on the values in the list.
 //
-// If the value is a list this will recursively call _check_parameter
-// on the values in the list. Otherwise, it checks all parameter rules for the
-// the current value.
-//
-// In the list case, "[index-of-value]" is appended to the parameter name for
+// "[index-of-value]" is appended to the parameter name for
 // error reporting purposes.
+func (ed *EndpointsDispatcher) check_parameters(parameter_name, value []string, field_parameter *ApiRequestParamSpec) {
+	for index, element := range value {
+		parameter_name_index := fmt.Sprintf("%s[%d]", parameter_name, index)
+		ed.check_parameter(parameter_name_index, element, field_parameter)
+	}
+}
+
+// Checks if the parameter value is valid against all parameter rules.
 //
 // Currently only checks if value adheres to enum rule, but more checks may be
 // added.
 //
 // Args:
-// parameter_name: A string containing the name of the parameter, which is
-// either just a variable name or the name with the index appended, in the
-// recursive case. For example "var" or "var[2]".
-// value: A string or list of strings containing the value(s) to be used for
-// the parameter.
-// field_parameter: The dictionary containing information specific to the
-// field in question. This is retrieved from request.parameters in the
-// method config.
-func (ed *EndpointsDispatcher) check_parameter(parameter_name, value, field_parameter) {
-	if isinstance(value, list) {
-		for index, element := range(value) {
-			parameter_name_index = fmt.Sprintf("%s[%d]", parameter_name, index)
-			ed.check_parameter(parameter_name_index, element, field_parameter)
-		}
-		return
-	}
-
+//   parameter_name: A string containing the name of the parameter, which is
+//     either just a variable name or the name with the index appended, in the
+//     recursive case. For example "var" or "var[2]".
+//   value: A string containing the value to be used for the parameter.
+//   field_parameter: The dictionary containing information specific to the
+//     field in question. This is retrieved from request.parameters in the
+//     method config.
+func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, field_parameter *ApiRequestParamSpec) {
 	ed.check_enum(parameter_name, value, field_parameter)
 }
 
@@ -472,24 +467,33 @@ func (ed *EndpointsDispatcher) check_parameter(parameter_name, value, field_para
 // parameters appear as sub-dicts within the outer param.
 //
 // For example:
-// {"a.b.c": ["foo"]}
+//   {"a.b.c": ["foo"]}
 // becomes:
-// {"a": {"b": {"c": ["foo"]}}}
+//   {"a": {"b": {"c": ["foo"]}}}
 //
 // Args:
-// field_name: A string containing the "." delimitied name to be converted
+//   field_name: A string containing the "." delimitied name to be converted
 // into a dictionary.
 // value: The value to be set.
 // params: The dictionary holding all the parameters, where the value is
 // eventually set.
-func (ed *EndpointsDispatcher) add_message_field(field_name, value, params) {
-	if "." not in field_name {
+func (ed *EndpointsDispatcher) add_message_field(field_name string, value interface{}, params JsonObject) {
+	pos := strings.Index(field_name, ".")
+	if pos == -1 {
 		params[field_name] = value
 		return
 	}
 
-	root, remaining = field_name.split(".", 1)
-	sub_params = params.setdefault(root, {})
+	substr := strings.SplitN(field_name, ".", 1)
+	root, remaining := substr[0], substr[1]
+
+	var sub_params JsonObject
+	_sub_params, ok := params[root]
+	if ok {
+		sub_params, _ = _sub_params.(JsonObject)
+	} else {
+		sub_params = make(JsonObject)
+	}
 	ed.add_message_field(remaining, value, sub_params)
 }
 
@@ -500,14 +504,20 @@ func (ed *EndpointsDispatcher) add_message_field(field_name, value, params) {
 // recursively.
 //
 // Args:
-// destination: A dictionary containing an API payload parsed from the
-// path and query parameters in a request.
-// source: A dictionary parsed from the body of the request.
-func (ed *EndpointsDispatcher) update_from_body(self, destination, source) {
+//   destination: A dictionary containing an API payload parsed from the
+//     path and query parameters in a request.
+//   source: A dictionary parsed from the body of the request.
+func (ed *EndpointsDispatcher) update_from_body(destination JsonObject, source JsonObject) {
 	for key, value := range source {
-		destination_value = destination.get(key)
-		if isinstance(value, dict) && isinstance(destination_value, dict) {
-			ed.update_from_body(destination_value, value)
+		destination_value, ok := destination[key]
+		if ok {
+			_, ok_val := value.(JsonObject)
+			dest_value, ok_dest := destination_value.(JsonObject)
+			if ok_val && ok_dest {
+				ed.update_from_body(dest_value, value)
+			} else {
+				destination[key] = value
+			}
 		} else {
 			destination[key] = value
 		}
@@ -543,22 +553,21 @@ func (ed *EndpointsDispatcher) update_from_body(self, destination, source) {
 // before being sent to the SPI server.
 //
 // Args:
-// orig_request: An ApiRequest, the original request from the user.
-// params: A dict with URL path parameters extracted by the config_manager
-// lookup.
-// method_parameters: A dictionary containing the API configuration for the
-// parameters for the request.
+//   orig_request: An ApiRequest, the original request from the user.
+//   params: A dict with URL path parameters extracted by the config_manager
+//     lookup.
+//   method_parameters: A dictionary containing the API configuration for the
+//     parameters for the request.
 //
 // Returns:
-// A copy of the current request that"s been modified so it can be sent
-// to the SPI.  The body is updated to include parameters from the
-// URL.
+//   A copy of the current request that's been modified so it can be sent
+//   to the SPI.  The body is updated to include parameters from the URL.
 func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		params map[string]string,
-		method_parameters map[string]*ApiRequestParamSpec) *http.Request {
+		method_parameters map[string]*ApiRequestParamSpec) *ApiRequest {
 
-	request = orig_request.copy()
-	body_json = make(map[string]interface{})
+	request := orig_request.copy()
+	body_json := make(JsonObject)
 
 	// Handle parameters from the URL path.
 	for key, value := range params {
@@ -568,10 +577,10 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 	}
 
 	// Add in parameters from the query string.
-	if request.parameters {
+	if len(request.URL.RawQuery) > 0 {
 		// For repeated elements, query and path work together
-		for key, value := range request.parameters {
-			if key in body_json {
+		for key, value := range request.URL.Query {
+			if _, ok := body_json[key]; ok {
 				body_json[key] = value + body_json[key]
 			} else {
 				body_json[key] = value
@@ -579,130 +588,154 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		}
 	}
 
-	// Validate all parameters we"ve merged so far and convert any "." delimited
-	// parameters to nested parameters.  We don"t use iteritems since we may
+	// Validate all parameters we've merged so far and convert any "." delimited
+	// parameters to nested parameters.  We don't use iteritems since we may
 	// modify body_json within the loop.  For instance, "a.b" is not a valid key
 	// and would be replaced with "a".
 	for key, value := range body_json {
-		current_parameter = method_parameters.get(key, nil)
-		repeated = current_parameter.get("repeated", false)
-
-		if !repeated {
-			body_json[key] = body_json[key][0]
+		current_parameter, ok := method_parameters[key]
+		repeated := false
+		if ok {
+			repeated = current_parameter.Repeated
 		}
 
-		// Order is important here.  Parameter names are dot-delimited in
-		// parameters instead of nested in dictionaries as a message field is, so
+		if !repeated {
+			val := body_json[key]
+			val_arr, ok := val.([]interface{})
+			if ok {
+				body_json[key] = val_arr[0]
+			}
+		}
+
+		// Order is important here. Parameter names are dot-delimited in
+		// parameters instead of nested in maps as a message field is, so
 		// we need to call _check_parameter on them before calling
 		// _add_message_field.
 
 		ed.check_parameter(key, body_json[key], current_parameter)
 		// Remove the old key and try to convert to nested message value
-		message_value = body_json.pop(key)
+		message_value := body_json[key]
+		delete(body_json, key)
 		ed.add_message_field(key, message_value, body_json)
 	}
 
 	// Add in values from the body of the request.
-	if request.body_json {
+	if request.body_json != nil {
 		ed.update_from_body(body_json, request.body_json)
 	}
 
 	request.body_json = body_json
-	request.body = json.dumps(request.body_json)
+	body, err := json.Marshal(request.body_json)
+	if err == nil {
+		request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	}
 	return request
 }
 
 // Translates a JsonRpc request/response into apiserving request/response.
 //
 // Args:
-// orig_request: An ApiRequest, the original request from the user.
+//   orig_request: An ApiRequest, the original request from the user.
 //
 // Returns:
-// A new request with the request_id updated and params moved to the body.
-func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request) *ApiRequest {
+//   A new request with the request_id updated and params moved to the body.
+func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request *ApiRequest) (*ApiRequest, error) {
 	request := orig_request.copy()
 	request.request_id, _ = request.body_json["id"]
 	request.body_json, _ = request.body_json["params"]
 	body, err := json.Marshal(request.body_json)
+	if err != nil {
+		return request, fmt.Errorf("Problem transforming RPC request: %s", err.Error())
+	}
 	request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-	return request
+	return request, nil
 }
 
-// Raise an exception if the response from the SPI was an error.
+// Returns an error if the response from the SPI was an error.
 //
 // Args:
-// response: A ResponseTuple containing the backend response.
+//   response: A http.Response containing the backend response.
 //
-// Raises:
-// BackendError if the response is an error.
-func (ed *EndpointsDispatcher) check_error_response(response) error {
-	status_code = int(response.status.split(" ", 1)[0])
-	if status_code >= 300 {
+// Returns:
+//   BackendError if the response is an error.
+func (ed *EndpointsDispatcher) check_error_response(response *http.Response) error {
+	if response.StatusCode >= 300 {
 		return NewBackendError(response)
 	}
 	return nil
 }
 
-// Translates an apiserving REST response so it"s ready to return.
+// Translates an apiserving REST response so it's ready to return.
 //
 // Currently, the only thing that needs to be fixed here is indentation,
-// so it"s consistent with what the live app will return.
+// so it's consistent with what the live app will return.
 //
 // Args:
-// response_body: A string containing the backend response.
+//   response_body: A string containing the backend response.
 //
 // Returns:
-// A reformatted version of the response JSON.
-func (ed *EndpointsDispatcher) transform_rest_response(response_body) string {
-	body_json = json.loads(response_body)
-	return json.dumps(body_json, /*indent=*/1, /*sort_keys=*/True)
+//   A reformatted version of the response JSON.
+func (ed *EndpointsDispatcher) transform_rest_response(response_body string) (string, error) {
+	var body_json JsonObject
+	err := json.Unmarshal(response_body, &body_json)
+	if err != nil {
+		return response_body, fmt.Errorf("Problem transforming REST response: %s", err.Error())
+	}
+	body, _ := json.MarshalIndent(body_json, "", "  ") // todo: sort keys
+	return string(body)
 }
 
 // Translates an apiserving response to a JsonRpc response.
 //
 // Args:
-// spi_request: An ApiRequest, the transformed request that was sent to the
-// SPI handler.
-// response_body: A string containing the backend response to transform
-// back to JsonRPC.
+//   spi_request: An ApiRequest, the transformed request that was sent to the
+//     SPI handler.
+//   response_body: A string containing the backend response to transform
+//     back to JsonRPC.
 //
 // Returns:
-// A string with the updated, JsonRPC-formatted request body.
-func (ed *EndpointsDispatcher) transform_jsonrpc_response(spi_request, response_body) string {
-	body_json = {"result": json.loads(response_body)}
+//   A string with the updated, JsonRPC-formatted request body.
+func (ed *EndpointsDispatcher) transform_jsonrpc_response(spi_request *ApiRequest, response_body string) (string, error) {
+	var result interface{}
+	err := json.Unmarshal(response_body, &result)
+	if err != nil {
+		return response_body, fmt.Errorf("Problem unmarshalling RPC response: %s", err.Error())
+	}
+	body_json := JsonObject{"result": result}
 	return ed.finish_rpc_response(spi_request.request_id, spi_request.is_batch(), body_json)
 }
 
 // Finish adding information to a JSON RPC response.
 //
 // Args:
-// request_id: None if the request didn"t have a request ID.  Otherwise, this
-// is a string containing the request ID for the request.
-// is_batch: A boolean indicating whether the request is a batch request.
-// body_json: A dict containing the JSON body of the response.
+//   request_id: None if the request didn't have a request ID.  Otherwise, this
+//     is a string containing the request ID for the request.
+//   is_batch: A boolean indicating whether the request is a batch request.
+//   body_json: A dict containing the JSON body of the response.
 //
 // Returns:
-// A string with the updated, JsonRPC-formatted request body.
-func (ed *EndpointsDispatcher) finish_rpc_response(request_id, is_batch, body_json) string {
-	if request_id != nil {
+//   A string with the updated, JsonRPC-formatted request body.
+func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch bool, body_json JsonObject) string {
+	if len(request_id) > 0 {
 		body_json["id"] = request_id
 	}
 	if is_batch {
-		body_json = [body_json]
+		body_json = []JsonObject{body_json}
 	}
-	return json.dumps(body_json, /*indent=*/1, /*sort_keys=*/True)
+	body, _ := json.MarshalIndent(body_json, "", "  ") // todo: sort keys
+	return string(body)
 }
 
 // Handle a request error, converting it to a WSGI response.
 //
 // Args:
-// orig_request: An ApiRequest, the original request from the user.
-// error: A RequestError containing information about the error.
-// start_response: A function with semantics defined in PEP-333.
+//   orig_request: An ApiRequest, the original request from the user.
+//   error: A RequestError containing information about the error.
+//   start_response:
 //
 // Returns:
-// A string containing the response body.
-func (ed *EndpointsDispatcher) handle_request_error(w http.RequestWriter, orig_request *http.Request, err error) string {
+//   A string containing the response body.
+func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_request *http.Request, err *RequestError) string {
 	w.Headers().Add("Content-Type", "application/json")
 	var status_code int
 	var body string
@@ -710,17 +743,17 @@ func (ed *EndpointsDispatcher) handle_request_error(w http.RequestWriter, orig_r
 		// JSON RPC errors are returned with status 200 OK and the
 		// error details in the body.
 		status_code = 200
-		body = ed.finish_rpc_response(orig_request.body_json.get("id"),
-			orig_request.is_batch(), error.rpc_error())
+		body = ed.finish_rpc_response(orig_request.body_json["id"],
+			orig_request.is_batch(), err.rpc_error())
 	} else {
-		status_code = error.status_code()
-		body = error.rest_error()
+		status_code = err.status_code()
+		body = err.rest_error()
 	}
 
 //	response_status = fmt.Sprintf("%d %s", status_code,
-//		http.StatusText(status_code)) //fixme: handle unknown status code "Unknown Error"
+//		http.StatusText(status_code)) // fixme: handle unknown status code "Unknown Error"
 
-	newCheckCorsHeaders(orig_request).UpdateHeaders(headers)
+	newCheckCorsHeaders(orig_request).UpdateHeaders(w.Header())
 	http.Error(w, body, status_code)
 //	return send_response(response_status, body, w, cors_handler)
 	return body
@@ -730,7 +763,7 @@ func (ed *EndpointsDispatcher) handle_request_error(w http.RequestWriter, orig_r
 
 func send_not_found_response(w http.ResponseWriter, cors_handler/*=None*/ CorsHandler) string {
 	if cors_handler != nil {
-		cors_handler.UpdateHeaders(headers)
+		cors_handler.UpdateHeaders(w.Header())
 	}
 	w.Header().Add("Content-Type", "text/plain")
 	body := "Not Found"
@@ -740,15 +773,15 @@ func send_not_found_response(w http.ResponseWriter, cors_handler/*=None*/ CorsHa
 }
 
 func send_error_response(message string, w http.ResponseWriter, cors_handler CorsHandler) string {
-	body_map := map[string]interface{}{
-		"string": map[string]string{
+	body_map := JsonObject{
+		"string": JsonObject{
 			"message": message,
 		},
 	}
-	body, _err = json.Marshal(body_map)
+	body, _ := json.Marshal(body_map)
 //	header := make(http.Header)
 	if cors_handler != nil {
-		cors_handler.UpdateHeaders(headers)
+		cors_handler.UpdateHeaders(w.Header())
 	}
 	w.Header().Add("Content-Type", "application/json")
 	http.Error(w, string(body), http.StatusInternalServerError)
@@ -756,11 +789,11 @@ func send_error_response(message string, w http.ResponseWriter, cors_handler Cor
 	return string(body)
 }
 
-func send_rejected_response(rejection_error interface{}, w http.ResponseWriter, cors_handler/*=None*/ CorsHandler) string {
+func send_rejected_response(rejection_error JsonObject, w http.ResponseWriter, cors_handler/*=None*/ CorsHandler) string {
 //	body = rejection_error.to_json()
-	body, err := json.Marshal(rejection_error)
+	body, _ := json.Marshal(rejection_error)
 	if cors_handler != nil {
-		cors_handler.UpdateHeaders(headers)
+		cors_handler.UpdateHeaders(w.Header())
 	}
 	w.Header().Add("Content-Type", "application/json")
 	http.Error(w, string(body), http.StatusBadRequest)
@@ -768,12 +801,12 @@ func send_rejected_response(rejection_error interface{}, w http.ResponseWriter, 
 	return string(body)
 }
 
-func send_redirect_response(redirect_location string, w http.ResponseWriter, cors_handler/*=None*/ CorsHandler) string {
+func send_redirect_response(redirect_location string, w http.ResponseWriter, r *http.Request, cors_handler/*=None*/ CorsHandler) string {
 //	header := make(http.Header)
 //	header.Add("Location", redirect_location)
 //	return send_response("302", header, "", w, /*cors_handler=*/cors_handler)
 	if cors_handler != nil {
-		cors_handler.UpdateHeaders(headers)
+		cors_handler.UpdateHeaders(w.Header())
 	}
 	http.Redirect(w, r, redirect_location, http.StatusFound)
 	return ""

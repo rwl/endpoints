@@ -91,7 +91,7 @@ type BackendError struct {
 
 func NewBackendError(response *http.Response) *BackendError {
 	// Convert backend error status to whatever the live server would return.
-	error_info := generated_error_info.get_error_info(response.StatusCode)
+	error_info := get_error_info(response.StatusCode)
 
 	var error_json JsonObject
 	body, _ := ioutil.ReadAll(response.Body)
