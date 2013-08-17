@@ -8,8 +8,6 @@ import (
 	"io/ioutil"
 )
 
-const _INVALID_ENUM_TEMPLATE = "Invalid string value: %r. Allowed values: %r"
-
 // Base type for errors that happen while processing a request.
 type RequestError struct {
 	StatusCode int // HTTP status code number associated with this error.
@@ -70,7 +68,7 @@ func NewEnumRejectionError(parameter_name, value string, allowed_values []string
 	return &EnumRejectionError{
 		RequestError: RequestError{
 			StatusCode: 400,
-			Message: fmt.Sprintf(_INVALID_ENUM_TEMPLATE, value, allowed_values),
+			Message: fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowed_values),
 			Reason: "invalidParameter",
 			ExtraFields: JsonObject{
 				"locationType": "parameter",

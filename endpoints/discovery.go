@@ -4,15 +4,25 @@
 package endpoints
 
 import (
-	"log"
 	"encoding/json"
+	"net/http"
+	"io/ioutil"
+	"fmt"
 )
 
 // The endpoint host we're using to proxy discovery and static requests.
 // Using separate constants to make it easier to change the discovery service.
-const _DISCOVERY_PROXY_HOST = "webapis-discovery.appspot.com"
-const _STATIC_PROXY_HOST = "webapis-discovery.appspot.com"
-const _DISCOVERY_API_PATH_PREFIX = "/_ah/api/discovery/v1/"
+const (
+	_DISCOVERY_PROXY_HOST = "webapis-discovery.appspot.com"
+	_STATIC_PROXY_HOST = "webapis-discovery.appspot.com"
+	_DISCOVERY_API_PATH_PREFIX = "/_ah/api/discovery/v1/"
+)
+
+type ApiFormat string
+const (
+	REST ApiFormat = "rest"
+	RPC ApiFormat = "rpc"
+)
 
 // Proxies discovery service requests to a known cloud endpoint.
 //type DiscoveryApiProxy struct {}
@@ -25,21 +35,29 @@ const _DISCOVERY_API_PATH_PREFIX = "/_ah/api/discovery/v1/"
 //
 // Returns:
 // HTTP response body or None if it failed.
-func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body) string {
-	full_path = _DISCOVERY_API_PATH_PREFIX + path
-	headers = {"Content-type": "application/json"}
-	connection = httplib.HTTPSConnection(_DISCOVERY_PROXY_HOST)
-	defer connection.close()
-	connection.request("POST", full_path, body, headers)
-	response = connection.getresponse()
-	response_body = response.read()
-	if response.status != 200 {
-		log.Error("Discovery API proxy failed on %s with %d.\r\n" +
-			"Request: %s\r\nResponse: %s",
-			full_path, response.status, body, response_body)
-		return None
+func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (string, error) {
+	full_path := _DISCOVERY_API_PATH_PREFIX + path
+	client := &http.Client{}
+
+	req, err := http.NewRequest("POST", _DISCOVERY_PROXY_HOST + full_path, nil)
+	if err != nil {
+		return "", err
 	}
-	return response_body
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := client.Do(req)
+
+	defer resp.Body.Close()
+	resp_body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	response_body := string(resp_body)
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("Discovery API proxy failed on %s with %d.\r\nRequest: %s\r\nResponse: %s",
+			full_path, resp.Status, body, response_body)
+	}
+	return response_body, nil
 }
 
 // Generates a discovery document from an API file.
@@ -54,13 +72,18 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body) string {
 //
 // Raises:
 // ValueError: When api_format is invalid.
-func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config, api_format) (string, error) {
-	if api_format not in ["rest", "rpc"] {
-		return "", NewValueError("Invalid API format")
+func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config string, api_format ApiFormat) (string, error) {
+	path := "apis/generate/" + api_format
+	var config interface{}
+	err := json.Unmarshal(api_config, &config)
+	if err != nil {
+		return "", err
 	}
-	path = "apis/generate/" + api_format
-	request_dict = {"config": json.dumps(api_config)}
-	request_body = json.dumps(request_dict)
+	request_dict := JsonObject{"config": config}
+	request_body, err := json.Marshal(request_dict)
+	if err != nil {
+		return "", err
+	}
 	return dispatch_discovery_request(path, request_body)
 }
 
@@ -71,9 +94,12 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config, api_format) 
 //
 // Returns:
 // The API directory as JSON string.
-func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []string) string {
-	request_dict = {"configs": api_configs}
-	request_body = json.dumps(request_dict)
+func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []string) (string, error) {
+	request_dict := JsonObject{"configs": api_configs}
+	request_body, err := json.Marshal(request_dict)
+	if err != nil {
+		return "", err
+	}
 	return dispatch_discovery_request("apis/generate/directory", request_body)
 }
 
@@ -87,11 +113,15 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []stri
 // response: A HTTPResponse object with the response from the static
 // proxy host.
 // response_body: A string containing the response body.
-func /*(dp *DiscoveryApiProxy)*/ get_static_file(path string) (*http.Response, string) {
-	connection = httplib.HTTPSConnection(_STATIC_PROXY_HOST)
-	defer connection.close()
-	connection.request("GET", path, None, {})
-	response = connection.getresponse()
-	response_body = response.read()
-	return response, response_body
+func /*(dp *DiscoveryApiProxy)*/ get_static_file(path string) (*http.Response, string, error) {
+	resp, err := http.Get(_STATIC_PROXY_HOST + path)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	return resp, body, nil
 }

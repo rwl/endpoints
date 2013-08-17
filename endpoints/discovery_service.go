@@ -121,9 +121,9 @@ func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 			api_configs = append(api_configs, string(ac))
 		}
 	}
-	directory := generate_discovery_directory(api_configs)
-	if directory == nil {
-		log.Print("Failed to get API directory")
+	directory, err := generate_discovery_directory(api_configs)
+	if err != nil {
+		log.Printf("Failed to get API directory: %s", err.Error())
 		// By returning a 404, code explorer still works if you select the
 		// API in the URL
 		return send_not_found_response(w, nil)
@@ -166,7 +166,6 @@ func (ds *DiscoveryService) handle_discovery_request(path string, request *ApiRe
 		return ds.get_rpc_or_rest("rpc", request, w), true
 	case _LIST_API:
 		return ds.list(w), true
-	default:
-		return "", false
 	}
+	return "", false
 }

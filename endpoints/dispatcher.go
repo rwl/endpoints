@@ -136,9 +136,9 @@ func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter
 // Returns:
 // A string containing the response body.
 func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, request *http.Request) string {
-	response, body := get_static_file(request.URL.RequestURI)
+	response, body, err := get_static_file(request.URL.RequestURI)
 //	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
-	if response.StatusCode == 200 {
+	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
 		// along in our response.  Specifically, the response from the server has
 		// transfer-encoding: chunked, which doesn't apply to the response that
@@ -207,13 +207,18 @@ func verify_response(response *http.Response, status_code int, content_type stri
 // Parses the result of GetApiConfigs and stores its information.
 //
 // Args:
-// api_config_response: The ResponseTuple from the GetApiConfigs call.
+//   api_config_response: The http.Response from the GetApiConfigs call.
 //
 // Returns:
-// True on success, False on failure
+//   True on success, False on failure
 func (ed *EndpointsDispatcher) handle_get_api_configs_response(api_config_response *http.Response) bool {
 	if ed.verify_response(api_config_response, 200, "application/json") {
-		ed.config_manager.parse_api_config_response(api_config_response.content)
+		body, err := ioutil.ReadAll(api_config_response.Body)
+		defer api_config_response.Body.Close()
+		if err != nil {
+			return false
+		}
+		ed.config_manager.parse_api_config_response(string(body))
 		return true
 	}
 	return false
@@ -284,11 +289,17 @@ func (ed *EndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *Api
 // Returns:
 // A string containing the response body.
 func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+	resp_body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return "", err
+	}
+	response.Body.Close()
+
 	// Verify that the response is json.  If it isn"t treat, the body as an
 	// error message and wrap it in a json error response.
 	for header, value := range response.Header {
 		if header == "Content-Type" && !strings.HasPrefix(value, "application/json") {
-			return ed.fail_request(orig_request, fmt.Sprintf("Non-JSON reply: %s", response.content), w)
+			return ed.fail_request(orig_request, fmt.Sprintf("Non-JSON reply: %s", resp_body), w)
 		}
 	}
 
@@ -301,9 +312,9 @@ func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *Ap
 	// incoming request here has had its path modified.
 	var body string
 	if orig_request.is_rpc() {
-		body = ed.transform_jsonrpc_response(spi_request, response.content)
+		body = ed.transform_jsonrpc_response(spi_request, string(resp_body))
 	} else {
-		body = ed.transform_rest_response(response.content)
+		body = ed.transform_rest_response(string(resp_body))
 	}
 
 	cors_handler := newCheckCorsHeaders(orig_request)
