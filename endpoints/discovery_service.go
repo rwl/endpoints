@@ -144,17 +144,29 @@ func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 // Returns:
 //   The response body. Or returns False if the request wasn't handled by
 //   DiscoveryService.
-func (ds *DiscoveryService) handle_discovery_request(path string, request *ApiRequest, w http.ResponseWriter) bool {
-	handled := true
+//func (ds *DiscoveryService) handle_discovery_request(path string, request *ApiRequest, w http.ResponseWriter) bool {
+//	handled := true
+//	switch path {
+//	case _GET_REST_API:
+//		/*return */ds.get_rpc_or_rest("rest", request, w)
+//	case _GET_RPC_API:
+//		/*return */ds.get_rpc_or_rest("rpc", request, w)
+//	case _LIST_API:
+//		/*return */ds.list(w)
+//	default:
+//		handled = false
+//	}
+//	return handled
+//}
+func (ds *DiscoveryService) handle_discovery_request(path string, request *ApiRequest, w http.ResponseWriter) (string, bool) {
 	switch path {
 	case _GET_REST_API:
-		/*return */ds.get_rpc_or_rest("rest", request, w)
+		return ds.get_rpc_or_rest("rest", request, w), true
 	case _GET_RPC_API:
-		/*return */ds.get_rpc_or_rest("rpc", request, w)
+		return ds.get_rpc_or_rest("rpc", request, w), true
 	case _LIST_API:
-		/*return */ds.list(w)
+		return ds.list(w), true
 	default:
-		handled = false
+		return "", false
 	}
-	return handled
 }
