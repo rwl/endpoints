@@ -26,6 +26,7 @@ const _API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
 type EndpointsDispatcher struct {
 	dispatcher Dispatcher // A Dispatcher instance that can be used to make HTTP requests.
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
+	discovery_api *DiscoveryApiProxy
 	dispatchers []dispatcher
 }
 
@@ -39,13 +40,16 @@ type dispatcher struct {
 }
 
 func NewEndpointsDispatcher(dispatcher Dispatcher) *EndpointsDispatcher {
-	return NewEndpointsDispatcherConfig(dispatcher, NewApiConfigManager())
+	return NewEndpointsDispatcherConfig(dispatcher, NewApiConfigManager(), NewDiscoveryApiProxy())
 }
 
-func NewEndpointsDispatcherConfig(dispatcher Dispatcher, config_manager *ApiConfigManager) *EndpointsDispatcher {
+func NewEndpointsDispatcherConfig(dispatcher Dispatcher,
+		config_manager *ApiConfigManager,
+		discovery_api *DiscoveryApiProxy) *EndpointsDispatcher {
 	d := &EndpointsDispatcher{
 		dispatcher,
 		config_manager,
+		discovery_api,
 		make([]dispatcher, 0),
 	}
 	d.add_dispatcher("/_ah/api/explorer/?$", d.handle_api_explorer_request)
@@ -140,7 +144,7 @@ func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter
 // Returns:
 // A string containing the response body.
 func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, request *http.Request) string {
-	response, body, err := get_static_file(request.URL.RequestURI)
+	response, body, err := ed.discovery_api.get_static_file(request.URL.RequestURI)
 //	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed

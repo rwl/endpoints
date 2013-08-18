@@ -25,7 +25,11 @@ const (
 )
 
 // Proxies discovery service requests to a known cloud endpoint.
-//type DiscoveryApiProxy struct {}
+type DiscoveryApiProxy struct {}
+
+func NewDiscoveryApiProxy() *DiscoveryApiProxy {
+	return &DiscoveryApiProxy{}
+}
 
 // Proxies GET request to discovery service API.
 //
@@ -35,7 +39,7 @@ const (
 //
 // Returns:
 // HTTP response body or None if it failed.
-func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (string, error) {
+func (dp *DiscoveryApiProxy) dispatch_discovery_request(path, body string) (string, error) {
 	full_path := _DISCOVERY_API_PATH_PREFIX + path
 	client := &http.Client{}
 
@@ -72,7 +76,7 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (
 //
 // Raises:
 // ValueError: When api_format is invalid.
-func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config string, api_format ApiFormat) (string, error) {
+func (dp *DiscoveryApiProxy) generate_discovery_doc(api_config string, api_format ApiFormat) (string, error) {
 	path := "apis/generate/" + api_format
 	var config interface{}
 	err := json.Unmarshal(api_config, &config)
@@ -94,7 +98,7 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config string, api_f
 //
 // Returns:
 // The API directory as JSON string.
-func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []string) (string, error) {
+func (dp *DiscoveryApiProxy) generate_discovery_directory(api_configs []string) (string, error) {
 	request_dict := JsonObject{"configs": api_configs}
 	request_body, err := json.Marshal(request_dict)
 	if err != nil {
@@ -113,7 +117,7 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []stri
 // response: A HTTPResponse object with the response from the static
 // proxy host.
 // response_body: A string containing the response body.
-func /*(dp *DiscoveryApiProxy)*/ get_static_file(path string) (*http.Response, string, error) {
+func (dp *DiscoveryApiProxy) get_static_file(path string) (*http.Response, string, error) {
 	resp, err := http.Get(_STATIC_PROXY_HOST + path)
 	if err != nil {
 		return nil, "", err

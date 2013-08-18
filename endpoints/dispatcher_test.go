@@ -46,10 +46,37 @@ func (ed *MockEndpointsDispatcher) handle_spi_response(orig_request, spi_request
 	return args.String(0), args.Error(1)
 }
 
+type MockEndpointsDispatcherSPI struct {
+	mock.Mock
+	EndpointsDispatcher
+}
+
+func newMockEndpointsDispatcherSPI() *MockEndpointsDispatcherSPI {
+	return &MockEndpointsDispatcherSPI{
+		EndpointsDispatcher: set_up(),
+	}
+}
+
+func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
+	args := ed.Mock.Called(w, orig_request)
+	return args.String(0), args.Error(1)
+}
+
+type MockDiscoveryApiProxy struct {
+	mock.Mock
+	DiscoveryApiProxy
+}
+
+func (m *MockDiscoveryApiProxy) get_static_file(path string) (*http.Response, string, error) {
+	args := m.Mock.Called(path)
+	return args.Get(0).(*http.Response), args.String(1), args.Error(2)
+}
+
 func set_up() *EndpointsDispatcher {
 	config_manager := NewApiConfigManager()
 	mock_dispatcher := new(MockDispatcher)
-	return NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
+	discovery_api := NewDiscoveryApiProxy()
+	return NewEndpointsDispatcherConfig(mock_dispatcher, config_manager, discovery_api)
 }
 
 func prepare_dispatch(mock_dispatcher Dispatcher, config JsonObject) {
@@ -181,6 +208,7 @@ func test_dispatch_invalid_path(t *testing.T) {
 }
 
 func test_dispatch_invalid_enum(t *testing.T) {
+	server := set_up()
 	config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "v1",
@@ -206,37 +234,61 @@ func test_dispatch_invalid_enum(t *testing.T) {
 		},
 	})
 
+	w := httptest.NewRecorder()
+
 	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
-	prepare_dispatch(config)
-	mox.ReplayAll()
-	response := server.dispatch(request, self.start_response)
-	mox.VerifyAll()
+	prepare_dispatch(server.dispatcher, config)
+//	mox.ReplayAll()
+	_ := server.dispatch(request, w)
+//	mox.VerifyAll()
+	server.Mock.AssertExpectations(t)
 
 	t.Logf("Config %s", server.config_manager.configs)
 
-	if self.response_status != "400 Bad Request" {
+	if w.Code != 400 {
 		t.Fail()
 	}
-	body := "".join(response)
-	body_json := json.loads(body)
-	if 1 != len(body_json["error"]["errors"]) {
+	body := w.Body.Bytes()
+	var body_json JsonObject
+	err := json.Unmarshal(body, &body_json)
+	if err != nil {
 		t.Fail()
 	}
-	if "gid" != body_json["error"]["errors"][0]["location"] {
+	error, ok := body_json["error"]
+	if !ok {
 		t.Fail()
 	}
-	if "invalidParameter" != body_json["error"]["errors"][0]["reason"] {
+	error_json, ok := error.(JsonObject)
+	if !ok {
+		t.Fail()
+	}
+	errors, ok := error_json["errors"]
+	if !ok {
+		t.Fail()
+	}
+	errors_json, ok := errors.([]JsonObject)
+	if !ok {
+		t.Fail()
+	}
+	if 1 != len(errors_json) {
+		t.Fail()
+	}
+	if "gid" != errors_json["location"] {
+		t.Fail()
+	}
+	if "invalidParameter" != errors_json[0]["reason"] {
 		t.Fail()
 	}
 }
 
 // Check the error response if the SPI returns an error.
 func test_dispatch_spi_error(t *testing.T) {
+	server := newMockEndpointsDispatcherSPI()
 	config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "v1",
-		"methods": {
-			"guestbook.get": {
+		"methods": JsonObject{
+			"guestbook.get": JsonObject{
 				"httpMethod": "GET",
 				"path": "greetings/{gid}",
 				"rosyMethod": "MyApi.greetings_get",
@@ -244,40 +296,57 @@ func test_dispatch_spi_error(t *testing.T) {
 		},
 	})
 	request := build_request("/_ah/api/foo", "", nil)
-	prepare_dispatch(config)
-	mox.StubOutWithMock(self.server, "call_spi")
+	prepare_dispatch(server.dispatcher, config)
+
+	w := httptest.NewRecorder()
+
+//	mox.StubOutWithMock(server, "call_spi")
 	// The application chose to throw a 404 error.
-	response := dispatcher.ResponseTuple("404 Not Found", [],
-		(`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`))
-	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
+	response := &http.Response{
+		Status: "404 Not Found",
+		StatusCode: 404,
+		Body: ioutil.NopCloser(
+			bytes.NewBufferString(
+				`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
+			),
+		),
+	}
+//	response := dispatcher.ResponseTuple("404 Not Found", [],
+//		(`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`))
+	server.On(
+		"call_spi",
+		request,
+		mock.Anything,
+	).Return(NewBackendError(response))
+//	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
-	mox.ReplayAll()
-	response := server.dispatch(request, self.start_response)
-	self.mox.VerifyAll()
+//	mox.ReplayAll()
+	response := server.dispatch(request, w)
+//	self.mox.VerifyAll()
+	server.Mock.AssertExpectations(t)
 
-	expected_response := `
-		 {\n
-		  "error": {\n
-		   "code": 404, \n
-		   "errors": [\n
-		   {\n
-		    "domain": "global", \n
-		    "message": "Test error", \n
-		    "reason": "notFound"\n
-		   }\n
-		  ], \n
-		  "message": "Test error"\n
-		 }\n
-		}`)
-	response := "".join(response)
+	expected_response := `{
+ "error": {
+  "code": 404,
+  "errors": [
+   {
+	"domain": "global",
+	"message": "Test error",
+	"reason": "notFound"
+   }
+  ],
+  "message": "Test error"
+ }
+}`)
 	header := new(http.Header)
 	header.Set("Content-Type", "application/json")
 	header.Set("Content-Length", fmt.Sprintf("%d", len(expected_response)))
-	assert_http_match(response, 404, header, expected_response, "")
+	assert_http_match(t, response, 404, header, expected_response)
 }
 
 // Test than an RPC call that returns an error is handled properly.
 func test_dispatch_rpc_error(t *testing.T) {
+	server := newMockEndpointsDispatcherSPI()
 	config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "v1",
@@ -294,17 +363,35 @@ func test_dispatch_rpc_error(t *testing.T) {
 		`{"method": "foo.bar", "apiVersion": "X", "id": "gapiRpc"}`,
 		nil,
 	)
-	prepare_dispatch(config)
-	mox.StubOutWithMock(server, "call_spi")
-	// The application chose to throw a 404 error.
-	response = dispatcher.ResponseTuple("404 Not Found", [],
-	(`{"state": "APPLICATION_ERROR","
-	  "error_message": "Test error"}`))
-	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
+	prepare_dispatch(server.dispatcher, config)
 
-	mox.ReplayAll()
-	response = server.dispatch(request, self.start_response)
-	mox.VerifyAll()
+	w := httptest.NewRecorder()
+
+//	mox.StubOutWithMock(server, "call_spi")
+	// The application chose to throw a 404 error.
+	response := &http.Response{
+		Status: "404 Not Found",
+		StatusCode: 404,
+		Body: ioutil.NopCloser(
+		bytes.NewBufferString(
+		`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
+		),
+		),
+	}
+//	response = dispatcher.ResponseTuple("404 Not Found", [],
+//	(`{"state": "APPLICATION_ERROR","
+//	  "error_message": "Test error"}`))
+	server.On(
+		"call_spi",
+		request,
+		mock.Anything,
+	).Return(NewBackendError(response))
+//	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
+
+//	mox.ReplayAll()
+	response := server.dispatch(request, w)
+//	mox.VerifyAll()
+	server.Mock.AssertExpectations(t)
 
 	expected_response := JsonObject{
 		"error": {
@@ -320,8 +407,7 @@ func test_dispatch_rpc_error(t *testing.T) {
 		},
 		"id": "gapiRpc",
 	}
-	response = "".join(response)
-	if "200 OK" != self.response_status {
+	if w.Code != 200 {
 		t.Fail()
 	}
 	var response_json interface{}
@@ -372,8 +458,10 @@ func test_dispatch_rest(t *testing.T) {
 }
 
 func test_explorer_redirect(t *testing.T) {
+	server := set_up()
+	w := httptest.NewRecorder()
 	request := build_request("/_ah/api/explorer", "", nil)
-	response := server.dispatch(request, self.start_response)
+	response := server.dispatch(request, w)
 	header := new(http.Header)
 	header.Set("Content-Length", "0")
 	header.Set("Location", "https://developers.google.com/apis-explorer/?base=http://localhost:42/_ah/api")
@@ -383,24 +471,35 @@ func test_explorer_redirect(t *testing.T) {
 func test_static_existing_file(t *testing.T) {
 	relative_url := "/_ah/api/static/proxy.html"
 
+	w := httptest.NewRecorder()
+
 	// Set up mocks for the call to DiscoveryApiProxy.get_static_file.
-	discovery_api = mox.CreateMock(DiscoveryApiProxy)
-	mox.StubOutWithMock(discovery_api_proxy, "DiscoveryApiProxy")
-	DiscoveryApiProxy().AndReturn(discovery_api)
-	static_response = mox.CreateMock(httplib.HTTPResponse)
+	discovery_api := &MockDiscoveryApiProxy{}
+	server := NewEndpointsDispatcherConfig(
+		&http.Client{},
+		NewApiConfigManager(),
+		discovery_api,
+	)
+//	mox.StubOutWithMock(discovery_api_proxy, "DiscoveryApiProxy")
+//	DiscoveryApiProxy().AndReturn(discovery_api)
+	/*static_response = mox.CreateMock(httplib.HTTPResponse)
 	static_response.status = 200
 	static_response.reason = "OK"
-	static_response.getheader("Content-Type").AndReturn("test/type")
-	test_body = "test body"
-	get_static_file(relative_url).AndReturn(static_response, test_body)
+	static_response.getheader("Content-Type").AndReturn("test/type")*/
+	test_body := "test body"
+//	get_static_file(relative_url).AndReturn(static_response, test_body)
+	discovery_api.On(
+		"get_static_file",
+		relative_url,
+	).Return(mock.Anything/*static_response*/, test_body, nil)
 
 	// Make sure the dispatch works as expected.
-	request = build_request(relative_url, "", nil)
-	mox.ReplayAll()
-	response = server.dispatch(request, self.start_response)
-	mox.VerifyAll()
+	request := build_request(relative_url, "", nil)
+//	mox.ReplayAll()
+	response := server.dispatch(request, w)
+//	mox.VerifyAll()
+	server.Mock.AssertExpectations(t)
 
-	response = "".join(response)
 	header := new(Header)
 	header.Set("Content-Length", fmt.Sprintf("%d", len(test_body)))
 	header.Set("Content-Type", "test/type")
