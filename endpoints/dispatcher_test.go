@@ -8,28 +8,42 @@ import (
 	"net/http"
 	"io/ioutil"
 	"bytes"
+	"github.com/stretchr/testify/mock"
+	"net/http/httptest"
 )
 
-var _config JsonObject
-
-type MockDispatcher struct {}
+type MockDispatcher struct {
+	mock.Mock
+}
 
 func (md *MockDispatcher) Do(request *http.Request) (*http.Response, error) {
-	if request.Method == "POST" &&
-		request.URL.Path == "/_ah/spi/BackendService.getApiConfigs" &&
-		request.Header.Get("Content-Type") == "application/json" {
-		response_body, _ := json.Marshal(JsonObject{"items": []JsonObject{_config}})
-		header := new(http.Header)
-		header.Set("Content-Type", "application/json")
-		header.Set("Content-Length", string(len(response_body)))
-		return &http.Response{
-			Status: "200 OK",
-			StatusCode: 200,
-			Header: header,
-			Body: response_body,
-		}
+	args := md.Mock.Called(request)
+	return args.Get(0).(*http.Response), args.Error(1)
+}
+
+//type MockDispatcherSPI struct {
+//	mock.Mock
+//}
+//
+//func (md *MockDispatcherSPI) Do(request *http.Request) (*http.Response, error) {
+//	args := md.Mock.Called(request)
+//	return args.Get(0).(*http.Response), args.Error(1)
+//}
+
+type MockEndpointsDispatcher struct {
+	mock.Mock
+	EndpointsDispatcher
+}
+
+func newMockEndpointsDispatcher() *MockEndpointsDispatcher {
+	return &MockEndpointsDispatcher{
+		EndpointsDispatcher: set_up(),
 	}
-	return nil, fmt.Errorf("Unexpected request: %v", request)
+}
+
+func (ed *MockEndpointsDispatcher) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+	args := ed.Mock.Called(orig_request, spi_request, response, w)
+	return args.String(0), args.Error(1)
 }
 
 func set_up() *EndpointsDispatcher {
@@ -38,22 +52,29 @@ func set_up() *EndpointsDispatcher {
 	return NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
 }
 
-/*func prepare_dispatch(config) {
+func prepare_dispatch(mock_dispatcher Dispatcher, config JsonObject) {
 	// The dispatch call will make a call to get_api_configs, making a
-	// dispatcher request.  Set up that request.
-	request_method = "POST"
-	request_path = "/_ah/spi/BackendService.getApiConfigs"
-	request_headers = [("Content-Type", "application/json")]
-	request_body = "{}"
-	response_body = json.dumps({"items": [config]})
-	mock_dispatcher.add_request(
-		request_method, request_path, request_headers, request_body,
-		_SERVER_SOURCE_IP).AndReturn(
-			dispatcher.ResponseTuple("200 OK",
-									[("Content-Type", "application/json"),
-									("Content-Length", string(len(response_body)))],
-									response_body))
-}*/
+	// dispatcher request. Set up that request.
+	req, err := http.NewRequest("POST",
+		_SERVER_SOURCE_IP + "/_ah/spi/BackendService.getApiConfigs",
+		ioutil.NopCloser(bytes.NewBufferString("{}")))
+	req.Header.Set("Content-Type", "application/json")
+
+	response_body, err := json.Marshal(JsonObject{
+		"items": []JsonObject{config},
+	})
+	header := new(http.Header)
+	header.Set("Content-Type", "application/json")
+	header.Set("Content-Length", string(len(response_body)))
+	resp := &http.Response{
+		Body: ioutil.NopCloser(bytes.NewBuffer(response_body)),
+		StatusCode: 200,
+		Status: "200 OK",
+		Header: header,
+	}
+
+	mock_dispatcher.On("Do", req).Return(resp, nil)
+}
 
 // Assert that dispatching a request to the SPI works.
 //
@@ -70,25 +91,60 @@ func set_up() *EndpointsDispatcher {
 //     empty response.
 func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *ApiDescriptor, spi_path string,
 		expected_spi_body_json JsonObject) {
-//	prepare_dispatch(config)
-	_config = config
+	server := newMockEndpointsDispatcher()
+	prepare_dispatch(server.dispatcher, config)
 
-	spi_headers := [("Content-Type", "application/json")]
-	spi_body_json := expected_spi_body_json //or {}
-	spi_response := dispatcher.ResponseTuple("200 OK", [], "Test")
-	mock_dispatcher.add_request(
-		"POST", spi_path, spi_headers, JsonMatches(spi_body_json),
-		request.source_ip).AndReturn(spi_response)
+	w := httptest.NewRecorder()
 
-	mox.StubOutWithMock(self.server, "handle_spi_response")
-	server.handle_spi_response(
-		mox.IsA(api_request.ApiRequest), mox.IsA(api_request.ApiRequest),
-		spi_response, self.start_response).AndReturn("Test")
+//	spi_headers := new(http.Header)
+//	spi_headers.Set("Content-Type", "application/json")
+
+	var spi_body_json JsonObject
+	if expected_spi_body_json != nil {
+		spi_body_json = expected_spi_body_json
+	} else {
+		spi_body_json = make(JsonObject)
+	}
+
+	// todo: compare a string of a JSON object to a JSON object
+	spi_body, err := json.Marshal(spi_body_json)
+
+	spi_request, err := http.NewRequest(
+		"POST",
+		request.RemoteAddr + spi_path,
+		ioutil.NopCloser(bytes.NewBufferString(spi_body)),
+	)
+	spi_request.Header.Set("Content-Type", "application/json")
+
+//	spi_response := dispatcher.ResponseTuple("200 OK", [], "Test")
+	spi_response := &http.Response{
+		StatusCode: 200,
+		Status: "200 OK",
+		Body: ioutil.NopCloser(bytes.NewBufferString("Test")),
+	}
+
+//	mock_dispatcher.add_request(
+//		"POST", spi_path, spi_headers, JsonMatches(spi_body_json),
+//		request.source_ip).AndReturn(spi_response)
+	server.dispatcher.On("Do", spi_request).Return(spi_response, nil)
+
+	server.On(
+		"handle_spi_response",
+		mock.AnythingOfType("*ApiRequest"),
+		mock.AnythingOfType("*ApiRequest"),
+		spi_response,
+		w,
+	).Return("Test", nil)
+//	mox.StubOutWithMock(self.server, "handle_spi_response")
+//	server.handle_spi_response(
+//		mox.IsA(api_request.ApiRequest), mox.IsA(api_request.ApiRequest),
+//		spi_response, self.start_response).AndReturn("Test")
 
 	// Run the test.
-	mox.ReplayAll()
-	response = server.dispatch(request, self.start_response)
-	mox.VerifyAll()
+//	mox.ReplayAll()
+	response := server.dispatch(request, w)
+//	mox.VerifyAll()
+	server.Mock.AssertExpectations(t)
 
 	if "Test" != response {
 		t.Fail()
@@ -96,6 +152,7 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *ApiDescri
 }
 
 func test_dispatch_invalid_path(t *testing.T) {
+	server := set_up()
 	config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "v1",
@@ -108,10 +165,14 @@ func test_dispatch_invalid_path(t *testing.T) {
 		},
 	})
 	request := build_request("/_ah/api/foo", "", nil)
-	prepare_dispatch(config)
-	mox.ReplayAll()
-	response = server.dispatch(request, self.start_response)
-	mox.VerifyAll()
+	prepare_dispatch(server.dispatcher, config)
+
+	w := httptest.NewRecorder()
+
+//	mox.ReplayAll()
+	response := server.dispatch(request, w)
+//	mox.VerifyAll()
+	server.Mock.AssertExpectations(t)
 
 	header := new(http.Header)
 	header.Set("Content-Type", "text/plain")
