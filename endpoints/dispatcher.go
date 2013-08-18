@@ -24,9 +24,13 @@ const _API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
 
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsDispatcher struct {
-	dispatcher *http.Client // A Dispatcher instance that can be used to make HTTP requests.
+	dispatcher Dispatcher // A Dispatcher instance that can be used to make HTTP requests.
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
 	dispatchers []dispatcher
+}
+
+type Dispatcher interface {
+	Do(*http.Request) (*http.Response, error)
 }
 
 type dispatcher struct {
@@ -34,11 +38,11 @@ type dispatcher struct {
 	dispatch_func func(http.ResponseWriter, *http.Request)
 }
 
-func NewEndpointsDispatcher(dispatcher *http.Client) *EndpointsDispatcher {
+func NewEndpointsDispatcher(dispatcher Dispatcher) *EndpointsDispatcher {
 	return NewEndpointsDispatcherConfig(dispatcher, NewApiConfigManager())
 }
 
-func NewEndpointsDispatcherConfig(dispatcher *http.Client, config_manager *ApiConfigManager) *EndpointsDispatcher {
+func NewEndpointsDispatcherConfig(dispatcher Dispatcher, config_manager *ApiConfigManager) *EndpointsDispatcher {
 	d := &EndpointsDispatcher{
 		dispatcher,
 		config_manager,
