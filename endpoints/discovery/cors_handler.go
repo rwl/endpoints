@@ -1,5 +1,5 @@
 
-package endpoints
+package discovery
 
 import (
 	"net/http"

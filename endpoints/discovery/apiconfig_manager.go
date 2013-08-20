@@ -1,5 +1,5 @@
 // Configuration manager to store API configurations.
-package endpoints
+package discovery
 
 import (
 	"sync"

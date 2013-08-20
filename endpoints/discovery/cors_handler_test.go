@@ -1,5 +1,5 @@
 
-package endpoints
+package discovery
 
 // Test that an error response still handles CORS headers.
 func test_handle_non_json_spi_response_cors(t *testing.T) {

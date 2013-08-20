@@ -1,6 +1,6 @@
 // Test utilities.
 
-package endpoints
+package discovery
 
 import (
 	"io/ioutil"

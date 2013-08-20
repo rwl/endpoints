@@ -1,6 +1,6 @@
 // Regression tests for Endpoints server.
 
-package endpoints
+package discovery
 
 import (
 	"encoding/json"

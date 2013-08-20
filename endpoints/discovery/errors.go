@@ -1,5 +1,5 @@
 // Errors used in the local Cloud Endpoints server.
-package endpoints
+package discovery
 
 import (
 	"encoding/json"
