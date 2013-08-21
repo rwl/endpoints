@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"github.com/stretchr/testify/mock"
 	"net/http/httptest"
+	"github.com/crhym3/go-endpoints/endpoints"
 )
 
 type MockDispatcher struct {
@@ -116,7 +117,7 @@ func prepare_dispatch(mock_dispatcher Dispatcher, config JsonObject) {
 //   expected_spi_body_json: If not None, this is a JSON object containing
 //     the mock response sent by the back end.  If None, this will create an
 //     empty response.
-func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *ApiDescriptor, spi_path string,
+func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spi_path string,
 		expected_spi_body_json JsonObject) {
 	server := newMockEndpointsDispatcher()
 	prepare_dispatch(server.dispatcher, config)
@@ -506,7 +507,7 @@ func test_static_existing_file(t *testing.T) {
 	assert_http_match(t, response, 200, header, test_body)
 }
 
-func test_static_non_existing_file(t *testing.T) {
+/*func test_static_non_existing_file(t *testing.T) {
 	relative_url := "/_ah/api/static/blah.html"
 
 	// Set up mocks for the call to DiscoveryApiProxy.get_static_file.
@@ -531,22 +532,30 @@ func test_static_non_existing_file(t *testing.T) {
 	header.Set("Content-Length", fmt.Sprintf("%d", len(test_body)))
 	header.Set("Content-Type", "test/type")
 	assert_http_match(t, response, 404, header, test_body)
-}
+}*/
 
 func test_handle_non_json_spi_response(t *testing.T) {
+	server := set_up()
+	w := httptest.NewRecorder()
 	orig_request := build_request("/_ah/api/fake/path", "", nil)
 	spi_request := orig_request.copy()
-	spi_response = dispatcher.ResponseTuple(
-		200, [("Content-type", "text/plain")], "This is an invalid response.")
-	response = server.handle_spi_response(orig_request, spi_request,
-		spi_response, self.start_response)
-	error_json = JsonObject{
+	header := new(http.Header)
+	header.Set("Content-type", "text/plain")
+	spi_response := &http.Response{
+		Header: header,
+		Body: ioutil.NopCloser(bytes.NewBufferString("This is an invalid response.")),
+		StatusCode: 200,
+		Status: "200 OK",
+	}
+	response := server.handle_spi_response(orig_request, spi_request,
+		spi_response, w)
+	error_json := JsonObject{
 		"error": {
 			"message": "Non-JSON reply: This is an invalid response.",
 		},
 	}
-	body_bytes, _ = json.Marshal(error_json)
-	body = string(body_bytes)
+	body_bytes, _ := json.Marshal(error_json)
+	body := string(body_bytes)
 	header := Header{
 		"Content-Type", "application/json",
 		"Content-Length", fmt.Sprintf("%d", len(body)),
@@ -579,30 +588,36 @@ func test_lily_uses_python_method_name(t *testing.T) {
 
 // Verify headers transformed, JsonRpc response transformed, written.
 func test_handle_spi_response_json_rpc(t *testing.T) {
+	server := set_up()
+	w := httptest.NewRecorder()
 	orig_request := build_request(
 		"/_ah/api/rpc",
 		`{"method": "foo.bar", "apiVersion": "X"}`,
-		nil
+		nil,
 	)
 	if !orig_request.is_rpc() {
 		t.Fail()
 	}
 	orig_request.request_id = "Z"
-	spi_request = orig_request.copy()
-	spi_response = dispatcher.ResponseTuple("200 OK", [("a", "b")],
-		`{"some": "response"}`)
+	spi_request := orig_request.copy()
+	spi_response := &http.Response{
+		Status: "200 OK",
+		StatusCode: 200,
+		Header: http.Header{"a": "b"},
+		Body: ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
+	}
 
-	response = server.handle_spi_response(orig_request, spi_request,
-		spi_response, self.start_response)
-	response = "".join(response)  // Merge response iterator into single body.
+	response := server.handle_spi_response(orig_request, spi_request,
+		spi_response, w)
+//	response = "".join(response)  // Merge response iterator into single body.
 
-	if self.response_status != "200 OK" {
+	if w.Code != 200 {
 		t.Fail()
 	}
-	if _, ok := self.response_headers["a"]; !ok {
+	if w.Header().Get("a") == "" {
 		t.Fail()
 	}
-	if _, ok := self.response_headers["b"]; !ok {
+	if w.Header().Get("b") == "" {
 		t.Fail()
 	}
 	expected_response := JsonObject{
@@ -621,7 +636,9 @@ func test_handle_spi_response_json_rpc(t *testing.T) {
 
 // Verify that batch requests have an appropriate batch response.
 func test_handle_spi_response_batch_json_rpc(t *testing.T) {
-	orig_request = build_request(
+	server := set_up()
+	w := httptest.NewRecorder()
+	orig_request := build_request(
 		"/_ah/api/rpc",
 		`[{"method": "foo.bar", "apiVersion": "X"}]`,
 		nil,
@@ -633,21 +650,25 @@ func test_handle_spi_response_batch_json_rpc(t *testing.T) {
 		t.Fail()
 	}
 	orig_request.request_id = "Z"
-	spi_request = orig_request.copy()
-	spi_response = dispatcher.ResponseTuple("200 OK", [("a", "b")],
-		`{"some": "response"}`)
+	spi_request := orig_request.copy()
+	spi_response := &http.Response{
+		Status: "200 OK",
+		StatusCode: 200,
+		Header: http.Header{"a": "b"},
+		Body: ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
+	}
 
-	response = server.handle_spi_response(orig_request, spi_request,
-		spi_response, self.start_response)
-	response = "".join(response)  // Merge response iterator into single body.
+	response := server.handle_spi_response(orig_request, spi_request,
+		spi_response, w)
+//	response = "".join(response)  // Merge response iterator into single body.
 
-	if self.response_status != "200 OK" {
+	if w.Code != 200 {
 		t.Fail()
 	}
-	if _, ok := self.response_headers["a"]; !ok {
+	if w.Header().Get("a") == "" {
 		t.Fail()
 	}
-	if _, ok := self.response_headers["b"]; !ok {
+	if w.Header().Get("b") == "" {
 		t.Fail()
 	}
 	expected_response := JsonObject{
@@ -665,12 +686,19 @@ func test_handle_spi_response_batch_json_rpc(t *testing.T) {
 }
 
 func test_handle_spi_response_rest(t *testing.T) {
+	server := set_up()
+	w := httptest.NewRecorder()
 	orig_request := build_request("/_ah/api/test", "{}", nil)
 	spi_request := orig_request.copy()
 	body, _ := json.MarshalIndent(JsonObject{"some": "response"}, "", " ")
-	spi_response = dispatcher.ResponseTuple("200 OK", [("a", "b")], body)
-	response = server.handle_spi_response(orig_request, spi_request,
-		spi_response, self.start_response)
+	spi_response := &http.Response{
+		Status: "200 OK",
+		StatusCode: 200,
+		Header: http.Header{"a": "b"},
+		Body: ioutil.NopCloser(bytes.NewBuffer(body)),
+	}
+	response := server.handle_spi_response(orig_request, spi_request,
+		spi_response, w)
 	header := http.Header{
 		"a": "b",
 		"Content-Length": fmt.Sprintf("%d" % len(body)),
@@ -680,8 +708,9 @@ func test_handle_spi_response_rest(t *testing.T) {
 
 // Verify the response is reformatted correctly.
 func test_transform_rest_response(t *testing.T) {
-	orig_response = `{"sample": "test", "value1": {"value2": 2}}`
-	expected_response = (`{
+	server := set_up()
+	orig_response := `{"sample": "test", "value1": {"value2": 2}}`
+	expected_response := (`{
  "sample": "test",
  "value1": {
   "value2": 2
@@ -694,15 +723,16 @@ func test_transform_rest_response(t *testing.T) {
 
 // Verify request_id inserted into the body, and body into body.result.
 func test_transform_json_rpc_response_batch(t *testing.T) {
+	server := set_up()
 	orig_request := build_request(
 		"/_ah/api/rpc",
 		`[{"params": {"sample": "body"}, "id": "42"}]`,
-		nil
+		nil,
 	)
-	request = orig_request.copy()
-	request.request_id = "42"
-	orig_response = `{"sample": "body"}`
-	response = server.transform_jsonrpc_response(request, orig_response)
+	request := orig_request.copy()
+	request.request_id := "42"
+	orig_response := `{"sample": "body"}`
+	response := server.transform_jsonrpc_response(request, orig_response)
 	expected_response := []JsonObject{
 		JsonObject{
 			"result": JsonObject{"sample": "body"},
@@ -720,13 +750,14 @@ func test_transform_json_rpc_response_batch(t *testing.T) {
 }
 
 func test_lookup_rpc_method_no_body(t *testing.T) {
+	server := set_up()
 	orig_request := build_request("/_ah/api/rpc", "", nil)
 	if server.lookup_rpc_method(orig_request) != nil {
 		t.Fail()
 	}
 }
 
-func test_lookup_rpc_method(t *testing.T) {
+/*func test_lookup_rpc_method(t *testing.T) {
 	mox.StubOutWithMock(server.config_manager, "lookup_rpc_method")
 	server.config_manager.lookup_rpc_method("foo", "v1").AndReturn("bar")
 
@@ -740,16 +771,23 @@ func test_lookup_rpc_method(t *testing.T) {
 		t.Fail()
 	}
 	mox.VerifyAll()
-}
+}*/
 
 func test_verify_response(t *testing.T) {
-	response := dispatcher.ResponseTuple("200", [("Content-Type", "a")], "")
+	server := set_up()
+
+	response := &http.Response{
+		Status: "200 OK",
+		StatusCode: 200,
+		Header: http.Header{"Content-Type": "a"},
+		Body: ioutil.NopCloser(bytes.NewBufferString("")),
+	}
 	// Expected response
 	if !server.verify_response(response, 200, "a") {
 		t.Fail()
 	}
 	// Any content type accepted
-	if !server.verify_response(response, 200, None) {
+	if !server.verify_response(response, 200, nil) {
 		t.Fail()
 	}
 	// Status code mismatch
@@ -761,9 +799,14 @@ func test_verify_response(t *testing.T) {
 		t.Fail()
 	}
 
-	response := dispatcher.ResponseTuple("200", [("Content-Length", "10")], "")
+	response = &http.Response{
+		Status: "200 OK",
+		StatusCode: 200,
+		Header: http.Header{"Content-Length": "10"},
+		Body: ioutil.NopCloser(bytes.NewBufferString("")),
+	}
 	// Any content type accepted
-	if !server.verify_response(response, 200, None) {
+	if !server.verify_response(response, 200, nil) {
 		t.Fail()
 	}
 	// Specified content type not matched
