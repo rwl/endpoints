@@ -13,66 +13,6 @@ import (
 	"github.com/crhym3/go-endpoints/endpoints"
 )
 
-type MockDispatcher struct {
-	mock.Mock
-}
-
-func (md *MockDispatcher) Do(request *http.Request) (*http.Response, error) {
-	args := md.Mock.Called(request)
-	return args.Get(0).(*http.Response), args.Error(1)
-}
-
-//type MockDispatcherSPI struct {
-//	mock.Mock
-//}
-//
-//func (md *MockDispatcherSPI) Do(request *http.Request) (*http.Response, error) {
-//	args := md.Mock.Called(request)
-//	return args.Get(0).(*http.Response), args.Error(1)
-//}
-
-type MockEndpointsDispatcher struct {
-	mock.Mock
-	EndpointsDispatcher
-}
-
-func newMockEndpointsDispatcher() *MockEndpointsDispatcher {
-	return &MockEndpointsDispatcher{
-		EndpointsDispatcher: set_up(),
-	}
-}
-
-func (ed *MockEndpointsDispatcher) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
-	args := ed.Mock.Called(orig_request, spi_request, response, w)
-	return args.String(0), args.Error(1)
-}
-
-type MockEndpointsDispatcherSPI struct {
-	mock.Mock
-	EndpointsDispatcher
-}
-
-func newMockEndpointsDispatcherSPI() *MockEndpointsDispatcherSPI {
-	return &MockEndpointsDispatcherSPI{
-		EndpointsDispatcher: set_up(),
-	}
-}
-
-func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
-	args := ed.Mock.Called(w, orig_request)
-	return args.String(0), args.Error(1)
-}
-
-type MockDiscoveryApiProxy struct {
-	mock.Mock
-	DiscoveryApiProxy
-}
-
-func (m *MockDiscoveryApiProxy) get_static_file(path string) (*http.Response, string, error) {
-	args := m.Mock.Called(path)
-	return args.Get(0).(*http.Response), args.String(1), args.Error(2)
-}
-
 func set_up() *EndpointsDispatcher {
 	config_manager := NewApiConfigManager()
 	mock_dispatcher := new(MockDispatcher)

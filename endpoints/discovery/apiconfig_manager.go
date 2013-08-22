@@ -11,6 +11,7 @@ import (
 	"errors"
 	"sort"
 	"encoding/base32"
+	"github.com/crhym3/go-endpoints/endpoints"
 )
 
 const _PATH_VARIABLE_PATTERN = `[a-zA-Z_][a-zA-Z_.\d]*`
@@ -18,7 +19,7 @@ const _PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
 
 // Manages loading api configs and method lookup.
 type ApiConfigManager struct {
-	rpc_method_dict map[lookupKey]*ApiMethod
+	rpc_method_dict map[lookupKey]*endpoints.ApiMethod
 	rest_methods []restMethod
 	configs map[lookupKey]*ApiDescriptor
 	config_lock sync.Mutex
@@ -228,13 +229,20 @@ func score_path(path string) int {
 //
 // Returns:
 //   A dictionary containing the variable names converted from base64.
-func get_path_params(match) map[string]string {
+func get_path_params(names []string, match []string) (map[string]string, error) {
 	var result map[string]string
-	for var_name, value := range match.groupdict() {
-		actual_var_name = from_safe_path_param_name(var_name)
+	for i, var_name := range names {
+		if i == 0 || var_name == "" {
+			continue
+		}
+		value := match[i]
+		actual_var_name, err := from_safe_path_param_name(var_name)
+		if err != nil {
+			return result, err
+		}
 		result[actual_var_name] = value
 	}
-	return result
+	return result, nil
 }
 
 // Lookup the JsonRPC method at call time.
@@ -274,9 +282,14 @@ func (m *ApiConfigManager) lookup_rest_method(path, http_method string) (string,
 	m.config_lock.Lock()
 	defer m.config_lock.Unlock()
 	for _, rm := range m.rest_methods {
-		match := rm.compiled_path_pattern.Match(path)
+		match := rm.compiled_path_pattern.FindStringSubmatch(path)
 		if match {
-			params := get_path_params(match)
+			params, err := get_path_params(rm.compiled_path_pattern.SubexpNames(), match)
+			if err != nil {
+				log.Printf("Error extracting path [%s] parameters: %s",
+					path, err.Error())
+				continue
+			}
 			method_key := strings.ToLower(http_method)
 			method, ok := rm.methods[method_key]
 			if ok {
@@ -351,7 +364,7 @@ func from_safe_path_param_name(safe_parameter string) (string, error) {
 //
 // Returns:
 // A compiled regex object to match this path pattern.
-func compile_path_pattern(pattern string) *regexp.Regexp {
+func compile_path_pattern(pattern string) (*regexp.Regexp, error) {
 
 	// Replaces a {variable} with a regex to match it by name.
 	//
@@ -367,22 +380,36 @@ func compile_path_pattern(pattern string) *regexp.Regexp {
 	// Returns:
 	//   A string regex to match the variable by name, if the full pattern was
 	//   matched.
-	replace_variable := func(match *regexp.Regexp) string {
-		if match.lastindex > 1 {
-			var_name = to_safe_path_param_name(match.group(2))
-			return fmt.Sprintf("%s(?P<%s>%s)", match.group(1), var_name,
+	replace_variable := func(match []string) string {
+		if len(match) > 2 {
+			var_name := to_safe_path_param_name(match[2])
+			return fmt.Sprintf("%s(?P<%s>%s)", match[1], var_name,
 				_PATH_VALUE_PATTERN)
 		}
-		return match.group(0)
+		return match[0]
 	}
 
-	pattern = re.sub(fmt.Sprintf("(/|^){(%s)}(?=/|$)", _PATH_VARIABLE_PATTERN),
-		replace_variable, pattern)
+	p := fmt.Sprintf("(/|^){(%s)}(?=/|$)", _PATH_VARIABLE_PATTERN)
+	re := regexp.MustCompile(p)
+
+	matches := re.FindAllStringSubmatch(pattern)
+	indexes := re.FindAllStringSubmatchIndex(pattern)
+
+	for i, match := range matches {
+		index := indexes[i]
+		replaced := replace_variable(match)
+		if index != nil && len(index) > 1 {
+			pattern[index[0]:index[1]] = replaced
+		}
+	}
+
+//	pattern = re.ReplaceAllString(pattern, replace_variable)
+
 	re, err := regexp.Compile(pattern + "/?$")
 	if err != nil {
-
+		return nil, err
 	}
-	return re
+	return re, nil
 }
 
 // Store JsonRpc api methods in a map for lookup at call time.

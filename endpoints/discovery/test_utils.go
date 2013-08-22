@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"bytes"
 	"testing"
+	"github.com/stretchr/testify/mock"
 )
 
 // Build an ApiRequest for the given path and body.
@@ -36,7 +37,7 @@ func build_request(url, body string, http_headers map[string]string) *ApiRequest
 
 // Test that the headers and body match.
 func assert_http_match(t *testing.T, response *http.Response, expected_status int,
-expected_headers http.Header, expected_body string) {
+		expected_headers http.Header, expected_body string) {
 	if expected_status != response.StatusCode {
 		t.Fail()
 	}
@@ -60,4 +61,66 @@ expected_headers http.Header, expected_body string) {
 	if expected_body != string(body) {
 		t.Fail()
 	}
+}
+
+
+
+type MockDispatcher struct {
+	mock.Mock
+}
+
+func (md *MockDispatcher) Do(request *http.Request) (*http.Response, error) {
+	args := md.Mock.Called(request)
+	return args.Get(0).(*http.Response), args.Error(1)
+}
+
+//type MockDispatcherSPI struct {
+//	mock.Mock
+//}
+//
+//func (md *MockDispatcherSPI) Do(request *http.Request) (*http.Response, error) {
+//	args := md.Mock.Called(request)
+//	return args.Get(0).(*http.Response), args.Error(1)
+//}
+
+type MockEndpointsDispatcher struct {
+	mock.Mock
+	EndpointsDispatcher
+}
+
+func newMockEndpointsDispatcher() *MockEndpointsDispatcher {
+	return &MockEndpointsDispatcher{
+		EndpointsDispatcher: set_up(),
+	}
+}
+
+func (ed *MockEndpointsDispatcher) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+	args := ed.Mock.Called(orig_request, spi_request, response, w)
+	return args.String(0), args.Error(1)
+}
+
+type MockEndpointsDispatcherSPI struct {
+	mock.Mock
+	EndpointsDispatcher
+}
+
+func newMockEndpointsDispatcherSPI() *MockEndpointsDispatcherSPI {
+	return &MockEndpointsDispatcherSPI{
+		EndpointsDispatcher: set_up(),
+	}
+}
+
+func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
+	args := ed.Mock.Called(w, orig_request)
+	return args.String(0), args.Error(1)
+}
+
+type MockDiscoveryApiProxy struct {
+	mock.Mock
+	DiscoveryApiProxy
+}
+
+func (m *MockDiscoveryApiProxy) get_static_file(path string) (*http.Response, string, error) {
+	args := m.Mock.Called(path)
+	return args.Get(0).(*http.Response), args.String(1), args.Error(2)
 }

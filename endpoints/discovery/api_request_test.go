@@ -8,7 +8,7 @@ import (
 )
 
 func test_parse_no_body(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar=baz")
+	request := build_request("/_ah/api/foo?bar=baz", "", nil)
 	if "foo" != request.Path {
 		t.Fail()
 	}
@@ -36,7 +36,7 @@ func test_parse_no_body(t *testing.T) {
 }
 
 func test_parse_with_body(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar=baz", `{"test": "body"}`)
+	request := build_request("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
 	if "foo" != request.Path {
 		t.Fail()
 	}
@@ -65,7 +65,7 @@ func test_parse_with_body(t *testing.T) {
 }
 
 func test_parse_empty_values(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar")
+	request := build_request("/_ah/api/foo?bar", "", nil)
 	if "foo" != request.Path {
 		t.Fail()
 	}
@@ -93,7 +93,7 @@ func test_parse_empty_values(t *testing.T) {
 }
 
 func test_parse_multiple_values(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar=baz&foo=bar&bar=foo")
+	request := build_request("/_ah/api/foo?bar=baz&foo=bar&bar=foo", "", nil)
 	if "foo" != request.Path {
 		t.Fail()
 	}
@@ -124,7 +124,7 @@ func test_parse_multiple_values(t *testing.T) {
 }
 
 func test_is_rpc(t *testing.T) {
-	request := build_request("/_ah/api/rpc")
+	request := build_request("/_ah/api/rpc", "", nil)
 	if "rpc" != request.Path {
 		t.Fail()
 	}
@@ -137,7 +137,7 @@ func test_is_rpc(t *testing.T) {
 }
 
 func test_is_not_rpc(t *testing.T) {
-	request := build_request("/_ah/api/guestbook/v1/greetings/7")
+	request := build_request("/_ah/api/guestbook/v1/greetings/7", "", nil)
 	if "guestbook/v1/greetings/7" != request.Path {
 		t.Fail()
 	}
@@ -150,7 +150,7 @@ func test_is_not_rpc(t *testing.T) {
 }
 
 func test_is_not_rpc_prefix(t *testing.T) {
-	request := build_request("/_ah/api/rpcthing")
+	request := build_request("/_ah/api/rpcthing", "", nil)
 	if "rpcthing" != request.Path {
 		t.Fail()
 	}
@@ -163,7 +163,8 @@ func test_is_not_rpc_prefix(t *testing.T) {
 }
 
 func test_batch(t *testing.T) {
-	request := build_request("/_ah/api/rpc", `[{"method": "foo", "apiVersion": "v1"}]`)
+	request := build_request("/_ah/api/rpc",
+		`[{"method": "foo", "apiVersion": "v1"}]`, nil)
 	if !request.is_batch() {
 		t.Fail()
 	}
@@ -174,9 +175,9 @@ func test_batch(t *testing.T) {
 
 // Verify that additional items are dropped if the batch size is > 1.
 func test_batch_too_large(t *testing.T) {
-	request = test_utils.build_request("/_ah/api/rpc",
+	request := build_request("/_ah/api/rpc",
 		`[{"method": "foo", "apiVersion": "v1"},
-		  {"method": "bar", "apiversion": "v1"}]`)
+		  {"method": "bar", "apiversion": "v1"}]`, nil)
 	if !request.is_batch() {
 		t.Fail()
 	}
@@ -203,7 +204,7 @@ func test_batch_too_large(t *testing.T) {
 }*/
 
 func test_copy(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar=baz", `{"test": "body"}`)
+	request := build_request("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
 	copied := request.Copy()
 	if request.Header != copied.Header {
 		t.Fail()
