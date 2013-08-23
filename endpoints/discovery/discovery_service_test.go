@@ -6,38 +6,56 @@ import (
 	"testing"
 	"net/http"
 	"fmt"
+	"net/http/httptest"
 )
 
-func common_setup() (*ApiConfigManager, *ApiRequest) {
-	api_config_dict = {"items": [api_config_json]}
+func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
+	api_config_dict := JsonObject{"items": []string{api_config_json}}
 	api_config_manager := NewApiConfigManager()
 	api_config, _ := json.Marshal(api_config_dict)
 	api_config_manager.parse_api_config_response(api_config)
+
 	api_request := build_request("/_ah/api/foo",
-		`{"api": "tictactoe", "version": "v1"}`)
-	return api_config_manager, api_request
+		`{"api": "tictactoe", "version": "v1"}`, nil)
+
+	discovery := NewDiscoveryService(api_config_manager)
+//	discovery._discovery_proxy = mox.CreateMock(NewDiscoveryApiProxy())
+
+	return api_config_manager, api_request, discovery
 }
 
-func prepare_discovery_request(response_body string, api_config_manager *ApiConfigManager) *DiscoveryService {
-	response := test_utils.MockConnectionResponse(200, response_body)
-	discovery := NewDiscoveryService(api_config_manager)
-	discovery._discovery_proxy = mox.CreateMock(NewDiscoveryApiProxy())
-	return discovery
+func prepare_discovery_request(response_body string) *httptest.Server {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, response_body)
+	}))
+	// Call ts.Close() when finished, to shut down the test server.
+
+//	response := test_utils.MockConnectionResponse(200, response_body)
+	return ts
 }
 
 func test_generate_discovery_doc_rest(t *testing.T) {
-	api_config_manager, api_request := common_setup()
-	body, err := json.Marshal(JsonObject{
+	_, api_request, discovery := common_setup()
+	body, _ := json.Marshal(JsonObject{
 		"baseUrl": "https://tictactoe.appspot.com/_ah/api/tictactoe/v1/",
 	})
-	discovery := prepare_discovery_request(body, api_config_manager)
-	discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rest").AndReturn(body)
 
-	mox.ReplayAll()
-	response := discovery.handle_discovery_request(_GET_REST_API, api_request, self.start_response)
-	mox.VerifyAll()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, body)
+	}))
+	defer ts.Close()
+	_DISCOVERY_PROXY_HOST = ts.URL
 
-	assert_http_match(t, response, 200,
+	w := httptest.NewRecorder()
+
+//	discovery := prepare_discovery_request(body, api_config_manager)
+//	discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rest").AndReturn(body)
+
+//	mox.ReplayAll()
+	_ := discovery.handle_discovery_request(_GET_REST_API, api_request, w)
+//	mox.VerifyAll()
+
+	assert_http_match_recorder(t, w, 200,
 		http.Header{
 			"Content-Type": "application/json; charset=UTF-8",
 			"Content-Length": fmt.Sprintf("%d", len(body)),
@@ -45,18 +63,27 @@ func test_generate_discovery_doc_rest(t *testing.T) {
 }
 
 func test_generate_discovery_doc_rpc(t *testing.T) {
-	api_config_manager, api_request := common_setup()
+	_, api_request, discovery := common_setup()
 	body, _ := json.Marshal(JsonObject{
 		"rpcUrl": "https://tictactoe.appspot.com/_ah/api/rpc",
 	})
-	discovery := prepare_discovery_request(body, api_config_manager)
-	discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rpc").AndReturn(body)
 
-	mox.ReplayAll()
-	response := discovery.handle_discovery_request(_GET_RPC_API, api_request, self.start_response)
-	mox.VerifyAll()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, body)
+	}))
+	defer ts.Close()
+	_DISCOVERY_PROXY_HOST = ts.URL
 
-	assert_http_match(t, response, 200,
+	w := httptest.NewRecorder()
+
+//	discovery := prepare_discovery_request(body, api_config_manager)
+//	discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rpc").AndReturn(body)
+
+//	mox.ReplayAll()
+	_ := discovery.handle_discovery_request(_GET_RPC_API, api_request, w)
+//	mox.VerifyAll()
+
+	assert_http_match_recorder(t, w, 200,
 		http.Header{
 			"Content-Type": "application/json; charset=UTF-8",
 			"Content-Length": fmt.Sprintf("%d", len(body)),
@@ -64,26 +91,37 @@ func test_generate_discovery_doc_rpc(t *testing.T) {
 }
 
 func test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
-	api_config_manager, api_request := common_setup()
-	request = build_request("/_ah/api/foo", `{"api": "blah", "version": "v1"}`)
-	discovery_api = NewDiscoveryService(api_config_manager)
-	discovery_api.handle_discovery_request(_GET_REST_API, request, self.start_response)
-	if self.response_status != "404" {
+	_, _, discovery_api := common_setup()
+	request := build_request("/_ah/api/foo",
+		`{"api": "blah", "version": "v1"}`, nil)
+	w := httptest.NewRecorder()
+//	discovery_api = NewDiscoveryService(api_config_manager)
+	discovery_api.handle_discovery_request(_GET_REST_API, request, w)
+	if w.Code != 404 {
 		t.Fail()
 	}
 }
 
 func test_generate_directory(t *testing.T) {
-	api_config_manager, api_request := common_setup()
+	_, api_request, discovery := common_setup()
 	body, _ := json.Marshal(JsonObject{"kind": "discovery#directoryItem"})
-	discovery := prepare_discovery_request(body, api_config_manager)
-	discovery._discovery_proxy.generate_directory(mox.IsA(list)).AndReturn(body)
 
-	mox.ReplayAll()
-	response := discovery.handle_discovery_request(_LIST_API, api_request, self.start_response)
-	mox.VerifyAll()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, body)
+	}))
+	defer ts.Close()
+	_DISCOVERY_PROXY_HOST = ts.URL
 
-	assert_http_match(t, response, 200,
+	w := httptest.NewRecorder()
+
+//	discovery := prepare_discovery_request(body, api_config_manager)
+//	discovery._discovery_proxy.generate_directory(mox.IsA(list)).AndReturn(body)
+
+//	mox.ReplayAll()
+	_ := discovery.handle_discovery_request(_LIST_API, api_request, w)
+//	mox.VerifyAll()
+
+	assert_http_match_recorder(t, w, 200,
 		http.Header{
 			"Content-Type": "application/json; charset=UTF-8",
 			"Content-Length": fmt.Sprintf("%d", len(body)),

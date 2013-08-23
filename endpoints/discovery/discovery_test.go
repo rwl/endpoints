@@ -86,6 +86,9 @@ func test_generate_discovery_doc_invalid_format(t *testing.T) {
 	}))
 	defer ts.Close()
 
+	_DISCOVERY_PROXY_HOST = ts.URL
+//	_DISCOVERY_API_PATH_PREFIX = ""
+
 	_, err := generate_discovery_doc(api_config_map, "blah")
 	if err == nil {
 		t.Fail()

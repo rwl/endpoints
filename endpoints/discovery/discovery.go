@@ -12,7 +12,7 @@ import (
 
 // The endpoint host we're using to proxy discovery and static requests.
 // Using separate constants to make it easier to change the discovery service.
-const (
+var (
 	_DISCOVERY_PROXY_HOST = "webapis-discovery.appspot.com"
 	_STATIC_PROXY_HOST = "webapis-discovery.appspot.com"
 	_DISCOVERY_API_PATH_PREFIX = "/_ah/api/discovery/v1/"

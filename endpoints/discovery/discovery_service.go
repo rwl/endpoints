@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"log"
 	"encoding/json"
+	"github.com/crhym3/go-endpoints/endpoints"
 )
 
 const _GET_REST_API = "apisdev.getRest"
 const _GET_RPC_API = "apisdev.getRpc"
 const _LIST_API = "apisdev.list"
 
-var DISCOVERY_API_CONFIG = ApiDescriptor{
+var DISCOVERY_API_CONFIG = endpoints.ApiDescriptor{
 	Name: "discovery",
 	Version: "v1",
 	Methods: map[string]*ApiMethod{

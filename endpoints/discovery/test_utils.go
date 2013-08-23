@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"testing"
 	"github.com/stretchr/testify/mock"
+	"net/http/httptest"
 )
 
 // Build an ApiRequest for the given path and body.
@@ -37,7 +38,7 @@ func build_request(url, body string, http_headers map[string]string) *ApiRequest
 
 // Test that the headers and body match.
 func assert_http_match(t *testing.T, response *http.Response, expected_status int,
-		expected_headers http.Header, expected_body string) {
+expected_headers http.Header, expected_body string) {
 	if expected_status != response.StatusCode {
 		t.Fail()
 	}
@@ -58,6 +59,34 @@ func assert_http_match(t *testing.T, response *http.Response, expected_status in
 
 	// Convert the body to a string.
 	body, _ := ioutil.ReadAll(response.Body)
+	if expected_body != string(body) {
+		t.Fail()
+	}
+}
+
+// Test that the headers and body match.
+func assert_http_match_recorder(t *testing.T, recorder *httptest.ResponseRecorder, expected_status int,
+expected_headers http.Header, expected_body string) {
+	if expected_status != recorder.Code {
+		t.Fail()
+	}
+
+	// Verify that headers match. Order shouldn't matter.
+	if len(recorder.Header()) != len(expected_headers) {
+		t.Fail()
+	}
+	for key, value := range recorder.Header() {
+		expected_value, ok := expected_headers[key]
+		if !ok {
+			t.Fail()
+		}
+		if value != expected_value {
+			t.Fail()
+		}
+	}
+
+	// Convert the body to a string.
+	body, _ := ioutil.ReadAll(recorder.Body)
 	if expected_body != string(body) {
 		t.Fail()
 	}
