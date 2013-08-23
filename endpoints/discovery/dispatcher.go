@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"bytes"
 	"strings"
+	"github.com/crhym3/go-endpoints/endpoints"
 )
 
 // Pattern for paths handled by this module.
@@ -26,7 +27,6 @@ const _API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
 type EndpointsDispatcher struct {
 	dispatcher Dispatcher // A Dispatcher instance that can be used to make HTTP requests.
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
-	discovery_api *DiscoveryApiProxy
 	dispatchers []dispatcher
 }
 
@@ -40,16 +40,14 @@ type dispatcher struct {
 }
 
 func NewEndpointsDispatcher(dispatcher Dispatcher) *EndpointsDispatcher {
-	return NewEndpointsDispatcherConfig(dispatcher, NewApiConfigManager(), NewDiscoveryApiProxy())
+	return NewEndpointsDispatcherConfig(dispatcher, NewApiConfigManager())
 }
 
 func NewEndpointsDispatcherConfig(dispatcher Dispatcher,
-		config_manager *ApiConfigManager,
-		discovery_api *DiscoveryApiProxy) *EndpointsDispatcher {
+		config_manager *ApiConfigManager) *EndpointsDispatcher {
 	d := &EndpointsDispatcher{
 		dispatcher,
 		config_manager,
-		discovery_api,
 		make([]dispatcher, 0),
 	}
 	d.add_dispatcher("/_ah/api/explorer/?$", d.handle_api_explorer_request)
@@ -243,7 +241,7 @@ func (ed *EndpointsDispatcher) handle_get_api_configs_response(api_config_respon
 // Returns:
 // A string containing the response body.
 func (ed *EndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
-	var method_config *ApiMethod
+	var method_config *endpoints.ApiMethod
 	var params map[string]string
 	if orig_request.is_rpc() {
 		method_config = ed.lookup_rpc_method(orig_request)
@@ -356,7 +354,7 @@ func (ed *EndpointsDispatcher) fail_request(w http.ResponseWriter, orig_request 
 // Returns:
 // A tuple of (method descriptor, parameters), or (None, None) if no method
 // was found for the current request.
-func (ed *EndpointsDispatcher) lookup_rest_method(orig_request *ApiRequest) (*ApiMethod, map[string]string) {
+func (ed *EndpointsDispatcher) lookup_rest_method(orig_request *ApiRequest) (*endpoints.ApiMethod, map[string]string) {
 	method_name, method, params := ed.config_manager.lookup_rest_method(orig_request.path, orig_request.http_method)
 	orig_request.method_name = method_name
 	return method, params
@@ -370,7 +368,7 @@ func (ed *EndpointsDispatcher) lookup_rest_method(orig_request *ApiRequest) (*Ap
 // Returns:
 // The RPC method descriptor that was found for the current request, or None
 // if none was found.
-func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request *ApiRequest) *ApiMethod {
+func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request *ApiRequest) *endpoints.ApiMethod {
 	if !orig_request.body_json {
 		return nil
 	}
@@ -402,7 +400,7 @@ func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request *ApiRequest) *ApiM
 // An ApiRequest that"s a copy of the current request, modified so it can
 // be sent to the SPI.  The path is updated and parts of the body or other
 // properties may also be changed.
-func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, params map[string]string, method_config *ApiMethod) *ApiRequest {
+func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, params map[string]string, method_config *endpoints.ApiMethod) *ApiRequest {
 	var request *ApiRequest
 	if orig_request.is_rpc() {
 		request = ed.transform_jsonrpc_request(orig_request)
@@ -432,7 +430,7 @@ func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, param
 // Raises:
 // EnumRejectionError: If the given value is not among the accepted
 // enum values in the field parameter.
-func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, field_parameter *ApiRequestParamSpec) *EnumRejectionError {
+func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	if field_parameter.Enum == nil {
 		return nil
 	}
@@ -456,7 +454,7 @@ func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, f
 //
 // "[index-of-value]" is appended to the parameter name for
 // error reporting purposes.
-func (ed *EndpointsDispatcher) check_parameters(parameter_name, value []string, field_parameter *ApiRequestParamSpec) {
+func (ed *EndpointsDispatcher) check_parameters(parameter_name, value []string, field_parameter *endpoints.ApiRequestParamSpec) {
 	for index, element := range value {
 		parameter_name_index := fmt.Sprintf("%s[%d]", parameter_name, index)
 		ed.check_parameter(parameter_name_index, element, field_parameter)
@@ -583,7 +581,7 @@ func (ed *EndpointsDispatcher) update_from_body(destination JsonObject, source J
 //   to the SPI.  The body is updated to include parameters from the URL.
 func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		params map[string]string,
-		method_parameters map[string]*ApiRequestParamSpec) *ApiRequest {
+		method_parameters map[string]*endpoints.ApiRequestParamSpec) *ApiRequest {
 
 	request := orig_request.copy()
 	body_json := make(JsonObject)

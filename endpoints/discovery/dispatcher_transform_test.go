@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"bytes"
 	"errors"
+	"github.com/crhym3/go-endpoints/endpoints"
 )
 
 
@@ -23,7 +24,7 @@ func test_transform_request(t *testing.T) {
 	server := setUpTransformRequestTests()
 
 	request := build_request("/_ah/api/test/{gid}", `{"sample": "body"}`, nil)
-	method_config := &ApiMethod{
+	method_config := &endpoints.ApiMethod{
 		RosyMethod: "GuestbookApi.greetings_get",
 	}
 

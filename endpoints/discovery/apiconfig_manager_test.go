@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"regexp"
 	"fmt"
+	"github.com/crhym3/go-endpoints/endpoints"
 )
 
 func test_parse_api_config_empty_response(t *testing.T) {
@@ -119,9 +120,9 @@ func test_get_sorted_methods1(t *testing.T) {
 		method_info{"name6", "greetings/{gid}", "PUT"},
 		method_info{"name7", "a/b/{var}/{var2}", "GET"},
 	}
-	methods := make(map[string]*ApiMethod)
+	methods := make(map[string]*endpoints.ApiMethod)
 	for _, mi := range test_method_info {
-		method := &ApiMethod{
+		method := &endpoints.ApiMethod{
 			HttpMethod: mi.http_method,
 			Path: mi.path,
 		}
@@ -138,9 +139,9 @@ func test_get_sorted_methods1(t *testing.T) {
 		method_info{"name5", "greetings/{gid}", "GET"},
 		method_info{"name6", "greetings/{gid}", "PUT"},
 	}
-	expected_methods := make([]*ApiMethod, len(expected_data))
+	expected_methods := make([]*endpoints.ApiMethod, len(expected_data))
 	for i, mi := range expected_data {
-		expected_methods[i] = &ApiMethod{
+		expected_methods[i] = &endpoints.ApiMethod{
 			HttpMethod: mi.http_method,
 			Path: mi.path,
 		}
@@ -161,9 +162,9 @@ func test_get_sorted_methods2(t *testing.T) {
 		method_info{"name6", "baz", "PUT"},
 		method_info{"name7", "baz", "DELETE"},
 	}
-	methods := make(map[string]*ApiMethod)
+	methods := make(map[string]*endpoints.ApiMethod)
 	for _, mi := range test_method_info {
-		method := &ApiMethod{
+		method := &endpoints.ApiMethod{
 			HttpMethod: mi.http_method,
 			Path: mi.path,
 		}
@@ -181,9 +182,9 @@ func test_get_sorted_methods2(t *testing.T) {
 		method_info{"name2", "foo", "GET"},
 		method_info{"name3", "greetings", "GET"},
 	}
-	expected_methods := make([]*ApiMethod, len(expected_data))
+	expected_methods := make([]*endpoints.ApiMethod, len(expected_data))
 	for i, mi := range expected_data {
-		expected_methods[i] = &ApiMethod{
+		expected_methods[i] = &endpoints.ApiMethod{
 			HttpMethod: mi.http_method,
 			Path: mi.path,
 		}
@@ -257,7 +258,7 @@ func test_convert_https_to_http(t *testing.T) {
 			Type: "lily",
 		},
 		Root: "https://tictactoe.appspot.com/_ah/api",
-		Methods: make(map[string]*ApiMethod),
+		Methods: make(map[string]*endpoints.ApiMethod),
 	}
 	config_manager._convert_https_to_http(config)
 
@@ -280,7 +281,7 @@ func test_dont_convert_non_https_to_http(t *testing.T) {
 			Type: "lily",
 		},
 		Root: "ios://https.appspot.com/_ah/api",
-		Methods: make(map[string]*ApiMethod),
+		Methods: make(map[string]*endpoints.ApiMethod),
 	}
 	config_manager._convert_https_to_http(config)
 
@@ -301,7 +302,7 @@ func test_save_lookup_rpc_method(t *testing.T) {
 	}
 
 	// Now we manually save it, and should find it
-	fake_method := &ApiMethod{}
+	fake_method := &endpoints.ApiMethod{}
 	config_manager.save_rpc_method("guestbook_api.get", "v1", fake_method)
 	actual_method := config_manager.lookup_rpc_method("guestbook_api.get", "v1")
 	if fake_method != actual_method {
@@ -318,7 +319,7 @@ func test_save_lookup_rest_method(t *testing.T) {
 	}
 
 	// Now we manually save it, and should find it
-	fake_method := &ApiMethod{
+	fake_method := &endpoints.ApiMethod{
 		HttpMethod: "GET",
 		Path: "greetings/{id}",
 	}
@@ -338,7 +339,7 @@ func test_save_lookup_rest_method(t *testing.T) {
 func test_trailing_slash_optional(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	// Create a typical get resource URL.
-	fake_method := &ApiMethod{
+	fake_method := &endpoints.ApiMethod{
 		HttpMethod: "GET",
 		Path: "trailingslash",
 	}
@@ -389,7 +390,8 @@ func test_invalid_var_name_leading_exclamation(t *testing.T) {
 }
 
 func test_valid_variable_name(t *testing.T) {
-	if "AbC1", re.match(_PATH_VARIABLE_PATTERN, "AbC1").group(0) {
+	re := regexp.MustCompile(_PATH_VARIABLE_PATTERN)
+	if re.FindString("AbC1") != "AbC1" {
 		t.Fail()
 	}
 }
@@ -403,9 +405,13 @@ func test_valid_variable_name(t *testing.T) {
 //   param_path: A string, the parameterized path pattern to match against
 //     this path.
 func assert_no_match(t *testing.T, path, param_path string) {
-	config_manager = NewApiConfigManager()
-	params := config_manager.compile_path_pattern(param_path).match(path)
-	if params != nil {
+	config_manager := NewApiConfigManager()
+	re, err := config_manager.compile_path_pattern(param_path)
+	if err != nil {
+		t.Fail()
+	}
+	params := re.Match(path)
+	if params {
 		t.Fail()
 	}
 }
@@ -440,12 +446,18 @@ func test_no_match_collection_with_item(t *testing.T) {
 // Returns:
 //   Dict mapping path variable name to path variable value.
 func assert_match(t *testing.T, path, param_path string, param_count int) map[string]string {
-	config_manager = NewApiConfigManager()
-	match = config_manager.compile_path_pattern(param_path).match(path)
-	if match == nil {  // Will be None if path was not matched.
+	config_manager := NewApiConfigManager()
+	re, err := config_manager.compile_path_pattern(param_path)
+	if err != nil {
 		t.Fail()
 	}
-	params = config_manager.get_path_params(match)
+	match := re.Match(path)
+	if !match {  // Will be None if path was not matched.
+		t.Fail()
+	}
+	names := re.SubexpNames()
+	submatch := re.FindStringSubmatch(path)
+	params := config_manager.get_path_params(names, submatch)
 	if param_count != len(params) {
 		t.Fail()
 	}
@@ -470,15 +482,15 @@ func test_two_variable_match(t *testing.T) {
 }
 
 func test_message_variable_match(t *testing.T) {
-	params = assert_match(t, "/abc/123", "/abc/{x.y}", 1)
+	params := assert_match(t, "/abc/123", "/abc/{x.y}", 1)
 	if xy, ok := params["x.y"]; !ok || xy != "123" {
 		t.Fail()
 	}
 }
 
 func test_message_and_simple_variable_match(t *testing.T) {
-	params := assert_match("/abc/123/456", "/abc/{x.y.z}/{t}", 2)
-	if xyz, ok := params["x.y.z"]; !ok, xyz != "123" {
+	params := assert_match(t, "/abc/123/456", "/abc/{x.y.z}/{t}", 2)
+	if xyz, ok := params["x.y.z"]; !ok || xyz != "123" {
 		t.Fail()
 	}
 	if t, ok := params["t"]; !ok || t != "456" {
@@ -494,7 +506,7 @@ func test_message_and_simple_variable_match(t *testing.T) {
 //   value: A string containing a variable value to check for validity.
 func assert_invalid_value(t *testing.T, value string) {
 	param_path := "/abc/{x}"
-	path = fmt.Sprintf("/abc/%s", value)
+	path := fmt.Sprintf("/abc/%s", value)
 	config_manager := NewApiConfigManager()
 	params := config_manager.compile_path_pattern(param_path).match(path)
 	if params != nil {

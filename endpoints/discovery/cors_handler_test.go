@@ -1,18 +1,39 @@
 
 package discovery
 
+import (
+	"testing"
+	"net/http"
+	"strings"
+	"sort"
+	"io/ioutil"
+	"bytes"
+	"encoding/json"
+	"net/http/httptest"
+)
+
 // Test that an error response still handles CORS headers.
 func test_handle_non_json_spi_response_cors(t *testing.T) {
-	server_response = dispatcher.ResponseTuple(
-		"200 OK", [("Content-type", "text/plain")],
-	"This is an invalid response.")
-	response = check_cors([("origin", "test.com")], True, "test.com", /*server_response=*/server_response)
+	server_response := &http.Response{
+		Status: "200 OK",
+		StatusCode: 200,
+		Header: http.Header{"Content-Type", "text/plain"},
+		Body: ioutil.NopCloser(bytes.NewBufferString("This is an invalid response.")),
+	}
+	response := check_cors(
+		t,
+		http.Header{"origin": "test.com"},
+		true,
+		"test.com",
+		"",
+		server_response,
+	)
 	error_json := JsonObject{
 		"error": JsonObject{
 			"message": "Non-JSON reply: This is an invalid response.",
 		},
 	}
-	var repsonse_json interface{}
+	var response_json interface{}
 	err := json.Unmarshal(response, &response_json)
 	if err != nil {
 		t.Fail()
@@ -42,19 +63,26 @@ func test_handle_non_json_spi_response_cors(t *testing.T) {
 //
 // Returns:
 //   A string containing the body of the response that would be sent.
-func check_cors(t *testing.T, request_headers http.Header, expect_response bool, expected_origin, expected_allow_headers string, server_response *http.Response) {
+func check_cors(t *testing.T, request_headers http.Header, expect_response bool, expected_origin, expected_allow_headers string, server_response *http.Response) string {
 	orig_request := build_request("/_ah/api/fake/path", "", request_headers)
 	spi_request := orig_request.copy()
 
 	if server_response == nil {
-		server_response = dispatcher.ResponseTuple(
-			"200 OK", [("Content-type", "application/json")], "{}")
+		server_response = &http.Response{
+			Status: "200 OK",
+			StatusCode: 200,
+			Header: http.Header{"Content-type": "application/json"},
+			Body: ioutil.NopCloser(bytes.NewBufferString("{}")),
+		}
 	}
 
-	response = server.handle_spi_response(orig_request, spi_request,
-		server_response, self.start_response)
+	server := set_up()
+	w := httptest.NewRecorder()
 
-	headers = dict(self.response_headers)
+	response := server.handle_spi_response(orig_request, spi_request,
+		server_response, w)
+
+	headers := w.Headers
 	if expect_response {
 		if _, ok := headers.Get(_CORS_HEADER_ALLOW_ORIGIN); !ok {
 			t.Fail()
@@ -89,7 +117,7 @@ func check_cors(t *testing.T, request_headers http.Header, expect_response bool,
 		if _, ok := headers.Get(_CORS_HEADER_ALLOW_METHODS); ok {
 			t.Fail()
 		}
-		if _, ok != headers.Get(_CORS_HEADER_ALLOW_HEADERS); ok {
+		if _, ok := headers.Get(_CORS_HEADER_ALLOW_HEADERS); ok {
 			t.Fail()
 		}
 	}

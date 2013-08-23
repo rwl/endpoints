@@ -395,11 +395,13 @@ func compile_path_pattern(pattern string) (*regexp.Regexp, error) {
 	matches := re.FindAllStringSubmatch(pattern)
 	indexes := re.FindAllStringSubmatchIndex(pattern)
 
+	offset := 0
 	for i, match := range matches {
 		index := indexes[i]
 		replaced := replace_variable(match)
 		if index != nil && len(index) > 1 {
-			pattern[index[0]:index[1]] = replaced
+			pattern = pattern[:offset+index[0]] + replaced + pattern[offset+index[1]:]
+			offset += len(replaced)-index[1]-index[0]
 		}
 	}
 

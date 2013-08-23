@@ -64,7 +64,6 @@ func assert_http_match(t *testing.T, response *http.Response, expected_status in
 }
 
 
-
 type MockDispatcher struct {
 	mock.Mock
 }
@@ -73,15 +72,6 @@ func (md *MockDispatcher) Do(request *http.Request) (*http.Response, error) {
 	args := md.Mock.Called(request)
 	return args.Get(0).(*http.Response), args.Error(1)
 }
-
-//type MockDispatcherSPI struct {
-//	mock.Mock
-//}
-//
-//func (md *MockDispatcherSPI) Do(request *http.Request) (*http.Response, error) {
-//	args := md.Mock.Called(request)
-//	return args.Get(0).(*http.Response), args.Error(1)
-//}
 
 type MockEndpointsDispatcher struct {
 	mock.Mock
@@ -113,14 +103,4 @@ func newMockEndpointsDispatcherSPI() *MockEndpointsDispatcherSPI {
 func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
 	args := ed.Mock.Called(w, orig_request)
 	return args.String(0), args.Error(1)
-}
-
-type MockDiscoveryApiProxy struct {
-	mock.Mock
-	DiscoveryApiProxy
-}
-
-func (m *MockDiscoveryApiProxy) get_static_file(path string) (*http.Response, string, error) {
-	args := m.Mock.Called(path)
-	return args.Get(0).(*http.Response), args.String(1), args.Error(2)
 }
