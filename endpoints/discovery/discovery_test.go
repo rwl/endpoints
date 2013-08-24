@@ -7,12 +7,13 @@ import (
 	"net/http/httptest"
 	"net/http"
 	"fmt"
+	"github.com/crhym3/go-endpoints/endpoints"
 )
 
-var api_config_map map[string]interface{}
+var api_config_map endpoints.ApiDescriptor
 
 func init() {
-	json.Unmarshal(api_config_json, &api_config_map)
+	json.Unmarshal([]byte(api_config_json), &api_config_map)
 }
 
 //func prepare_discovery_request(status_code int, body string) *httptest.Server {
@@ -43,24 +44,24 @@ func test_generate_discovery_doc_rest(t *testing.T) {
 	body := JsonObject{"baseUrl": baseUrl}
 	body_json, _ := json.Marshal(body)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, body_json)
+		fmt.Fprintf(w, string(body_json))
 	}))
 //	ts := prepare_discovery_request(200, body_json)
 	defer ts.Close()
 	_DISCOVERY_PROXY_HOST = ts.URL
 
 //	self.mox.ReplayAll()
-	doc, err := generate_discovery_doc(api_config_map, "rest")
+	doc, err := generate_discovery_doc(&api_config_map, "rest")
 //	self.mox.VerifyAll()
 
 	if err != nil {
 		t.Fail()
 	}
-	if doc == nil {
+	if doc == "" {
 		t.Fail()
 	}
 	var api_config JsonObject
-	err = json.Unmarshal(doc, api_config)
+	err = json.Unmarshal([]byte(doc), api_config)
 	if err != nil {
 		t.Fail()
 	}
@@ -74,24 +75,24 @@ func test_generate_discovery_doc_rpc(t *testing.T) {
 	body := JsonObject{"rpcUrl": rpcUrl}
 	body_json, _ := json.Marshal(body)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, body_json)
+		fmt.Fprintf(w, string(body_json))
 	}))
 //	ts := prepare_discovery_request(200, body_json)
 	defer ts.Close()
 	_DISCOVERY_PROXY_HOST = ts.URL
 
 //	self.mox.ReplayAll()
-	doc, err := generate_discovery_doc(api_config_map, "rpc")
+	doc, err := generate_discovery_doc(&api_config_map, "rpc")
 //	self.mox.VerifyAll()
 
 	if err != nil {
 		t.Fail()
 	}
-	if doc == nil {
+	if doc == "" {
 		t.Fail()
 	}
 	var api_config JsonObject
-	err = json.Unmarshal(doc, api_config)
+	err = json.Unmarshal([]byte(doc), api_config)
 	if err != nil {
 		t.Fail()
 	}
@@ -109,7 +110,7 @@ func test_generate_discovery_doc_invalid_format(t *testing.T) {
 	_DISCOVERY_PROXY_HOST = ts.URL
 //	_DISCOVERY_API_PATH_PREFIX = ""
 
-	_, err := generate_discovery_doc(api_config_map, "blah")
+	_, err := generate_discovery_doc(&api_config_map, "blah")
 	if err == nil {
 		t.Fail()
 	}
@@ -122,14 +123,17 @@ func test_generate_discovery_doc_bad_api_config(t *testing.T) {
 	defer ts.Close()
 	_DISCOVERY_PROXY_HOST = ts.URL
 
+	bad := &endpoints.ApiDescriptor{
+		Name: "none",
+	}
 //	mox.ReplayAll()
-	doc, err := generate_discovery_doc(`{ "name": "none" }`, "rpc")
+	doc, err := generate_discovery_doc(bad, "rpc")
 //	self.mox.VerifyAll()
 
 	if err == nil {
 		t.Fail()
 	}
-	if doc != nil {
+	if doc != "" {
 		t.Fail()
 	}
 }

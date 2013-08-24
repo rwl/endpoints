@@ -85,6 +85,10 @@ func NewEnumRejectionError(parameter_name, value string, allowed_values []string
 	}
 }
 
+func (err *EnumRejectionError) Error() string {
+	return err.RequestError.Message
+}
+
 // Error returned when the backend SPI returns an error code.
 type BackendError struct {
 	RequestError
@@ -117,4 +121,8 @@ func NewBackendError(response *http.Response) *BackendError {
 		},
 		errorInfo: error_info,
 	}
+}
+
+func (err *BackendError) Error() string {
+	return err.RequestError.Message
 }

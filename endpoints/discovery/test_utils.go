@@ -107,10 +107,11 @@ type MockEndpointsDispatcher struct {
 	*EndpointsDispatcher
 }
 
-func newMockEndpointsDispatcher() *MockEndpointsDispatcher {
+func newMockEndpointsDispatcher() (*MockEndpointsDispatcher, *MockDispatcher) {
+	server, dispatcher := set_up()
 	return &MockEndpointsDispatcher{
-		EndpointsDispatcher: set_up(),
-	}
+		EndpointsDispatcher: server,
+	}, dispatcher
 }
 
 func (ed *MockEndpointsDispatcher) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
@@ -123,10 +124,11 @@ type MockEndpointsDispatcherSPI struct {
 	*EndpointsDispatcher
 }
 
-func newMockEndpointsDispatcherSPI() *MockEndpointsDispatcherSPI {
+func newMockEndpointsDispatcherSPI() (*MockEndpointsDispatcherSPI, *MockDispatcher) {
+	server, dispatcher := set_up()
 	return &MockEndpointsDispatcherSPI{
-		EndpointsDispatcher: set_up(),
-	}
+		EndpointsDispatcher: server,
+	}, dispatcher
 }
 
 func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {

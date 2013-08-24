@@ -776,9 +776,9 @@ func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch b
 	}
 	var body []byte
 	if is_batch {
-		body, _ := json.MarshalIndent([]JsonObject{body_json}, "", "  ")
+		body, _ = json.MarshalIndent([]JsonObject{body_json}, "", "  ")
 	} else {
-		body, _ := json.MarshalIndent(body_json, "", "  ") // todo: sort keys
+		body, _ = json.MarshalIndent(body_json, "", "  ") // todo: sort keys
 	}
 	return string(body)
 }

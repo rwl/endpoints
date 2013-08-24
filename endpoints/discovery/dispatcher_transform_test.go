@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"reflect"
 )
 
 
@@ -36,11 +37,11 @@ func test_transform_request(t *testing.T) {
 		t.Fail()
 	}
 	var body_json interface{}
-	err = json.Unmarshal(string(body), body_json)
+	err = json.Unmarshal(body, body_json)
 	if err != nil {
 		t.Fail()
 	}
-	if expected_body != body_json {
+	if !reflect.DeepEqual(expected_body, body_json) {
 		t.Fail()
 	}
 	if "GuestbookApi.greetings_get" != new_request.URL.Path {
@@ -58,15 +59,18 @@ func test_transform_json_rpc_request(t *testing.T) {
 		nil,
 	)
 
-	new_request := server.transform_jsonrpc_request(orig_request)
-	expected_body := JsonObject{"sample": "body"}
-	body, err := ioutil.ReadAll(new_request.Body)
-	var body_json interface{}
-	err = json.Unmarshal(string(body), body_json)
+	new_request, err := server.transform_jsonrpc_request(orig_request)
 	if err != nil {
 		t.Fail()
 	}
-	if expected_body != body_json {
+	expected_body := JsonObject{"sample": "body"}
+	body, err := ioutil.ReadAll(new_request.Body)
+	var body_json interface{}
+	err = json.Unmarshal(body, body_json)
+	if err != nil {
+		t.Fail()
+	}
+	if !reflect.DeepEqual(expected_body, body_json) {
 		t.Fail()
 	}
 	if "42" != new_request.request_id {
@@ -86,12 +90,12 @@ func test_transform_json_rpc_request(t *testing.T) {
 //   expected: A dict with the expected JSON body after being transformed.
 //   method_params: Optional dictionary specifying the parameter configuration
 //     associated with the method.
-func transform_rest_request(server *EndpointsDispatcher, path_parameters,
-		query_parameters map[string]string, body_json JsonObject,
-		expected JsonObject, method_params map[string]string) error {
+func transform_rest_request(server *EndpointsDispatcher, path_parameters map[string]string,
+		query_parameters string, body_json JsonObject,
+		expected JsonObject, method_params map[string]*endpoints.ApiRequestParamSpec) error {
 
 	if method_params == nil {
-		method_params = make(map[string]string)
+		method_params = make(map[string]*endpoints.ApiRequestParamSpec)
 	}
 
 	test_request := build_request("/_ah/api/test", "", nil)
@@ -101,20 +105,26 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters,
 		return err
 	}
 	test_request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-	test_request.URL.Query = query_parameters
+	test_request.URL.RawQuery = query_parameters
 
-	transformed_request := server.transform_rest_request(test_request,
+	transformed_request, err := server.transform_rest_request(test_request,
 		path_parameters, method_params)
-
-	if expected != transformed_request.body_json {
-		return errors.New("JSON bodies do not match")
-	}
-	var tr_body_json interface{}
-	err = json.Unmarshal(transformed_request.Body, &tr_body_json)
 	if err != nil {
 		return err
 	}
-	if transformed_request.body_json != tr_body_json {
+	if !reflect.DeepEqual(expected, transformed_request.body_json) {
+		return errors.New("JSON bodies do not match")
+	}
+	var tr_body_json interface{}
+	body, err = ioutil.ReadAll(transformed_request.Body)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(body, &tr_body_json)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(transformed_request.body_json, tr_body_json) {
 		return errors.New("Transformed JSON bodies do not match")
 	}
 	return nil
@@ -124,8 +134,8 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters,
 
 func test_transform_rest_request_path_only(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"gid": "X"}
-	query_parameters := JsonObject{}
+	path_parameters := map[string]string{"gid": "X"}
+	query_parameters := ""
 	body_object := JsonObject{}
 	expected := JsonObject{"gid": "X"}
 	err := transform_rest_request(server, path_parameters,
@@ -137,10 +147,10 @@ func test_transform_rest_request_path_only(t *testing.T) {
 
 func test_transform_rest_request_path_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"gid.val": "X"}
-	query_parameters := JsonObject{}
+	path_parameters := map[string]string{"gid.val": "X"}
+	query_parameters := ""
 	body_object := JsonObject{}
-	expected := JsonObject{"gid": {"val": "X"}}
+	expected := JsonObject{"gid": JsonObject{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	if err != nil {
@@ -150,17 +160,19 @@ func test_transform_rest_request_path_only_message_field(t *testing.T) {
 
 func test_transform_rest_request_path_only_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
-	query_parameters := JsonObject{}
+	query_parameters := ""
 	body_object := JsonObject{}
-	enum_descriptor := JsonObject{
-		"X": JsonObject{"backendValue": "X"},
+	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
+		"X": &endpoints.ApiEnumParamSpec{BackendVal: "X"},
 	}
-	method_params := JsonObject{
-		"gid": JsonObject{"enum": enum_descriptor},
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"gid": &endpoints.ApiRequestParamSpec{
+			Enum: enum_descriptor,
+		},
 	}
 
 	// Good enum
-	path_parameters := JsonObject{"gid": "X"}
+	path_parameters := map[string]string{"gid": "X"}
 	expected := JsonObject{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, /*method_params=*/method_params)
@@ -169,16 +181,16 @@ func test_transform_rest_request_path_only_enum(t *testing.T) {
 	}
 
 	// Bad enum
-	expected_path_parameters := JsonObject{"gid": "Y"}
+	expected_path_parameters := map[string]string{"gid": "Y"}
 	expected_body := JsonObject{"gid": "Y"}
 	err = transform_rest_request(server, expected_path_parameters, query_parameters,
 		body_object, expected_body, /*method_params=*/method_params)
 	if err == nil {
-		t.Fail("Bad enum should have caused failure.")
-	} else if _, ok := err.(EnumRejectionError); !ok {
-		t.Fail("Bad enum should have caused failure.")
+		t.Error("Bad enum should have caused failure.")
+	} else if _, ok := err.(*EnumRejectionError); !ok {
+		t.Error("Bad enum should have caused failure.")
 	} else {
-		enum_error := err.(EnumRejectionError)
+		enum_error := err.(*EnumRejectionError)
 		if enum_error.parameter_name != "gid" {
 			t.Fail()
 		}
@@ -189,8 +201,8 @@ func test_transform_rest_request_path_only_enum(t *testing.T) {
 
 func test_transform_rest_request_query_only(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"foo": []string{"bar"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "foo=bar"
 	body_object := JsonObject{}
 	expected := JsonObject{"foo": "bar"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -202,8 +214,8 @@ func test_transform_rest_request_query_only(t *testing.T) {
 
 func test_transform_rest_request_query_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"gid.val": []string{"X"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "gid.val=X"
 	body_object := JsonObject{}
 	expected := JsonObject{"gid": JsonObject{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -215,8 +227,8 @@ func test_transform_rest_request_query_only_message_field(t *testing.T) {
 
 func test_transform_rest_request_query_only_multiple_values_not_repeated(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"foo": []string{"bar", "baz"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "foo=bar,baz" // todo: check query form
 	body_object := JsonObject{}
 	expected := JsonObject{"foo": "bar"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -228,10 +240,12 @@ func test_transform_rest_request_query_only_multiple_values_not_repeated(t *test
 
 func test_transform_rest_request_query_only_multiple_values_repeated(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"foo": []string{"bar", "baz"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "foo=bar,baz"
 	body_object := JsonObject{}
-	method_params := JsonObject{"foo": {"repeated": true}}
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"foo": &endpoints.ApiRequestParamSpec{Repeated: true},
+	}
 	expected := JsonObject{"foo": []string{"bar", "baz"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
@@ -242,13 +256,19 @@ func test_transform_rest_request_query_only_multiple_values_repeated(t *testing.
 
 func test_transform_rest_request_query_only_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
+	path_parameters := make(map[string]string)
 	body_object := JsonObject{}
-	enum_descriptor := JsonObject{"X": JsonObject{"backendValue": "X"}}
-	method_params := JsonObject{"gid": JsonObject{"enum": enum_descriptor}}
+	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
+		"X": &endpoints.ApiEnumParamSpec{BackendVal: "X"},
+	}
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"gid": &endpoints.ApiRequestParamSpec{
+			Enum: enum_descriptor,
+		},
+	}
 
 	// Good enum
-	query_parameters := JsonObject{"gid": []string{"X"}}
+	query_parameters := "gid=X"
 	expected := JsonObject{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
@@ -257,16 +277,16 @@ func test_transform_rest_request_query_only_enum(t *testing.T) {
 	}
 
 	// Bad enum
-	query_parameters = JsonObject{"gid": []string{"Y"}}
+	query_parameters = "gid=Y"
 	expected = JsonObject{"gid": "Y"}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, /*method_params=*/method_params)
 	if err == nil {
-		t.Fail("Bad enum should have caused failure.")
-	} else if _, ok := err.(EnumRejectionError); !ok {
-		t.Fail("Bad enum should have caused failure.")
+		t.Error("Bad enum should have caused failure.")
+	} else if _, ok := err.(*EnumRejectionError); !ok {
+		t.Error("Bad enum should have caused failure.")
 	} else {
-		enum_err := err.(EnumRejectionError)
+		enum_err := err.(*EnumRejectionError)
 		if enum_err.parameter_name != "gid" {
 			t.Fail()
 		}
@@ -275,18 +295,21 @@ func test_transform_rest_request_query_only_enum(t *testing.T) {
 
 func test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
+	path_parameters := make(map[string]string)
 	body_object := JsonObject{}
-	enum_descriptor := JsonObject{
-		"X": JsonObject{"backendValue": "X"},
-		"Y": {"backendValue": "Y"},
+	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
+		"X": &endpoints.ApiEnumParamSpec{BackendVal: "X"},
+		"Y": &endpoints.ApiEnumParamSpec{BackendVal: "Y"},
 	}
-	method_params := JsonObject{
-		"gid": {"enum": enum_descriptor, "repeated": true},
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"gid": &endpoints.ApiRequestParamSpec{
+			Enum: enum_descriptor,
+			Repeated: true,
+		},
 	}
 
 	// Good enum
-	query_parameters := JsonObject{"gid": []string{"X", "Y"}}
+	query_parameters := "gid=X,Y"
 	expected := JsonObject{"gid": []string{"X", "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
@@ -295,16 +318,16 @@ func test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 	}
 
 	// Bad enum
-	query_parameters = JsonObject{"gid": []string{"X", "Y", "Z"}}
+	query_parameters = "gid=X,Y,Z"
 	expected = JsonObject{"gid": []string{"X", "Y", "Z"}}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	if err == nil {
-		t.Fail("Bad enum should have caused failure.")
-	} else if _, ok := err.(EnumRejectionError); !ok {
-		t.Fail("Bad enum should have caused failure.")
+		t.Error("Bad enum should have caused failure.")
+	} else if _, ok := err.(*EnumRejectionError); !ok {
+		t.Error("Bad enum should have caused failure.")
 	} else {
-		enum_err := err.(EnumRejectionError)
+		enum_err := err.(*EnumRejectionError)
 		if enum_err.parameter_name != "gid[2]" {
 			t.Fail()
 		}
@@ -315,8 +338,8 @@ func test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 
 func test_transform_rest_request_body_only(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{}
+	path_parameters := make(map[string]string)
+	query_parameters := ""
 	body_object := JsonObject{"sample": "body"}
 	expected := JsonObject{"sample": "body"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -328,8 +351,8 @@ func test_transform_rest_request_body_only(t *testing.T) {
 
 func test_transform_rest_request_body_only_any_old_value(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{}
+	path_parameters := make(map[string]string)
+	query_parameters := ""
 	body_object := JsonObject{
 		"sample": JsonObject{
 			"body": []string{"can", "be", "anything"},
@@ -349,8 +372,8 @@ func test_transform_rest_request_body_only_any_old_value(t *testing.T) {
 
 func test_transform_rest_request_body_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{}
+	path_parameters := make(map[string]string)
+	query_parameters := ""
 	body_object := JsonObject{"gid": JsonObject{"val": "X"}}
 	expected := JsonObject{"gid": JsonObject{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -362,13 +385,15 @@ func test_transform_rest_request_body_only_message_field(t *testing.T) {
 
 func test_transform_rest_request_body_only_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{}
-	enum_descriptor := JsonObject{
-		"X": JsonObject{"backendValue": "X"},
+	path_parameters := make(map[string]string)
+	query_parameters := ""
+	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
+		"X": &endpoints.ApiEnumParamSpec{BackendVal: "X"},
 	}
-	method_params := JsonObject{
-		"gid": JsonObject{"enum": enum_descriptor},
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"gid": &endpoints.ApiRequestParamSpec{
+			Enum: enum_descriptor,
+		},
 	}
 
 	// Good enum
@@ -394,8 +419,8 @@ func test_transform_rest_request_body_only_enum(t *testing.T) {
 
 func test_transform_rest_request_path_query_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{"c": []string{"d"}}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := "c=d"
 	body_object := JsonObject{}
 	expected := JsonObject{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -407,8 +432,8 @@ func test_transform_rest_request_path_query_no_collision(t *testing.T) {
 
 func test_transform_rest_request_path_query_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{"a": []string{"d"}}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := "a=d"
 	body_object := JsonObject{}
 	expected := JsonObject{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -420,11 +445,14 @@ func test_transform_rest_request_path_query_collision(t *testing.T) {
 
 func test_transform_rest_request_path_query_collision_in_repeated_param(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{"a": []string{"d", "c"}}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := "a=d,c"
 	body_object := JsonObject{}
 	expected := JsonObject{"a": []string{"d", "c", "b"}}
-	method_params := JsonObject{"a": JsonObject{"repeated": true}}
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"a": &endpoints.ApiRequestParamSpec{Repeated: true},
+	}
+
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	if err != nil {
@@ -436,8 +464,8 @@ func test_transform_rest_request_path_query_collision_in_repeated_param(t *testi
 
 func test_transform_rest_request_path_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := ""
 	body_object := JsonObject{"c": "d"}
 	expected := JsonObject{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -449,8 +477,8 @@ func test_transform_rest_request_path_body_no_collision(t *testing.T) {
 
 func test_transform_rest_request_path_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := ""
 	body_object := JsonObject{"a": "d"}
 	expected := JsonObject{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -462,11 +490,13 @@ func test_transform_rest_request_path_body_collision(t *testing.T) {
 
 func test_transform_rest_request_path_body_collision_in_repeated_param(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := ""
 	body_object := JsonObject{"a": []string{"d"}}
 	expected := JsonObject{"a": []string{"d"}}
-	method_params := JsonObject{"a": JsonObject{"repeated": true}}
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"a": &endpoints.ApiRequestParamSpec{Repeated: true},
+	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	if err != nil {
@@ -476,8 +506,8 @@ func test_transform_rest_request_path_body_collision_in_repeated_param(t *testin
 
 func test_transform_rest_request_path_body_message_field_cooperative(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"gid.val1": "X"}
-	query_parameters := JsonObject{}
+	path_parameters := map[string]string{"gid.val1": "X"}
+	query_parameters := ""
 	body_object := JsonObject{"gid": JsonObject{"val2": "Y"}}
 	expected := JsonObject{"gid": JsonObject{"val1": "X", "val2": "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -489,8 +519,8 @@ func test_transform_rest_request_path_body_message_field_cooperative(t *testing.
 
 func test_transform_rest_request_path_body_message_field_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"gid.val": "X"}
-	query_parameters := JsonObject{}
+	path_parameters := map[string]string{"gid.val": "X"}
+	query_parameters := ""
 	body_object := JsonObject{"gid": JsonObject{"val": "Y"}}
 	expected := JsonObject{"gid": JsonObject{"val": "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -504,8 +534,8 @@ func test_transform_rest_request_path_body_message_field_collision(t *testing.T)
 
 func test_transform_rest_request_query_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"a": []string{"b"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "a=b"
 	body_object := JsonObject{"c": "d"}
 	expected := JsonObject{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -517,8 +547,8 @@ func test_transform_rest_request_query_body_no_collision(t *testing.T) {
 
 func test_transform_rest_request_query_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"a": []string{"b"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "a=b"
 	body_object := JsonObject{"a": "d"}
 	expected := JsonObject{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -530,11 +560,13 @@ func test_transform_rest_request_query_body_collision(t *testing.T) {
 
 func test_transform_rest_request_query_body_collision_in_repeated_param(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"a": []string{"b"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "a=b"
 	body_object := JsonObject{"a": []string{"d"}}
 	expected := JsonObject{"a": []string{"d"}}
-	method_params := JsonObject{"a": JsonObject{"repeated": true}}
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"a": &endpoints.ApiRequestParamSpec{Repeated: true},
+	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	if err != nil {
@@ -544,8 +576,8 @@ func test_transform_rest_request_query_body_collision_in_repeated_param(t *testi
 
 func test_transform_rest_request_query_body_message_field_cooperative(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"gid.val1": []string{"X"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "gid.val1=X"
 	body_object := JsonObject{"gid": JsonObject{"val2": "Y"}}
 	expected := JsonObject{"gid": JsonObject{"val1": "X", "val2": "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -557,14 +589,14 @@ func test_transform_rest_request_query_body_message_field_cooperative(t *testing
 
 func test_transform_rest_request_query_body_message_field_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{}
-	query_parameters := JsonObject{"gid.val": []string{"X"}}
+	path_parameters := make(map[string]string)
+	query_parameters := "gid.val=X"
 	body_object := JsonObject{"gid": JsonObject{"val": "Y"}}
 	expected := JsonObject{"gid": JsonObject{"val": "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	if err != nil {
-		t.Fai()
+		t.Fail()
 	}
 }
 
@@ -572,8 +604,8 @@ func test_transform_rest_request_query_body_message_field_collision(t *testing.T
 
 func test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{"c": []string{"d"}}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := "c=d"
 	body_object := JsonObject{"e": "f"}
 	expected := JsonObject{"a": "b", "c": "d", "e": "f"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -585,8 +617,8 @@ func test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
 
 func test_transform_rest_request_path_query_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{"a": []string{"d"}}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := "a=d"
 	body_object := JsonObject{"a": "f"}
 	expected := JsonObject{"a": "f"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -598,11 +630,14 @@ func test_transform_rest_request_path_query_body_collision(t *testing.T) {
 
 func test_transform_rest_request_unknown_parameters(t *testing.T) {
 	server := setUpTransformRequestTests()
-	path_parameters := JsonObject{"a": "b"}
-	query_parameters := JsonObject{"c": []string{"d"}}
+	path_parameters := map[string]string{"a": "b"}
+	query_parameters := "c=d"
 	body_object := JsonObject{"e": "f"}
 	expected := JsonObject{"a": "b", "c": "d", "e": "f"}
-	method_params := JsonObject{"X": JsonObject{}, "Y": JsonObject{}}
+	method_params := map[string]*endpoints.ApiRequestParamSpec{
+		"X": &endpoints.ApiRequestParamSpec{},
+		"Y": &endpoints.ApiRequestParamSpec{},
+	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	if err != nil {

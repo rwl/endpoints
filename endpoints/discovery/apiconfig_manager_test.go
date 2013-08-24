@@ -406,7 +406,6 @@ func test_valid_variable_name(t *testing.T) {
 //   param_path: A string, the parameterized path pattern to match against
 //     this path.
 func assert_no_match(t *testing.T, path, param_path string) {
-	config_manager := NewApiConfigManager()
 	re, err := compile_path_pattern(param_path)
 	if err != nil {
 		t.Fail()
@@ -447,7 +446,6 @@ func test_no_match_collection_with_item(t *testing.T) {
 // Returns:
 //   Dict mapping path variable name to path variable value.
 func assert_match(t *testing.T, path, param_path string, param_count int) map[string]string {
-	config_manager := NewApiConfigManager()
 	re, err := compile_path_pattern(param_path)
 	if err != nil {
 		t.Fail()
@@ -511,7 +509,6 @@ func test_message_and_simple_variable_match(t *testing.T) {
 func assert_invalid_value(t *testing.T, value string) {
 	param_path := "/abc/{x}"
 	path := fmt.Sprintf("/abc/%s", value)
-	config_manager := NewApiConfigManager()
 	re, err := compile_path_pattern(param_path)
 	if err != nil {
 		t.Fail()
@@ -525,6 +522,6 @@ func assert_invalid_value(t *testing.T, value string) {
 func test_invalid_values(t *testing.T) {
 	reserved := []string{":", "?", "#", "[", "]", "{", "}"}
 	for _, r := range reserved {
-		assert_invalid_value(t, fmt.Sprintf("123%s", reserved))
+		assert_invalid_value(t, fmt.Sprintf("123%s", r))
 	}
 }

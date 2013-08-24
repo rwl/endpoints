@@ -8,29 +8,31 @@ import (
 	"net/http"
 	"io/ioutil"
 	"bytes"
+	"reflect"
 	"github.com/stretchr/testify/mock"
 	"net/http/httptest"
 	"github.com/crhym3/go-endpoints/endpoints"
 )
 
-func set_up() *EndpointsDispatcher {
+func set_up() (*EndpointsDispatcher, *MockDispatcher) {
 	config_manager := NewApiConfigManager()
 	mock_dispatcher := new(MockDispatcher)
-	return NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
+	server := NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
+	return server, mock_dispatcher
 }
 
-func prepare_dispatch(mock_dispatcher Dispatcher, config JsonObject) {
+func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDescriptor) {
 	// The dispatch call will make a call to get_api_configs, making a
 	// dispatcher request. Set up that request.
-	req, err := http.NewRequest("POST",
+	req, _ := http.NewRequest("POST",
 		_SERVER_SOURCE_IP + "/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	req.Header.Set("Content-Type", "application/json")
 
-	response_body, err := json.Marshal(JsonObject{
-		"items": []JsonObject{config},
+	response_body, _ := json.Marshal(JsonObject{
+		"items": []*endpoints.ApiDescriptor{config},
 	})
-	header := new(http.Header)
+	header := make(http.Header)
 	header.Set("Content-Type", "application/json")
 	header.Set("Content-Length", string(len(response_body)))
 	resp := &http.Response{
@@ -58,8 +60,8 @@ func prepare_dispatch(mock_dispatcher Dispatcher, config JsonObject) {
 //     empty response.
 func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spi_path string,
 		expected_spi_body_json JsonObject) {
-	server := newMockEndpointsDispatcher()
-	prepare_dispatch(server.dispatcher, config)
+	server, dispatcher := newMockEndpointsDispatcher()
+	prepare_dispatch(dispatcher, config)
 
 	w := httptest.NewRecorder()
 
@@ -75,11 +77,14 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 
 	// todo: compare a string of a JSON object to a JSON object
 	spi_body, err := json.Marshal(spi_body_json)
+	if err != nil {
+		t.Fail()
+	}
 
 	spi_request, err := http.NewRequest(
 		"POST",
 		request.RemoteAddr + spi_path,
-		ioutil.NopCloser(bytes.NewBufferString(spi_body)),
+		ioutil.NopCloser(bytes.NewBuffer(spi_body)),
 	)
 	spi_request.Header.Set("Content-Type", "application/json")
 
@@ -93,7 +98,7 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 //	mock_dispatcher.add_request(
 //		"POST", spi_path, spi_headers, JsonMatches(spi_body_json),
 //		request.source_ip).AndReturn(spi_response)
-	server.dispatcher.On("Do", spi_request).Return(spi_response, nil)
+	dispatcher.On("Do", spi_request).Return(spi_response, nil)
 
 	server.On(
 		"handle_spi_response",
@@ -109,7 +114,7 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 
 	// Run the test.
 //	mox.ReplayAll()
-	response := server.dispatch(request, w)
+	response := server.dispatch(w, request.Request)
 //	mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
@@ -119,37 +124,72 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 }
 
 func test_dispatch_invalid_path(t *testing.T) {
-	server := set_up()
-	config, _ := json.Marshal(JsonObject{
+	server, dispatcher := set_up()
+	config := &endpoints.ApiDescriptor{
+		Name: "guestbook_api",
+		Version: "v1",
+		Methods: map[string]*endpoints.ApiMethod{
+			"guestbook.get": &endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path: "greetings/{gid}",
+				RosyMethod: "MyApi.greetings_get",
+			},
+		},
+	}
+	/*config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "v1",
-		"methods": {
-			"guestbook.get": {
+		"methods": JsonObject{
+			"guestbook.get": JsonObject{
 				"httpMethod": "GET",
 				"path": "greetings/{gid}",
 				"rosyMethod": "MyApi.greetings_get",
 			},
 		},
-	})
+	})*/
 	request := build_request("/_ah/api/foo", "", nil)
-	prepare_dispatch(server.dispatcher, config)
+	prepare_dispatch(dispatcher, config)
 
 	w := httptest.NewRecorder()
 
 //	mox.ReplayAll()
-	response := server.dispatch(request, w)
+	server.dispatch(w, request.Request)
 //	mox.VerifyAll()
-	server.Mock.AssertExpectations(t)
+	dispatcher.Mock.AssertExpectations(t)
 
-	header := new(http.Header)
+	header := make(http.Header)
 	header.Set("Content-Type", "text/plain")
 	header.Set("Content-Length", "9")
-	assert_http_match(t, response, 404, header, "Not Found")
+	assert_http_match_recorder(t, w, 404, header, "Not Found")
 }
 
 func test_dispatch_invalid_enum(t *testing.T) {
-	server := set_up()
-	config, _ := json.Marshal(JsonObject{
+	server, dispatcher := set_up()
+	config := &endpoints.ApiDescriptor{
+		Name: "guestbook_api",
+		Version: "v1",
+		Methods: map[string]*endpoints.ApiMethod{
+			"guestbook.get": &endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path: "greetings/{gid}",
+				RosyMethod: "MyApi.greetings_get",
+				Request: endpoints.ApiReqRespDescriptor{
+					Body: "empty",
+					Params: map[string]*endpoints.ApiRequestParamSpec{
+						"gid": &endpoints.ApiRequestParamSpec{
+							Enum: map[string]*endpoints.ApiEnumParamSpec{
+								"X": &endpoints.ApiEnumParamSpec{
+									BackendVal: "X",
+								},
+							},
+							Type: "string",
+						},
+					},
+				},
+			},
+		},
+	}
+	/*config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "v1",
 		"methods": {
@@ -172,16 +212,16 @@ func test_dispatch_invalid_enum(t *testing.T) {
 				},
 			},
 		},
-	})
+	})*/
 
 	w := httptest.NewRecorder()
 
 	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
-	prepare_dispatch(server.dispatcher, config)
+	prepare_dispatch(dispatcher, config)
 //	mox.ReplayAll()
-	server.dispatch(request, w)
+	server.dispatch(w, request.Request)
 //	mox.VerifyAll()
-	server.Mock.AssertExpectations(t)
+	dispatcher.Mock.AssertExpectations(t)
 
 	t.Logf("Config %s", server.config_manager.configs)
 
@@ -213,7 +253,7 @@ func test_dispatch_invalid_enum(t *testing.T) {
 	if 1 != len(errors_json) {
 		t.Fail()
 	}
-	if "gid" != errors_json["location"] {
+	if "gid" != errors_json[0]["location"] {
 		t.Fail()
 	}
 	if "invalidParameter" != errors_json[0]["reason"] {
@@ -223,8 +263,19 @@ func test_dispatch_invalid_enum(t *testing.T) {
 
 // Check the error response if the SPI returns an error.
 func test_dispatch_spi_error(t *testing.T) {
-	server := newMockEndpointsDispatcherSPI()
-	config, _ := json.Marshal(JsonObject{
+	server, dispatcher := newMockEndpointsDispatcherSPI()
+	config := &endpoints.ApiDescriptor{
+		Name: "guestbook_api",
+		Version: "v1",
+		Methods: map[string]*endpoints.ApiMethod{
+			"guestbook.get": &endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path: "greetings/{gid}",
+				RosyMethod: "MyApi.greetings_get",
+			},
+		},
+	}
+	/*config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "v1",
 		"methods": JsonObject{
@@ -234,9 +285,9 @@ func test_dispatch_spi_error(t *testing.T) {
 				"rosyMethod": "MyApi.greetings_get",
 			},
 		},
-	})
+	})*/
 	request := build_request("/_ah/api/foo", "", nil)
-	prepare_dispatch(server.dispatcher, config)
+	prepare_dispatch(dispatcher, config)
 
 	w := httptest.NewRecorder()
 
@@ -261,9 +312,10 @@ func test_dispatch_spi_error(t *testing.T) {
 //	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
 //	mox.ReplayAll()
-	server.dispatch(request, w)
+	server.dispatch(w, request.Request)
 //	self.mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
+//	dispatcher.Mock.AssertExpectations(t)
 
 	expected_response := `{
  "error": {
@@ -278,7 +330,7 @@ func test_dispatch_spi_error(t *testing.T) {
   "message": "Test error"
  }
 }`
-	header := new(http.Header)
+	header := make(http.Header)
 	header.Set("Content-Type", "application/json")
 	header.Set("Content-Length", fmt.Sprintf("%d", len(expected_response)))
 	assert_http_match_recorder(t, w, 404, header, expected_response)
@@ -286,8 +338,19 @@ func test_dispatch_spi_error(t *testing.T) {
 
 // Test than an RPC call that returns an error is handled properly.
 func test_dispatch_rpc_error(t *testing.T) {
-	server := newMockEndpointsDispatcherSPI()
-	config, _ := json.Marshal(JsonObject{
+	server, dispatcher := newMockEndpointsDispatcherSPI()
+	config := &endpoints.ApiDescriptor{
+		Name: "guestbook_api",
+		Version: "v1",
+		Methods: map[string]*endpoints.ApiMethod{
+			"guestbook.get": &endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path: "greetings/{gid}",
+				RosyMethod: "MyApi.greetings_get",
+			},
+		},
+	}
+	/*config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "v1",
 		"methods": {
@@ -297,13 +360,13 @@ func test_dispatch_rpc_error(t *testing.T) {
 				"rosyMethod": "MyApi.greetings_get",
 			},
 		},
-	})
+	})*/
 	request := build_request(
 		"/_ah/api/rpc",
 		`{"method": "foo.bar", "apiVersion": "X", "id": "gapiRpc"}`,
 		nil,
 	)
-	prepare_dispatch(server.dispatcher, config)
+	prepare_dispatch(dispatcher, config)
 
 	w := httptest.NewRecorder()
 
@@ -313,9 +376,9 @@ func test_dispatch_rpc_error(t *testing.T) {
 		Status: "404 Not Found",
 		StatusCode: 404,
 		Body: ioutil.NopCloser(
-		bytes.NewBufferString(
-		`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
-		),
+			bytes.NewBufferString(
+				`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
+			),
 		),
 	}
 //	response = dispatcher.ResponseTuple("404 Not Found", [],
@@ -329,12 +392,12 @@ func test_dispatch_rpc_error(t *testing.T) {
 //	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
 //	mox.ReplayAll()
-	response_body := server.dispatch(request, w)
+	response_body := server.dispatch(w, request.Request)
 //	mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
 	expected_response := JsonObject{
-		"error": {
+		"error": JsonObject{
 			"code": 404,
 			"message": "Test error",
 			"data": []JsonObject{
@@ -351,17 +414,28 @@ func test_dispatch_rpc_error(t *testing.T) {
 		t.Fail()
 	}
 	var response_json interface{}
-	err := json.Unmarshal(response_body, &response_json)
+	err := json.Unmarshal([]byte(response_body), &response_json)
 	if err != nil {
 		t.Fail()
 	}
-	if expected_response != response_json {
+	if !reflect.DeepEqual(expected_response, response_json) {
 		t.Fail()
 	}
 }
 
 func test_dispatch_json_rpc(t *testing.T) {
-	config, _ := json.Marshal(JsonObject{
+	config := &endpoints.ApiDescriptor{
+		Name: "guestbook_api",
+		Version: "X",
+		Methods: map[string]*endpoints.ApiMethod{
+			"foo.bar": &endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path: "greetings/{gid}",
+				RosyMethod: "baz.bim",
+			},
+		},
+	}
+	/*config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "X",
 		"methods": {
@@ -371,7 +445,7 @@ func test_dispatch_json_rpc(t *testing.T) {
 				"rosyMethod": "baz.bim",
 			},
 		},
-	})
+	})*/
 	request := build_request(
 		"/_ah/api/rpc",
 		`{"method": "foo.bar", "apiVersion": "X"}`,
@@ -381,7 +455,18 @@ func test_dispatch_json_rpc(t *testing.T) {
 }
 
 func test_dispatch_rest(t *testing.T) {
-	config, _ := json.Marshal(JsonObject{
+	config := &endpoints.ApiDescriptor{
+		Name: "myapi",
+		Version: "v1",
+		Methods: map[string]*endpoints.ApiMethod{
+			"bar": &endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path: "foo/{id}",
+				RosyMethod: "baz.bim",
+			},
+		},
+	}
+	/*config, _ := json.Marshal(JsonObject{
 		"name": "myapi",
 		"version": "v1",
 		"methods": {
@@ -391,21 +476,21 @@ func test_dispatch_rest(t *testing.T) {
 				"rosyMethod": "baz.bim",
 			},
 		},
-	})
+	})*/
 	request := build_request("/_ah/api/myapi/v1/foo/testId", "", nil)
 	assert_dispatch_to_spi(t, request, config, "/_ah/spi/baz.bim",
 		JsonObject{"id": "testId"})
 }
 
 func test_explorer_redirect(t *testing.T) {
-	server := set_up()
+	server, _ := set_up()
 	w := httptest.NewRecorder()
 	request := build_request("/_ah/api/explorer", "", nil)
-	response := server.dispatch(request, w)
-	header := new(http.Header)
+	server.dispatch(w, request.Request)
+	header := make(http.Header)
 	header.Set("Content-Length", "0")
 	header.Set("Location", "https://developers.google.com/apis-explorer/?base=http://localhost:42/_ah/api")
-	assert_http_match(t, response, 302, header, "")
+	assert_http_match_recorder(t, w, 302, header, "")
 }
 
 //func test_static_existing_file(t *testing.T) {
@@ -474,11 +559,11 @@ func test_explorer_redirect(t *testing.T) {
 }*/
 
 func test_handle_non_json_spi_response(t *testing.T) {
-	server := set_up()
+	server, _ := set_up()
 	w := httptest.NewRecorder()
 	orig_request := build_request("/_ah/api/fake/path", "", nil)
 	spi_request := orig_request.copy()
-	header := new(http.Header)
+	header := make(http.Header)
 	header.Set("Content-type", "text/plain")
 	spi_response := &http.Response{
 		Header: header,
@@ -486,27 +571,37 @@ func test_handle_non_json_spi_response(t *testing.T) {
 		StatusCode: 200,
 		Status: "200 OK",
 	}
-	response := server.handle_spi_response(orig_request, spi_request,
-		spi_response, w)
+	server.handle_spi_response(orig_request, spi_request, spi_response, w)
 	error_json := JsonObject{
-		"error": {
+		"error": JsonObject{
 			"message": "Non-JSON reply: This is an invalid response.",
 		},
 	}
 	body_bytes, _ := json.Marshal(error_json)
 	body := string(body_bytes)
-	expected_header := Header{
-		"Content-Type", "application/json",
-		"Content-Length", fmt.Sprintf("%d", len(body)),
+	expected_header := http.Header{
+		"Content-Type": []string{"application/json"},
+		"Content-Length": []string{fmt.Sprintf("%d", len(body))},
 	}
-	assert_http_match(t, response, 500, expected_header, body)
+	assert_http_match_recorder(t, w, 500, expected_header, body)
 }
 
 // Verify Lily protocol correctly uses python method name.
 //
 // This test verifies the fix to http://b/7189819
 func test_lily_uses_python_method_name(t *testing.T) {
-	config, _ := json.Marshal(JsonObject{
+	config := &endpoints.ApiDescriptor{
+		Name: "guestbook_api",
+		Version: "X",
+		Methods: map[string]*endpoints.ApiMethod{
+			"author.greeting.info.get": &endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path: "authors/{aid}/greetings/{gid}/infos/{iid}",
+				RosyMethod: "InfoService.get",
+			},
+		},
+	}
+	/*config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
 		"version": "X",
 		"methods": {
@@ -516,7 +611,7 @@ func test_lily_uses_python_method_name(t *testing.T) {
 				"rosyMethod": "InfoService.get",
 			},
 		},
-	})
+	})*/
 	request := build_request(
 		"/_ah/api/rpc",
 		`{"method": "author.greeting.info.get", "apiVersion": "X"}`,
@@ -527,7 +622,7 @@ func test_lily_uses_python_method_name(t *testing.T) {
 
 // Verify headers transformed, JsonRpc response transformed, written.
 func test_handle_spi_response_json_rpc(t *testing.T) {
-	server := set_up()
+	server, _ := set_up()
 	w := httptest.NewRecorder()
 	orig_request := build_request(
 		"/_ah/api/rpc",
@@ -542,13 +637,16 @@ func test_handle_spi_response_json_rpc(t *testing.T) {
 	spi_response := &http.Response{
 		Status: "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"a": "b"},
+		Header: http.Header{"a": []string{"b"}},
 		Body: ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
 	}
 
-	response := server.handle_spi_response(orig_request, spi_request,
+	response, err := server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
 //	response = "".join(response)  // Merge response iterator into single body.
+	if err != nil {
+		t.Fail()
+	}
 
 	if w.Code != 200 {
 		t.Fail()
@@ -564,25 +662,25 @@ func test_handle_spi_response_json_rpc(t *testing.T) {
 		"result": JsonObject{"some": "response"},
 	}
 	var response_json interface{}
-	err := json.Unmarshal(response, &response_json)
+	err = json.Unmarshal([]byte(response), &response_json)
 	if err != nil {
 		t.Fail()
 	}
-	if expected_response != response_json {
+	if !reflect.DeepEqual(expected_response, response_json) {
 		t.Fail()
 	}
 }
 
 // Verify that batch requests have an appropriate batch response.
 func test_handle_spi_response_batch_json_rpc(t *testing.T) {
-	server := set_up()
+	server, _ := set_up()
 	w := httptest.NewRecorder()
 	orig_request := build_request(
 		"/_ah/api/rpc",
 		`[{"method": "foo.bar", "apiVersion": "X"}]`,
 		nil,
 	)
-	if !orig_request.is_batch() {
+	if !orig_request.is_batch {
 		t.Fail()
 	}
 	if !orig_request.is_rpc() {
@@ -593,13 +691,16 @@ func test_handle_spi_response_batch_json_rpc(t *testing.T) {
 	spi_response := &http.Response{
 		Status: "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"a": "b"},
+		Header: http.Header{"a": []string{"b"}},
 		Body: ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
 	}
 
-	response := server.handle_spi_response(orig_request, spi_request,
+	response, err := server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
 //	response = "".join(response)  // Merge response iterator into single body.
+	if err != nil {
+		t.Fail()
+	}
 
 	if w.Code != 200 {
 		t.Fail()
@@ -615,17 +716,17 @@ func test_handle_spi_response_batch_json_rpc(t *testing.T) {
 		"result": JsonObject{"some": "response"},
 	}
 	var response_json interface{}
-	err := json.Unmarshal(response, &response_json)
+	err = json.Unmarshal([]byte(response), &response_json)
 	if err != nil {
 		t.Fail()
 	}
-	if expected_response != response_json {
+	if !reflect.DeepEqual(expected_response, response_json) {
 		t.Fail()
 	}
 }
 
 func test_handle_spi_response_rest(t *testing.T) {
-	server := set_up()
+	server, _ := set_up()
 	w := httptest.NewRecorder()
 	orig_request := build_request("/_ah/api/test", "{}", nil)
 	spi_request := orig_request.copy()
@@ -633,36 +734,43 @@ func test_handle_spi_response_rest(t *testing.T) {
 	spi_response := &http.Response{
 		Status: "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"a": "b"},
+		Header: http.Header{"a": []string{"b"}},
 		Body: ioutil.NopCloser(bytes.NewBuffer(body)),
 	}
-	response := server.handle_spi_response(orig_request, spi_request,
+	_, err := server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
-	header := http.Header{
-		"a": "b",
-		"Content-Length": fmt.Sprintf("%d" % len(body)),
+	if err != nil {
+		t.Fail()
 	}
-	assert_http_match(t, response, 200, header, body)
+	header := http.Header{
+		"a": []string{"b"},
+		"Content-Length": []string{fmt.Sprintf("%d", len(body))},
+	}
+	assert_http_match_recorder(t, w, 200, header, string(body))
 }
 
 // Verify the response is reformatted correctly.
 func test_transform_rest_response(t *testing.T) {
-	server := set_up()
+	server, _ := set_up()
 	orig_response := `{"sample": "test", "value1": {"value2": 2}}`
-	expected_response := (`{
+	expected_response := `{
  "sample": "test",
  "value1": {
   "value2": 2
  }
-}`)
-	if expected_response != server.transform_rest_response(orig_response) {
+}`
+	response, err := server.transform_rest_response(orig_response)
+	if err != nil {
+		t.Fail()
+	}
+	if expected_response != response {
 		t.Fail()
 	}
 }
 
 // Verify request_id inserted into the body, and body into body.result.
 func test_transform_json_rpc_response_batch(t *testing.T) {
-	server := set_up()
+	server, _ := set_up()
 	orig_request := build_request(
 		"/_ah/api/rpc",
 		`[{"params": {"sample": "body"}, "id": "42"}]`,
@@ -671,7 +779,10 @@ func test_transform_json_rpc_response_batch(t *testing.T) {
 	request := orig_request.copy()
 	request.request_id = "42"
 	orig_response := `{"sample": "body"}`
-	response := server.transform_jsonrpc_response(request, orig_response)
+	response, err := server.transform_jsonrpc_response(request, orig_response)
+	if err != nil {
+		t.Fail()
+	}
 	expected_response := []JsonObject{
 		JsonObject{
 			"result": JsonObject{"sample": "body"},
@@ -679,17 +790,17 @@ func test_transform_json_rpc_response_batch(t *testing.T) {
 		},
 	}
 	var response_json interface{}
-	err := json.Unmarshal(response, &response_json)
+	err = json.Unmarshal([]byte(response), &response_json)
 	if err != nil {
 		t.Fail()
 	}
-	if expected_response != response_json {
+	if !reflect.DeepEqual(expected_response, response_json) {
 		t.Fail()
 	}
 }
 
 func test_lookup_rpc_method_no_body(t *testing.T) {
-	server := set_up()
+	server, _ := set_up()
 	orig_request := build_request("/_ah/api/rpc", "", nil)
 	if server.lookup_rpc_method(orig_request) != nil {
 		t.Fail()
@@ -713,43 +824,41 @@ func test_lookup_rpc_method_no_body(t *testing.T) {
 }*/
 
 func test_verify_response(t *testing.T) {
-	server := set_up()
-
 	response := &http.Response{
 		Status: "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"Content-Type": "a"},
+		Header: http.Header{"Content-Type": []string{"a"}},
 		Body: ioutil.NopCloser(bytes.NewBufferString("")),
 	}
 	// Expected response
-	if !server.verify_response(response, 200, "a") {
+	if !verify_response(response, 200, "a") {
 		t.Fail()
 	}
 	// Any content type accepted
-	if !server.verify_response(response, 200, nil) {
+	if !verify_response(response, 200, "") {
 		t.Fail()
 	}
 	// Status code mismatch
-	if server.verify_response(response, 400, "a") {
+	if verify_response(response, 400, "a") {
 		t.Fail()
 	}
 	// Content type mismatch
-	if server.verify_response(response, 200, "b") {
+	if verify_response(response, 200, "b") {
 		t.Fail()
 	}
 
 	response = &http.Response{
 		Status: "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"Content-Length": "10"},
+		Header: http.Header{"Content-Length": []string{"10"}},
 		Body: ioutil.NopCloser(bytes.NewBufferString("")),
 	}
 	// Any content type accepted
-	if !server.verify_response(response, 200, nil) {
+	if !verify_response(response, 200, "") {
 		t.Fail()
 	}
 	// Specified content type not matched
-	if server.verify_response(response, 200, "a") {
+	if verify_response(response, 200, "a") {
 		t.Fail()
 	}
 }

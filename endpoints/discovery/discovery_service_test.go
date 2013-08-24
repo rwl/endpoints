@@ -13,7 +13,7 @@ func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
 	api_config_dict := JsonObject{"items": []string{api_config_json}}
 	api_config_manager := NewApiConfigManager()
 	api_config, _ := json.Marshal(api_config_dict)
-	api_config_manager.parse_api_config_response(api_config)
+	api_config_manager.parse_api_config_response(string(api_config))
 
 	api_request := build_request("/_ah/api/foo",
 		`{"api": "tictactoe", "version": "v1"}`, nil)
@@ -41,7 +41,7 @@ func test_generate_discovery_doc_rest_service(t *testing.T) {
 	})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, body)
+		fmt.Fprintf(w, string(body))
 	}))
 	defer ts.Close()
 	_DISCOVERY_PROXY_HOST = ts.URL
@@ -57,9 +57,9 @@ func test_generate_discovery_doc_rest_service(t *testing.T) {
 
 	assert_http_match_recorder(t, w, 200,
 		http.Header{
-			"Content-Type": "application/json; charset=UTF-8",
-			"Content-Length": fmt.Sprintf("%d", len(body)),
-		}, body)
+			"Content-Type": []string{"application/json; charset=UTF-8"},
+			"Content-Length": []string{fmt.Sprintf("%d", len(body))},
+		}, string(body))
 }
 
 func test_generate_discovery_doc_rpc_service(t *testing.T) {
@@ -69,7 +69,7 @@ func test_generate_discovery_doc_rpc_service(t *testing.T) {
 	})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, body)
+		fmt.Fprintf(w, string(body))
 	}))
 	defer ts.Close()
 	_DISCOVERY_PROXY_HOST = ts.URL
@@ -85,9 +85,9 @@ func test_generate_discovery_doc_rpc_service(t *testing.T) {
 
 	assert_http_match_recorder(t, w, 200,
 		http.Header{
-			"Content-Type": "application/json; charset=UTF-8",
-			"Content-Length": fmt.Sprintf("%d", len(body)),
-		}, body)
+			"Content-Type": []string{"application/json; charset=UTF-8"},
+			"Content-Length": []string{fmt.Sprintf("%d", len(body))},
+		}, string(body))
 }
 
 func test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
@@ -107,7 +107,7 @@ func test_generate_directory(t *testing.T) {
 	body, _ := json.Marshal(JsonObject{"kind": "discovery#directoryItem"})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, body)
+		fmt.Fprintf(w, string(body))
 	}))
 	defer ts.Close()
 	_DISCOVERY_PROXY_HOST = ts.URL
@@ -123,7 +123,7 @@ func test_generate_directory(t *testing.T) {
 
 	assert_http_match_recorder(t, w, 200,
 		http.Header{
-			"Content-Type": "application/json; charset=UTF-8",
-			"Content-Length": fmt.Sprintf("%d", len(body)),
-		}, body)
+			"Content-Type": []string{"application/json; charset=UTF-8"},
+			"Content-Length": []string{fmt.Sprintf("%d", len(body))},
+		}, string(body))
 }
