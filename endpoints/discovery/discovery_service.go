@@ -13,24 +13,24 @@ const _GET_REST_API = "apisdev.getRest"
 const _GET_RPC_API = "apisdev.getRpc"
 const _LIST_API = "apisdev.list"
 
-var DISCOVERY_API_CONFIG = endpoints.ApiDescriptor{
+var DISCOVERY_API_CONFIG = &endpoints.ApiDescriptor{
 	Name: "discovery",
 	Version: "v1",
 	Methods: map[string]*endpoints.ApiMethod{
 		"discovery.apis.getRest": &endpoints.ApiMethod{
-			"path": "apis/{api}/{version}/rest",
-			"httpMethod": "GET",
-			"rosyMethod": _GET_REST_API,
+			Path: "apis/{api}/{version}/rest",
+			HttpMethod: "GET",
+			RosyMethod: _GET_REST_API,
 		},
 		"discovery.apis.getRpc": &endpoints.ApiMethod{
-			"path": "apis/{api}/{version}/rpc",
-			"httpMethod": "GET",
-			"rosyMethod": _GET_RPC_API,
+			Path: "apis/{api}/{version}/rpc",
+			HttpMethod: "GET",
+			RosyMethod: _GET_RPC_API,
 		},
 		"discovery.apis.list": &endpoints.ApiMethod{
-			"path": "apis",
-			"httpMethod": "GET",
-			"rosyMethod": _LIST_API,
+			Path: "apis",
+			HttpMethod: "GET",
+			RosyMethod: _LIST_API,
 		},
 	},
 }
@@ -65,7 +65,7 @@ func NewDiscoveryService(config_manager *ApiConfigManager) *DiscoveryService {
 // Returns:
 //   A string, the response body.
 func send_success_response(response string, w http.ResponseWriter) string {
-	w.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	fmt.Fprintf(w, response)
 //	return send_response('200', headers, response, start_response)
 	return response
@@ -83,10 +83,10 @@ func send_success_response(response string, w http.ResponseWriter) string {
 //
 // Returns:
 //   A string, the response body.
-func (ds *DiscoveryService) get_rpc_or_rest(api_format string, request *ApiRequest, w http.ResponseWriter) string {
-	api := request.body_json["api"]
+func (ds *DiscoveryService) get_rpc_or_rest(api_format ApiFormat, request *ApiRequest, w http.ResponseWriter) string {
+	api, ok := request.body_json["api"]
 	version := request.body_json["version"]
-	lookup_key := lookupKey{api, version}
+	lookup_key := lookupKey{api.(string), version.(string)}
 	api_config, ok := ds.config_manager.configs[lookup_key]
 	if !ok {
 		log.Printf("No discovery doc for version %s of api %s", version, api)

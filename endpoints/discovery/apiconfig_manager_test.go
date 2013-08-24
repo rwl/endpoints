@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"reflect"
 )
 
 func test_parse_api_config_empty_response(t *testing.T) {
@@ -29,10 +30,10 @@ func test_parse_api_config_invalid_response(t *testing.T) {
 
 func test_parse_api_config(t *testing.T) {
 	config_manager := NewApiConfigManager()
-	fake_method := map[string]string{
-		"httpMethod": "GET",
-		"path": "greetings/{gid}",
-		"rosyMethod": "baz.bim",
+	fake_method := &endpoints.ApiMethod{
+		HttpMethod: "GET",
+		Path: "greetings/{gid}",
+		RosyMethod: "baz.bim",
 	}
 	config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
@@ -42,11 +43,11 @@ func test_parse_api_config(t *testing.T) {
 		},
 	})
 	items, _ := json.Marshal(JsonObject{
-		"items": []JsonObject{config},
+		"items": []string{string(config)},
 	})
-	config_manager.parse_api_config_response(items)
+	config_manager.parse_api_config_response(string(items))
 	actual_method := config_manager.lookup_rpc_method("guestbook_api.foo.bar", "X")
-	if fake_method != actual_method {
+	if !reflect.DeepEqual(fake_method, actual_method) {
 		t.Fail()
 	}
 }
@@ -54,7 +55,7 @@ func test_parse_api_config(t *testing.T) {
 type method_info struct {
 	method_name string
 	path string
-	rosy_method string
+	method string
 }
 
 func test_parse_api_config_order_length(t *testing.T) {
@@ -70,7 +71,7 @@ func test_parse_api_config_order_length(t *testing.T) {
 		method := map[string]string{
 			"httpMethod": "GET",
 			"path": mi.path,
-			"rosyMethod": mi.rosy_method,
+			"rosyMethod": mi.method,
 		}
 		methods[mi.method_name] = method
 	}
@@ -80,9 +81,9 @@ func test_parse_api_config_order_length(t *testing.T) {
 			"methods": methods,
 	})
 	items, _ := json.Marshal(JsonObject{
-		"items": []JsonObject{config},
+		"items": []string{string(config)},
 	})
-	config_manager.parse_api_config_response(items)
+	config_manager.parse_api_config_response(string(items))
 	// Make sure all methods appear in the result.
 	for _, mi := range test_method_info {
 		if config_manager.lookup_rpc_method(mi.method_name, "X") == nil {
@@ -110,7 +111,6 @@ func test_parse_api_config_order_length(t *testing.T) {
 }
 
 func test_get_sorted_methods1(t *testing.T) {
-	config_manager := NewApiConfigManager()
 	test_method_info := []method_info{
 		method_info{"name1", "greetings", "POST"},
 		method_info{"name2", "greetings", "GET"},
@@ -123,12 +123,12 @@ func test_get_sorted_methods1(t *testing.T) {
 	methods := make(map[string]*endpoints.ApiMethod)
 	for _, mi := range test_method_info {
 		method := &endpoints.ApiMethod{
-			HttpMethod: mi.http_method,
+			HttpMethod: mi.method,
 			Path: mi.path,
 		}
 		methods[mi.method_name] = method
 	}
-	sorted_methods := config_manager.get_sorted_methods(methods)
+	sorted_methods := get_sorted_methods(methods)
 
 	expected_data := []method_info{
 		method_info{"name3", "short/but/many/constants", "GET"},
@@ -139,20 +139,22 @@ func test_get_sorted_methods1(t *testing.T) {
 		method_info{"name5", "greetings/{gid}", "GET"},
 		method_info{"name6", "greetings/{gid}", "PUT"},
 	}
-	expected_methods := make([]*endpoints.ApiMethod, len(expected_data))
+	expected_methods := make([]*methodInfo, len(expected_data))
 	for i, mi := range expected_data {
-		expected_methods[i] = &endpoints.ApiMethod{
-			HttpMethod: mi.http_method,
-			Path: mi.path,
+		expected_methods[i] = &methodInfo{
+			mi.method_name,
+			&endpoints.ApiMethod{
+				HttpMethod: mi.method,
+				Path: mi.path,
+			},
 		}
 	}
-	if expected_methods != sorted_methods {
+	if !reflect.DeepEqual(expected_methods, sorted_methods) {
 		t.Fail()
 	}
 }
 
 func test_get_sorted_methods2(t *testing.T) {
-	config_manager := NewApiConfigManager()
 	test_method_info := []method_info{
 		method_info{"name1", "abcdefghi", "GET"},
 		method_info{"name2", "foo", "GET"},
@@ -165,12 +167,12 @@ func test_get_sorted_methods2(t *testing.T) {
 	methods := make(map[string]*endpoints.ApiMethod)
 	for _, mi := range test_method_info {
 		method := &endpoints.ApiMethod{
-			HttpMethod: mi.http_method,
+			HttpMethod: mi.method,
 			Path: mi.path,
 		}
 		methods[mi.method_name] = method
 	}
-	sorted_methods := config_manager.get_sorted_methods(methods)
+	sorted_methods := get_sorted_methods(methods)
 
 	// Single-part paths should be sorted by path name, http_method.
 	expected_data := []method_info{
@@ -182,24 +184,27 @@ func test_get_sorted_methods2(t *testing.T) {
 		method_info{"name2", "foo", "GET"},
 		method_info{"name3", "greetings", "GET"},
 	}
-	expected_methods := make([]*endpoints.ApiMethod, len(expected_data))
+	expected_methods := make([]*methodInfo, len(expected_data))
 	for i, mi := range expected_data {
-		expected_methods[i] = &endpoints.ApiMethod{
-			HttpMethod: mi.http_method,
-			Path: mi.path,
+		expected_methods[i] = &methodInfo{
+			mi.method_name,
+			&endpoints.ApiMethod{
+				HttpMethod: mi.method,
+				Path: mi.path,
+			},
 		}
 	}
-	if expected_methods != sorted_methods {
+	if !reflect.DeepEqual(expected_methods, sorted_methods) {
 		t.Fail()
 	}
 }
 
 func test_parse_api_config_invalid_api_config(t *testing.T) {
 	config_manager := NewApiConfigManager()
-	fake_method := map[string]string{
-		"httpMethod": "GET",
-		"path": "greetings/{gid}",
-		"rosyMethod": "baz.bim",
+	fake_method := &endpoints.ApiMethod{
+		HttpMethod: "GET",
+		Path: "greetings/{gid}",
+		RosyMethod: "baz.bim",
 	}
 	config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
@@ -211,9 +216,9 @@ func test_parse_api_config_invalid_api_config(t *testing.T) {
 	// Invalid Json.
 	config2 := "{"
 	items, _ := json.Marshal(JsonObject{
-		"items": []JsonObject{config, config2},
+		"items": []string{string(config), string(config2)},
 	})
-	config_manager.parse_api_config_response(items)
+	config_manager.parse_api_config_response(string(items))
 	actual_method := config_manager.lookup_rpc_method("guestbook_api.foo.bar", "X")
 	if fake_method != actual_method {
 		t.Fail()
@@ -234,9 +239,9 @@ func test_parse_api_config_convert_https(t *testing.T) {
 		"methods": JsonObject{},
 	})
 	items, _ := json.Marshal(JsonObject{
-		"items": []JsonObject{config},
+		"items": []string{string(config)},
 	})
-	config_manager.parse_api_config_response(items)
+	config_manager.parse_api_config_response(string(items))
 
 	key := lookupKey{"guestbook_api", "X"}
 	if "http://localhost/_ah/spi" != config_manager.configs[key].Adapter.Bns {
@@ -249,18 +254,16 @@ func test_parse_api_config_convert_https(t *testing.T) {
 
 // Test that the _convert_https_to_http function works.
 func test_convert_https_to_http(t *testing.T) {
-	config_manager := NewApiConfigManager()
-	config := &ApiDescriptor{
+	config := &endpoints.ApiDescriptor{
 		Name: "guestbook_api",
 		Version: "X",
-		Adapter: {
-			Bns: "https://tictactoe.appspot.com/_ah/spi",
-			Type: "lily",
-		},
 		Root: "https://tictactoe.appspot.com/_ah/api",
 		Methods: make(map[string]*endpoints.ApiMethod),
 	}
-	config_manager._convert_https_to_http(config)
+	config.Adapter.Bns = "https://tictactoe.appspot.com/_ah/spi"
+	config.Adapter.Type = "lily"
+
+	convert_https_to_http(config)
 
 	if "http://tictactoe.appspot.com/_ah/spi" != config.Adapter.Bns {
 		t.Fail()
@@ -272,18 +275,16 @@ func test_convert_https_to_http(t *testing.T) {
 
 // Verify that we don"t change non-HTTPS URLs.
 func test_dont_convert_non_https_to_http(t *testing.T) {
-	config_manager := NewApiConfigManager()
-	config := &ApiDescriptor{
+	config := &endpoints.ApiDescriptor{
 		Name: "guestbook_api",
 		Version: "X",
-		Adapter: {
-			Bns: "http://https.appspot.com/_ah/spi",
-			Type: "lily",
-		},
 		Root: "ios://https.appspot.com/_ah/api",
 		Methods: make(map[string]*endpoints.ApiMethod),
 	}
-	config_manager._convert_https_to_http(config)
+	config.Adapter.Bns = "http://https.appspot.com/_ah/spi"
+	config.Adapter.Type = "lily"
+
+	convert_https_to_http(config)
 
 	if "http://https.appspot.com/_ah/spi" != config.Adapter.Bns {
 		t.Fail()
@@ -331,7 +332,7 @@ func test_save_lookup_rest_method(t *testing.T) {
 	if fake_method != api_method {
 		t.Fail()
 	}
-	if map[string]string{"id": "i"} != params {
+	if !reflect.DeepEqual(map[string]string{"id": "i"}, params) {
 		t.Fail()
 	}
 }
@@ -353,7 +354,7 @@ func test_trailing_slash_optional(t *testing.T) {
 	if fake_method != method_spec {
 		t.Fail()
 	}
-	if map[string]string{} != params {
+	if len(params) > 0 {
 		t.Fail()
 	}
 
@@ -365,7 +366,7 @@ func test_trailing_slash_optional(t *testing.T) {
 	if fake_method != method_spec {
 		t.Fail()
 	}
-	if map[string]string{} != params {
+	if len(params) > 0 {
 		t.Fail()
 	}
 }
@@ -374,7 +375,7 @@ func test_trailing_slash_optional(t *testing.T) {
 /* Parameterized path tests. */
 
 func test_invalid_variable_name_leading_digit(t *testing.T) {
-	matched, _ := regexp.Match(_PATH_VARIABLE_PATTERN, []byte{"1abc"})
+	matched, _ := regexp.MatchString(_PATH_VARIABLE_PATTERN, "1abc")
 	if matched {
 		t.Fail()
 	}
@@ -383,7 +384,7 @@ func test_invalid_variable_name_leading_digit(t *testing.T) {
 // Ensure users can not add variables starting with !
 // This is used for reserved variables (e.g. !name and !version)
 func test_invalid_var_name_leading_exclamation(t *testing.T) {
-	matched, _ := regexp.Match(_PATH_VARIABLE_PATTERN, []byte{"!abc"})
+	matched, _ := regexp.MatchString(_PATH_VARIABLE_PATTERN, "!abc")
 	if matched {
 		t.Fail()
 	}
@@ -406,11 +407,11 @@ func test_valid_variable_name(t *testing.T) {
 //     this path.
 func assert_no_match(t *testing.T, path, param_path string) {
 	config_manager := NewApiConfigManager()
-	re, err := config_manager.compile_path_pattern(param_path)
+	re, err := compile_path_pattern(param_path)
 	if err != nil {
 		t.Fail()
 	}
-	params := re.Match(path)
+	params := re.MatchString(path)
 	if params {
 		t.Fail()
 	}
@@ -447,17 +448,20 @@ func test_no_match_collection_with_item(t *testing.T) {
 //   Dict mapping path variable name to path variable value.
 func assert_match(t *testing.T, path, param_path string, param_count int) map[string]string {
 	config_manager := NewApiConfigManager()
-	re, err := config_manager.compile_path_pattern(param_path)
+	re, err := compile_path_pattern(param_path)
 	if err != nil {
 		t.Fail()
 	}
-	match := re.Match(path)
+	match := re.MatchString(path)
 	if !match {  // Will be None if path was not matched.
 		t.Fail()
 	}
 	names := re.SubexpNames()
 	submatch := re.FindStringSubmatch(path)
-	params := config_manager.get_path_params(names, submatch)
+	params, err := get_path_params(names, submatch)
+	if err != nil {
+		t.Fail()
+	}
 	if param_count != len(params) {
 		t.Fail()
 	}
@@ -493,7 +497,7 @@ func test_message_and_simple_variable_match(t *testing.T) {
 	if xyz, ok := params["x.y.z"]; !ok || xyz != "123" {
 		t.Fail()
 	}
-	if t, ok := params["t"]; !ok || t != "456" {
+	if _t, ok := params["t"]; !ok || _t != "456" {
 		t.Fail()
 	}
 }
@@ -508,8 +512,12 @@ func assert_invalid_value(t *testing.T, value string) {
 	param_path := "/abc/{x}"
 	path := fmt.Sprintf("/abc/%s", value)
 	config_manager := NewApiConfigManager()
-	params := config_manager.compile_path_pattern(param_path).match(path)
-	if params != nil {
+	re, err := compile_path_pattern(param_path)
+	if err != nil {
+		t.Fail()
+	}
+	params := re.MatchString(path)
+	if params {
 		t.Fail()
 	}
 }

@@ -20,7 +20,7 @@ import (
 //
 // Returns:
 //   An ApiRequest object built based on the incoming parameters.
-func build_request(url, body string, http_headers map[string]string) *ApiRequest {
+func build_request(url, body string, http_headers http.Header) *ApiRequest {
 	//	unused_scheme, unused_netloc, path, query, unused_fragment := urlparse.urlsplit(path)
 	req, _ := http.NewRequest("GET", url,//fmt.Sprintf("localhost:%d/%s", 42, path),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
@@ -28,7 +28,7 @@ func build_request(url, body string, http_headers map[string]string) *ApiRequest
 
 	if http_headers != nil {
 		for key, value := range http_headers {
-			req.Header.Set(key, value)
+			req.Header.Set(key, value[0])
 		}
 	}
 
@@ -38,7 +38,7 @@ func build_request(url, body string, http_headers map[string]string) *ApiRequest
 
 // Test that the headers and body match.
 func assert_http_match(t *testing.T, response *http.Response, expected_status int,
-expected_headers http.Header, expected_body string) {
+		expected_headers http.Header, expected_body string) {
 	if expected_status != response.StatusCode {
 		t.Fail()
 	}
@@ -52,7 +52,7 @@ expected_headers http.Header, expected_body string) {
 		if !ok {
 			t.Fail()
 		}
-		if value != expected_value {
+		if value[0] != expected_value[0] {
 			t.Fail()
 		}
 	}
@@ -80,7 +80,7 @@ expected_headers http.Header, expected_body string) {
 		if !ok {
 			t.Fail()
 		}
-		if value != expected_value {
+		if value[0] != expected_value[0] {
 			t.Fail()
 		}
 	}
@@ -104,7 +104,7 @@ func (md *MockDispatcher) Do(request *http.Request) (*http.Response, error) {
 
 type MockEndpointsDispatcher struct {
 	mock.Mock
-	EndpointsDispatcher
+	*EndpointsDispatcher
 }
 
 func newMockEndpointsDispatcher() *MockEndpointsDispatcher {
@@ -120,7 +120,7 @@ func (ed *MockEndpointsDispatcher) handle_spi_response(orig_request, spi_request
 
 type MockEndpointsDispatcherSPI struct {
 	mock.Mock
-	EndpointsDispatcher
+	*EndpointsDispatcher
 }
 
 func newMockEndpointsDispatcherSPI() *MockEndpointsDispatcherSPI {

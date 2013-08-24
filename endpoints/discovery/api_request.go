@@ -117,12 +117,12 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 //	return r.URL.RequestURI
 //}
 
-func (ar *ApiRequest) copy(other *ApiRequest) *ApiRequest {
+func (ar *ApiRequest) copy() *ApiRequest {
 //	return &ApiRequest{
 //		other.ApiRequest,
 //		other.relative_url,
 //	}
-	new_ar, _ := newApiRequest(other.Request)
+	new_ar, _ := newApiRequest(ar.Request)
 	return new_ar
 }
 

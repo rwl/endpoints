@@ -25,6 +25,10 @@ type RequestError struct {
 	ExtraFields JsonObject // Some errors have additional information. This provides a way for subclasses to provide that information.
 }
 
+func (re *RequestError) Error() string {
+	return re.Message
+}
+
 // Format this error into a JSON response.
 func (err *RequestError) format_error(error_list_tag string) JsonObject {
 	error := JsonObject{
@@ -48,7 +52,7 @@ func (err *RequestError) format_error(error_list_tag string) JsonObject {
 func (err *RequestError) rest_error() string {
 	error_json := err.format_error("errors")
 	rest, _ := json.Marshal(error_json) // todo: sort keys
-	return rest
+	return string(rest)
 }
 
 // Format this error into a response to a JSON RPC request.
@@ -84,7 +88,7 @@ func NewEnumRejectionError(parameter_name, value string, allowed_values []string
 // Error returned when the backend SPI returns an error code.
 type BackendError struct {
 	RequestError
-	errorInfo string
+	errorInfo *ErrorInfo
 }
 
 func NewBackendError(response *http.Response) *BackendError {
@@ -96,7 +100,10 @@ func NewBackendError(response *http.Response) *BackendError {
 	err := json.Unmarshal(body, &error_json)
 	var message string
 	if err != nil {
-		message, _ = error_json["error_message"]
+		_message, ok := error_json["error_message"]
+		if ok {
+			message = _message.(string)
+		}
 	} else {
 		message = string(body)
 	}

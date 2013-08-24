@@ -5,130 +5,150 @@ import (
 	"testing"
 	"net/http"
 	"encoding/json"
+	"net/url"
+	"reflect"
+	"io/ioutil"
+	"bytes"
 )
 
 func test_parse_no_body(t *testing.T) {
 	request := build_request("/_ah/api/foo?bar=baz", "", nil)
-	if "foo" != request.Path {
+	if "foo" != request.URL.Path {
 		t.Fail()
 	}
-	if "bar=baz" != request.Query {
+	if "bar=baz" != request.URL.RawQuery {
 		t.Fail()
 	}
-	query := JsonObject{"bar": []string{"baz"}}
-	if query != request.Query() {
+	query := url.Values{"bar": []string{"baz"}}
+	if !reflect.DeepEqual(query, request.URL.Query()) {
 		t.Fail()
 	}
-	if "" != request.Body {
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
 		t.Fail()
 	}
-	if request.body_json != make(JsonObject) {
+	if "" != string(body) {
+		t.Fail()
+	}
+	if !reflect.DeepEqual(request.body_json, make(JsonObject)) {
 		t.Fail()
 	}
 	header := new(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
-	if header != request.Header {
+	if !reflect.DeepEqual(header, request.Header) {
 		t.Fail()
 	}
-	if nil != request.request_id {
+	if "" != request.request_id {
 		t.Fail()
 	}
 }
 
 func test_parse_with_body(t *testing.T) {
 	request := build_request("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
-	if "foo" != request.Path {
+	if "foo" != request.URL.Path {
 		t.Fail()
 	}
-	if "bar=baz" != request.RawQuery {
+	if "bar=baz" != request.URL.RawQuery {
 		t.Fail()
 	}
 	params := JsonObject{"bar": []string{"baz"}}
-	if params != request.Query() {
+	if !reflect.DeepEqual(params, request.URL.Query()) {
 		t.Fail()
 	}
-	if `{"test": "body"}` != request.Body {
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		t.Fail()
+	}
+	if `{"test": "body"}` != string(body) {
 		t.Fail()
 	}
 	body_json := JsonObject{"test": "body"}
-	if body_json != request.body_json {
+	if !reflect.DeepEqual(body_json, request.body_json) {
 		t.Fail()
 	}
 	header := new(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
-	if header != request.Header {
+	if !reflect.DeepEqual(header, request.Header) {
 		t.Fail()
 	}
-	if nil != request.request_id {
+	if "" != request.request_id {
 		t.Fail()
 	}
 }
 
 func test_parse_empty_values(t *testing.T) {
 	request := build_request("/_ah/api/foo?bar", "", nil)
-	if "foo" != request.Path {
+	if "foo" != request.URL.Path {
 		t.Fail()
 	}
-	if "bar" != request.RawQuery {
+	if "bar" != request.URL.RawQuery {
 		t.Fail()
 	}
 	params := JsonObject{"bar": []string{""}}
-	if params != request.Query() {
+	if !reflect.DeepEqual(params, request.URL.Query()) {
 		t.Fail()
 	}
-	if "" != request.Body {
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
 		t.Fail()
 	}
-	if new(JsonObject) != request.body_json {
+	if "" != string(body) {
+		t.Fail()
+	}
+	if len(request.body_json) != 0 {
 		t.Fail()
 	}
 	header := new(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
-	if header != request.Header {
+	if !reflect.DeepEqual(header, request.Header) {
 		t.Fail()
 	}
-	if nil != request.request_id {
+	if "" != request.request_id {
 		t.Fail()
 	}
 }
 
 func test_parse_multiple_values(t *testing.T) {
 	request := build_request("/_ah/api/foo?bar=baz&foo=bar&bar=foo", "", nil)
-	if "foo" != request.Path {
+	if "foo" != request.URL.Path {
 		t.Fail()
 	}
-	if "bar=baz&foo=bar&bar=foo" != request.RawQuery {
+	if "bar=baz&foo=bar&bar=foo" != request.URL.RawQuery {
 		t.Fail()
 	}
 	params := JsonObject{
 		"bar": []string{"baz", "foo"},
 		"foo": []string{"bar"},
 	}
-	if params != request.Query() {
+	if !reflect.DeepEqual(params, request.URL.Query()) {
 		t.Fail()
 	}
-	if "" != request.Body {
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
 		t.Fail()
 	}
-	if new(JsonObject) != request.body_json {
+	if "" != string(body) {
+		t.Fail()
+	}
+	if len(request.body_json) != 0 {
 		t.Fail()
 	}
 	header := new(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
-	if header != request.Header {
+	if !reflect.DeepEqual(header, request.Header) {
 		t.Fail()
 	}
-	if nil != request.request_id {
+	if "" != request.request_id {
 		t.Fail()
 	}
 }
 
 func test_is_rpc(t *testing.T) {
 	request := build_request("/_ah/api/rpc", "", nil)
-	if "rpc" != request.Path {
+	if "rpc" != request.URL.Path {
 		t.Fail()
 	}
-	if nil != request.RawQuery {
+	if "" != request.URL.RawQuery {
 		t.Fail()
 	}
 	if !request.is_rpc() {
@@ -138,10 +158,10 @@ func test_is_rpc(t *testing.T) {
 
 func test_is_not_rpc(t *testing.T) {
 	request := build_request("/_ah/api/guestbook/v1/greetings/7", "", nil)
-	if "guestbook/v1/greetings/7" != request.Path {
+	if "guestbook/v1/greetings/7" != request.URL.Path {
 		t.Fail()
 	}
-	if nil != request.RawQuery {
+	if "" != request.URL.RawQuery {
 		t.Fail()
 	}
 	if request.is_rpc() {
@@ -151,10 +171,10 @@ func test_is_not_rpc(t *testing.T) {
 
 func test_is_not_rpc_prefix(t *testing.T) {
 	request := build_request("/_ah/api/rpcthing", "", nil)
-	if "rpcthing" != request.Path {
+	if "rpcthing" != request.URL.Path {
 		t.Fail()
 	}
-	if nil != request.RawQuery {
+	if "" != request.URL.RawQuery {
 		t.Fail()
 	}
 	if request.is_rpc() {
@@ -165,7 +185,7 @@ func test_is_not_rpc_prefix(t *testing.T) {
 func test_batch(t *testing.T) {
 	request := build_request("/_ah/api/rpc",
 		`[{"method": "foo", "apiVersion": "v1"}]`, nil)
-	if !request.is_batch() {
+	if !request.is_batch {
 		t.Fail()
 	}
 	/*if isinstance(request.body_json, list) {
@@ -178,12 +198,12 @@ func test_batch_too_large(t *testing.T) {
 	request := build_request("/_ah/api/rpc",
 		`[{"method": "foo", "apiVersion": "v1"},
 		  {"method": "bar", "apiversion": "v1"}]`, nil)
-	if !request.is_batch() {
+	if !request.is_batch {
 		t.Fail()
 	}
 	var body_json JsonObject
-	json.Unmarshal(`{"method": "foo", "apiVersion": "v1"}`, &body_json)
-	if body_json != request.body_json {
+	json.Unmarshal([]byte(`{"method": "foo", "apiVersion": "v1"}`), &body_json)
+	if !reflect.DeepEqual(body_json, request.body_json) {
 		t.Fail()
 	}
 }
@@ -205,35 +225,51 @@ func test_batch_too_large(t *testing.T) {
 
 func test_copy(t *testing.T) {
 	request := build_request("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
-	copied := request.Copy()
-	if request.Header != copied.Header {
+	copied := request.copy()
+	if reflect.DeepEqual(request.Header, copied.Header) {
 		t.Fail()
 	}
-	if request.body != copied.body {
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
 		t.Fail()
 	}
-	if request.body_json != copied.body_json {
+	body_copy, err2 := ioutil.ReadAll(copied.Body)
+	if err2 != nil {
 		t.Fail()
 	}
-	if request.Path != copied.Path {
+	if string(body) != string(body_copy) {
+		t.Fail()
+	}
+	if !reflect.DeepEqual(request.body_json, copied.body_json) {
+		t.Fail()
+	}
+	if request.URL.Path != copied.URL.Path {
 		t.Fail()
 	}
 
 	copied.Header.Set("Content-Type", "text/plain")
-	copied.Body = "Got a whole new body!"
+	copied.Body = ioutil.NopCloser(bytes.NewBufferString("Got a whole new body!"))
 	copied.body_json = JsonObject{"new": "body"}
-	copied.Path = "And/a/new/path/"
+	copied.URL.Path = "And/a/new/path/"
 
-	if request.Header == copied.Header {
+	if reflect.DeepEqual(request.Header, copied.Header) {
 		t.Fail()
 	}
-	if request.Body == copied.Body {
+	body, err = ioutil.ReadAll(request.Body)
+	if err != nil {
 		t.Fail()
 	}
-	if request.body_json == copied.body_json {
+	body_copy, err2 = ioutil.ReadAll(copied.Body)
+	if err2 != nil {
 		t.Fail()
 	}
-	if request.Path == copied.Path {
+	if string(body) == string(body_copy) {
+		t.Fail()
+	}
+	if reflect.DeepEqual(request.body_json, copied.body_json) {
+		t.Fail()
+	}
+	if request.URL.Path == copied.URL.Path {
 		t.Fail()
 	}
 }

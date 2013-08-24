@@ -42,11 +42,11 @@ type lookupKey struct {
 type restMethod struct {
 	compiled_path_pattern *regexp.Regexp
 	path string
-	methods map[string]method
+	methods map[string]*methodInfo
 }
 
-type method struct {
-	name string
+type methodInfo struct {
+	method_name string
 	api_method *endpoints.ApiMethod
 }
 
@@ -126,9 +126,9 @@ func (m *ApiConfigManager) parse_api_config_response(body string) error {
 		version := config.Version
 		sorted_methods := get_sorted_methods(config.Methods)
 
-		for method_name, method := range sorted_methods {
-			m.save_rpc_method(method_name, version, method)
-			m.save_rest_method(method_name, name, version, method)
+		for _, method_info := range sorted_methods {
+			m.save_rpc_method(method_info.method_name, version, method_info.api_method)
+			m.save_rest_method(method_info.method_name, name, version, method_info.api_method)
 		}
 	}
 	return nil
@@ -142,21 +142,21 @@ func (m *ApiConfigManager) parse_api_config_response(body string) error {
 // Returns:
 //   The same configuration with the methods sorted based on what order
 //   they'll be checked by the server.
-func get_sorted_methods(methods map[string]*endpoints.ApiMethod) []*endpoints.ApiMethod {
+func get_sorted_methods(methods map[string]*endpoints.ApiMethod) []*methodInfo {
 	if methods == nil {
 		return nil
 	}
-	sorted_methods := make([]*endpoints.ApiMethod, len(methods))
+	sorted_methods := make([]*methodInfo, len(methods))
 	i := 0
-	for _, m := range methods {
-		sorted_methods[i] = m
+	for name, m := range methods {
+		sorted_methods[i] = &methodInfo{name, m}
 		i++
 	}
 	sort.Sort(ByPath(sorted_methods))
 	return sorted_methods
 }
 
-type ByPath []*endpoints.ApiMethod
+type ByPath []*methodInfo
 
 func (by ByPath) Len() int {
 	return len(by)
@@ -165,8 +165,8 @@ func (by ByPath) Len() int {
 // Less returns whether the element with index i should sort
 // before the element with index j.
 func (by ByPath) Less(i, j int) bool {
-	method_info1 := by[i]
-	method_info2 := by[j]
+	method_info1 := by[i].api_method
+	method_info2 := by[j].api_method
 
 	path1 := method_info1.Path
 	path2 := method_info2.Path
@@ -210,7 +210,7 @@ func score_path(path string) int {
 	parts := strings.Split(path, "/")
 	for _, part := range parts {
 		score <<= 1
-		if part == nil || part[0] != "{" {
+		if part == "" || strings.HasPrefix(part, "{") {
 			// Found a constant.
 			score += 1
 		}
@@ -218,7 +218,7 @@ func score_path(path string) int {
 	// Shift by 31 instead of 32 because some (!) versions of Python like
 	// to convert the int to a long if we shift by 32, and the sorted()
 	// function that uses this blows up if it receives anything but an int.
-	score <<= 31 - len(parts)
+	score <<= 31 - uint(len(parts))
 	return score
 }
 
@@ -282,9 +282,12 @@ func (m *ApiConfigManager) lookup_rest_method(path, http_method string) (string,
 	m.config_lock.Lock()
 	defer m.config_lock.Unlock()
 	for _, rm := range m.rest_methods {
-		match := rm.compiled_path_pattern.FindStringSubmatch(path)
+		match := rm.compiled_path_pattern.MatchString(path)
 		if match {
-			params, err := get_path_params(rm.compiled_path_pattern.SubexpNames(), match)
+			params, err := get_path_params(
+				rm.compiled_path_pattern.SubexpNames(),
+				rm.compiled_path_pattern.FindStringSubmatch(path),
+			)
 			if err != nil {
 				log.Printf("Error extracting path [%s] parameters: %s",
 					path, err.Error())
@@ -294,7 +297,7 @@ func (m *ApiConfigManager) lookup_rest_method(path, http_method string) (string,
 			method, ok := rm.methods[method_key]
 			if ok {
 				//break
-				return method.name, method.api_method, params
+				return method.method_name, method.api_method, params
 			}
 		}
 	}
@@ -392,8 +395,8 @@ func compile_path_pattern(pattern string) (*regexp.Regexp, error) {
 	p := fmt.Sprintf("(/|^){(%s)}(?=/|$)", _PATH_VARIABLE_PATTERN)
 	re := regexp.MustCompile(p)
 
-	matches := re.FindAllStringSubmatch(pattern)
-	indexes := re.FindAllStringSubmatchIndex(pattern)
+	matches := re.FindAllStringSubmatch(pattern, -1)
+	indexes := re.FindAllStringSubmatchIndex(pattern, -1)
 
 	offset := 0
 	for i, match := range matches {
@@ -464,15 +467,20 @@ func (m *ApiConfigManager) save_rest_method(method_name, api_name, version strin
 	http_method := strings.ToLower(method.HttpMethod)
 	for _, rm := range m.rest_methods {
 		if rm.path == path_pattern {
-			rm.methods[http_method] = method{method_name, method}
+			rm.methods[http_method] = &methodInfo{method_name, method}
 			break
 		} else {
-			rm.rest_methods = append(m.rest_methods,
-				method{
-					compile_path_pattern(path_pattern),
+			compiled_pattern, err := compile_path_pattern(path_pattern)
+			if err != nil {
+				// fixme: handle error
+				continue
+			}
+			m.rest_methods = append(m.rest_methods,
+				&restMethod{
+					compiled_pattern,
 					path_pattern,
-					map[string]*method{
-						http_method: method{method_name, method},
+					map[string]*methodInfo{
+						"http_method": &methodInfo{method_name, method},
 					},
 				},
 			)

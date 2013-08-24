@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"io/ioutil"
 	"fmt"
+	"github.com/crhym3/go-endpoints/endpoints"
 )
 
 // The endpoint host we're using to proxy discovery and static requests.
@@ -76,19 +77,19 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (
 //
 // Raises:
 // ValueError: When api_format is invalid.
-func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config string, api_format ApiFormat) (string, error) {
-	path := "apis/generate/" + api_format
-	var config interface{}
-	err := json.Unmarshal(api_config, &config)
-	if err != nil {
-		return "", err
-	}
-	request_dict := JsonObject{"config": config}
+func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config *endpoints.ApiDescriptor, api_format ApiFormat) (string, error) {
+	path := "apis/generate/" + string(api_format)
+//	var config interface{}
+//	err := json.Unmarshal([]byte(api_config), &config)
+//	if err != nil {
+//		return "", err
+//	}
+	request_dict := JsonObject{"config": api_config}
 	request_body, err := json.Marshal(request_dict)
 	if err != nil {
 		return "", err
 	}
-	return dispatch_discovery_request(path, request_body)
+	return dispatch_discovery_request(path, string(request_body))
 }
 
 // Generates an API directory from a list of API files.
@@ -104,7 +105,7 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []stri
 	if err != nil {
 		return "", err
 	}
-	return dispatch_discovery_request("apis/generate/directory", request_body)
+	return dispatch_discovery_request("apis/generate/directory", string(request_body))
 }
 
 // Returns static content via a GET request.
@@ -127,5 +128,5 @@ func /*(dp *DiscoveryApiProxy)*/ get_static_file(path string) (*http.Response, s
 	if err != nil {
 		return nil, "", err
 	}
-	return resp, body, nil
+	return resp, string(body), nil
 }

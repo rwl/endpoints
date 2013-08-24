@@ -27,16 +27,16 @@ const _API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
 type EndpointsDispatcher struct {
 	dispatcher Dispatcher // A Dispatcher instance that can be used to make HTTP requests.
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
-	dispatchers []dispatcher
+	dispatchers []dispatchPair
 }
 
 type Dispatcher interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-type dispatcher struct {
+type dispatchPair struct {
 	path_regex *regexp.Regexp
-	dispatch_func func(http.ResponseWriter, *http.Request)
+	dispatch_func func(http.ResponseWriter, *http.Request) string
 }
 
 func NewEndpointsDispatcher(dispatcher Dispatcher) *EndpointsDispatcher {
@@ -48,7 +48,7 @@ func NewEndpointsDispatcherConfig(dispatcher Dispatcher,
 	d := &EndpointsDispatcher{
 		dispatcher,
 		config_manager,
-		make([]dispatcher, 0),
+		make([]dispatchPair, 0),
 	}
 	d.add_dispatcher("/_ah/api/explorer/?$", d.handle_api_explorer_request)
 	d.add_dispatcher("/_ah/api/static/.*$", d.handle_api_static_request)
@@ -62,10 +62,9 @@ func NewEndpointsDispatcherConfig(dispatcher Dispatcher,
 // dispatch_function: The function to call for these requests.  The function
 // should take (request, start_response) as arguments and
 // return the contents of the response body.
-func (ed *EndpointsDispatcher) add_dispatcher(path_regex string, dispatch_function interface{}) {
+func (ed *EndpointsDispatcher) add_dispatcher(path_regex string, dispatch_function func(http.ResponseWriter, *http.Request) string) {
 	regex, _ := regexp.Compile(path_regex)
-	ed.dispatchers = append(ed.dispatchers,
-		&dispatcher{regex, dispatch_function})
+	ed.dispatchers = append(ed.dispatchers, dispatchPair{regex, dispatch_function})
 }
 
 func (ed *EndpointsDispatcher) Handle(w http.ResponseWriter, r *http.Request) {
@@ -86,10 +85,22 @@ func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, r *http.Request) 
 		return ed.fail_request(w, r, "BackendService.getApiConfigs Error")
 	}
 
-	// Call the service.
-	body, err := ed.call_spi(w, r)
+	var ar *ApiRequest
+	ar, err = newApiRequest(r)
 	if err != nil {
-		return ed.handle_request_error(r, err, w)
+		return ed.fail_request(w, r, "Error making ApiRequest")
+	}
+
+	// Call the service.
+	body, err := ed.call_spi(w, ar)
+	if err != nil {
+		req_err, ok := err.(*RequestError)
+		if ok {
+			return ed.handle_request_error(w, ar, req_err)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return body
+		}
 	}
 	return body
 }
@@ -108,8 +119,8 @@ func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, r *http.Request) 
 // handles.  Otherwise, returns the response body.
 func (ed *EndpointsDispatcher) dispatch_non_api_requests(w http.ResponseWriter, r *http.Request) (string, error) {
 	for _, d := range ed.dispatchers {
-		if d.path_regex.Match([]byte(r.URL.RequestURI)) {
-			return ed.dispatch_func(w, r), nil
+		if d.path_regex.MatchString(r.URL.RequestURI()) {
+			return d.dispatch_func(w, r), nil
 		}
 	}
 	return "", errors.New("Doesn't match one of the reserved URL")
@@ -142,7 +153,7 @@ func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter
 // Returns:
 // A string containing the response body.
 func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, request *http.Request) string {
-	response, body, err := ed.discovery_api.get_static_file(request.URL.RequestURI)
+	response, body, err := get_static_file(request.URL.RequestURI())
 //	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
@@ -154,7 +165,7 @@ func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, 
 		fmt.Fprintf(w, body)
 	} else {
 		log.Printf("Discovery API proxy failed on %s with %d. Details: %s",
-			request.URL.ReqestURI, response.StatusCode, body)
+			request.URL.RequestURI(), response.StatusCode, body)
 		http.Error(w, body, response.StatusCode)
 //		return send_response(status_string, response.getheaders(), body, start_response)
 	}
@@ -218,7 +229,7 @@ func verify_response(response *http.Response, status_code int, content_type stri
 // Returns:
 //   True on success, False on failure
 func (ed *EndpointsDispatcher) handle_get_api_configs_response(api_config_response *http.Response) bool {
-	if ed.verify_response(api_config_response, 200, "application/json") {
+	if verify_response(api_config_response, 200, "application/json") {
 		body, err := ioutil.ReadAll(api_config_response.Body)
 		defer api_config_response.Body.Close()
 		if err != nil {
@@ -250,7 +261,7 @@ func (ed *EndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *Api
 		method_config, params = ed.lookup_rest_method(orig_request)
 	}
 	if method_config == nil {
-		cors_handler := newCheckCorsHeaders(orig_request)
+		cors_handler := newCheckCorsHeaders(orig_request.Request)
 		return send_not_found_response(w, cors_handler), nil
 	}
 
@@ -260,14 +271,14 @@ func (ed *EndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *Api
 	// Check if this SPI call is for the Discovery service. If so, route
 	// it to our Discovery handler.
 	discovery := NewDiscoveryService(ed.config_manager)
-	discovery_response, ok := discovery.handle_discovery_request(spi_request.path,
+	discovery_response, ok := discovery.handle_discovery_request(spi_request.URL.Path,
 		spi_request, w)
 	if ok {
 		return discovery_response, nil
 	}
 
 	// Send the request to the user's SPI handlers.
-	url := fmt.Sprintf(_SPI_ROOT_FORMAT, spi_request.path)
+	url := fmt.Sprintf(_SPI_ROOT_FORMAT, spi_request.URL.Path)
 	req, err := http.NewRequest("POST", url, spi_request.Body)
 	if err != nil {
 		return "", err
@@ -304,8 +315,8 @@ func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *Ap
 	// Verify that the response is json.  If it isn"t treat, the body as an
 	// error message and wrap it in a json error response.
 	for header, value := range response.Header {
-		if header == "Content-Type" && !strings.HasPrefix(value, "application/json") {
-			return ed.fail_request(orig_request, fmt.Sprintf("Non-JSON reply: %s", resp_body), w)
+		if header == "Content-Type" && !strings.HasPrefix(value[0], "application/json") {
+			return ed.fail_request(w, orig_request.Request, fmt.Sprintf("Non-JSON reply: %s", resp_body)), nil
 		}
 	}
 
@@ -318,12 +329,15 @@ func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *Ap
 	// incoming request here has had its path modified.
 	var body string
 	if orig_request.is_rpc() {
-		body = ed.transform_jsonrpc_response(spi_request, string(resp_body))
+		body, err = ed.transform_jsonrpc_response(spi_request, string(resp_body))
 	} else {
-		body = ed.transform_rest_response(string(resp_body))
+		body, err = ed.transform_rest_response(string(resp_body))
+	}
+	if err != nil {
+		return body, err
 	}
 
-	cors_handler := newCheckCorsHeaders(orig_request)
+	cors_handler := newCheckCorsHeaders(orig_request.Request)
 	cors_handler.UpdateHeaders(w.Header())
 	fmt.Fprint(w, body)
 //	return send_response(response.status, response.headers, body, w, /*cors_handler=*/cors_handler)
@@ -355,8 +369,8 @@ func (ed *EndpointsDispatcher) fail_request(w http.ResponseWriter, orig_request 
 // A tuple of (method descriptor, parameters), or (None, None) if no method
 // was found for the current request.
 func (ed *EndpointsDispatcher) lookup_rest_method(orig_request *ApiRequest) (*endpoints.ApiMethod, map[string]string) {
-	method_name, method, params := ed.config_manager.lookup_rest_method(orig_request.path, orig_request.http_method)
-	orig_request.method_name = method_name
+	method_name, method, params := ed.config_manager.lookup_rest_method(orig_request.URL.Path, orig_request.Method)
+	orig_request.Method = method_name
 	return method, params
 }
 
@@ -369,15 +383,17 @@ func (ed *EndpointsDispatcher) lookup_rest_method(orig_request *ApiRequest) (*en
 // The RPC method descriptor that was found for the current request, or None
 // if none was found.
 func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request *ApiRequest) *endpoints.ApiMethod {
-	if !orig_request.body_json {
+	if orig_request.body_json == nil {
 		return nil
 	}
-	method_name, ok := orig_request.body_json["method"]
-	if !ok {
+	_method_name, ok := orig_request.body_json["method"]
+	method_name, ok2 := _method_name.(string)
+	if !ok || !ok2 {
 		method_name = ""
 	}
-	version, ok := orig_request.body_json["apiVersion"]
-	if !ok {
+	_version, ok := orig_request.body_json["apiVersion"]
+	version, ok3 := _version.(string)
+	if !ok || !ok3 {
 		version = ""
 	}
 	orig_request.Method = method_name
@@ -402,13 +418,17 @@ func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request *ApiRequest) *endp
 // properties may also be changed.
 func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, params map[string]string, method_config *endpoints.ApiMethod) *ApiRequest {
 	var request *ApiRequest
+	var err error
 	if orig_request.is_rpc() {
-		request = ed.transform_jsonrpc_request(orig_request)
+		request, err = ed.transform_jsonrpc_request(orig_request)
 	} else {
 		method_params := method_config.Request.Params
-		request = ed.transform_rest_request(orig_request, params, method_params)
+		request, err = ed.transform_rest_request(orig_request, params, method_params)
 	}
-	request.path = method_config.get("rosyMethod", "")
+	if err != nil {
+		// fixme: handle error
+	}
+	request.URL.Path = method_config.RosyMethod
 	return request
 }
 
@@ -437,7 +457,7 @@ func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, f
 
 	enum_values := make([]string, 0)
 	for _, enum := range field_parameter.Enum {
-		if enum.BackendVal != nil {
+		if enum.BackendVal != "" {
 			enum_values = append(enum_values, enum.BackendVal)
 		}
 	}
@@ -474,8 +494,8 @@ func (ed *EndpointsDispatcher) check_parameters(parameter_name, value []string, 
 //   field_parameter: The dictionary containing information specific to the
 //     field in question. This is retrieved from request.parameters in the
 //     method config.
-func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, field_parameter *endpoints.ApiRequestParamSpec) {
-	ed.check_enum(parameter_name, value, field_parameter)
+func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, field_parameter *endpoints.ApiRequestParamSpec) error {
+	return ed.check_enum(parameter_name, value, field_parameter)
 }
 
 // Converts a . delimitied field name to a message field in parameters.
@@ -528,10 +548,10 @@ func (ed *EndpointsDispatcher) update_from_body(destination JsonObject, source J
 	for key, value := range source {
 		destination_value, ok := destination[key]
 		if ok {
-			_, ok_val := value.(JsonObject)
+			val, ok_val := value.(JsonObject)
 			dest_value, ok_dest := destination_value.(JsonObject)
 			if ok_val && ok_dest {
-				ed.update_from_body(dest_value, value)
+				ed.update_from_body(dest_value, val)
 			} else {
 				destination[key] = value
 			}
@@ -581,7 +601,7 @@ func (ed *EndpointsDispatcher) update_from_body(destination JsonObject, source J
 //   to the SPI.  The body is updated to include parameters from the URL.
 func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		params map[string]string,
-		method_parameters map[string]*endpoints.ApiRequestParamSpec) *ApiRequest {
+		method_parameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
 
 	request := orig_request.copy()
 	body_json := make(JsonObject)
@@ -596,9 +616,14 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 	// Add in parameters from the query string.
 	if len(request.URL.RawQuery) > 0 {
 		// For repeated elements, query and path work together
-		for key, value := range request.URL.Query {
-			if _, ok := body_json[key]; ok {
-				body_json[key] = value + body_json[key]
+		for key, value := range request.URL.Query() {
+			if json_val, ok := body_json[key]; ok {
+				val_str, ok2 := json_val.(string)
+				if ok2 {
+					body_json[key] = strings.Join(value, "") + val_str
+				} else {
+					// fixme: handle type assertion failure
+				}
 			} else {
 				body_json[key] = value
 			}
@@ -629,11 +654,13 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		// we need to call _check_parameter on them before calling
 		// _add_message_field.
 
-		ed.check_parameter(key, body_json[key], current_parameter)
-		// Remove the old key and try to convert to nested message value
-		message_value := body_json[key]
-		delete(body_json, key)
-		ed.add_message_field(key, message_value, body_json)
+		val_str := value.(string)
+		err := ed.check_parameter(key, val_str, current_parameter)
+		if err == nil {
+			// Remove the old key and try to convert to nested message value
+			delete(body_json, key)
+			ed.add_message_field(key, value, body_json)
+		}
 	}
 
 	// Add in values from the body of the request.
@@ -645,8 +672,10 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 	body, err := json.Marshal(request.body_json)
 	if err == nil {
 		request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	} else {
+		return request, err
 	}
-	return request
+	return request, nil
 }
 
 // Translates a JsonRpc request/response into apiserving request/response.
@@ -658,8 +687,17 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 //   A new request with the request_id updated and params moved to the body.
 func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request *ApiRequest) (*ApiRequest, error) {
 	request := orig_request.copy()
-	request.request_id, _ = request.body_json["id"]
-	request.body_json, _ = request.body_json["params"]
+
+	request_id, ok_id := request.body_json["id"]
+	if ok_id {
+		request.request_id, _ = request_id.(string)
+	}
+
+	body_json, ok_param := request.body_json["params"]
+	if ok_param {
+		request.body_json, _ = body_json.(JsonObject)
+	}
+
 	body, err := json.Marshal(request.body_json)
 	if err != nil {
 		return request, fmt.Errorf("Problem transforming RPC request: %s", err.Error())
@@ -694,12 +732,12 @@ func (ed *EndpointsDispatcher) check_error_response(response *http.Response) err
 //   A reformatted version of the response JSON.
 func (ed *EndpointsDispatcher) transform_rest_response(response_body string) (string, error) {
 	var body_json JsonObject
-	err := json.Unmarshal(response_body, &body_json)
+	err := json.Unmarshal([]byte(response_body), &body_json)
 	if err != nil {
 		return response_body, fmt.Errorf("Problem transforming REST response: %s", err.Error())
 	}
 	body, _ := json.MarshalIndent(body_json, "", "  ") // todo: sort keys
-	return string(body)
+	return string(body), nil
 }
 
 // Translates an apiserving response to a JsonRpc response.
@@ -714,12 +752,12 @@ func (ed *EndpointsDispatcher) transform_rest_response(response_body string) (st
 //   A string with the updated, JsonRPC-formatted request body.
 func (ed *EndpointsDispatcher) transform_jsonrpc_response(spi_request *ApiRequest, response_body string) (string, error) {
 	var result interface{}
-	err := json.Unmarshal(response_body, &result)
+	err := json.Unmarshal([]byte(response_body), &result)
 	if err != nil {
 		return response_body, fmt.Errorf("Problem unmarshalling RPC response: %s", err.Error())
 	}
 	body_json := JsonObject{"result": result}
-	return ed.finish_rpc_response(spi_request.request_id, spi_request.is_batch(), body_json)
+	return ed.finish_rpc_response(spi_request.request_id, spi_request.is_batch, body_json), nil
 }
 
 // Finish adding information to a JSON RPC response.
@@ -736,10 +774,12 @@ func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch b
 	if len(request_id) > 0 {
 		body_json["id"] = request_id
 	}
+	var body []byte
 	if is_batch {
-		body_json = []JsonObject{body_json}
+		body, _ := json.MarshalIndent([]JsonObject{body_json}, "", "  ")
+	} else {
+		body, _ := json.MarshalIndent(body_json, "", "  ") // todo: sort keys
 	}
-	body, _ := json.MarshalIndent(body_json, "", "  ") // todo: sort keys
 	return string(body)
 }
 
@@ -752,25 +792,29 @@ func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch b
 //
 // Returns:
 //   A string containing the response body.
-func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_request *http.Request, err *RequestError) string {
-	w.Headers().Add("Content-Type", "application/json")
+func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_request *ApiRequest, err *RequestError) string {
+	w.Header().Set("Content-Type", "application/json")
 	var status_code int
 	var body string
 	if orig_request.is_rpc() {
 		// JSON RPC errors are returned with status 200 OK and the
 		// error details in the body.
 		status_code = 200
-		body = ed.finish_rpc_response(orig_request.body_json["id"],
-			orig_request.is_batch(), err.rpc_error())
+		id, ok := orig_request.body_json["id"].(string)
+		if !ok {
+			// fixme: handle type assertion failure
+		}
+		body = ed.finish_rpc_response(id,
+			orig_request.is_batch, err.rpc_error())
 	} else {
-		status_code = err.status_code()
+		status_code = err.StatusCode
 		body = err.rest_error()
 	}
 
 //	response_status = fmt.Sprintf("%d %s", status_code,
 //		http.StatusText(status_code)) // fixme: handle unknown status code "Unknown Error"
 
-	newCheckCorsHeaders(orig_request).UpdateHeaders(w.Header())
+	newCheckCorsHeaders(orig_request.Request).UpdateHeaders(w.Header())
 	http.Error(w, body, status_code)
 //	return send_response(response_status, body, w, cors_handler)
 	return body

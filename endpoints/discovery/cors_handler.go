@@ -28,7 +28,7 @@ type checkCorsHeaders struct {
 }
 
 func newCheckCorsHeaders(request *http.Request) *checkCorsHeaders {
-	c := &checkCorsHeaders{false}
+	c := &checkCorsHeaders{allow_cors_request: false}
 	c.check_cors_request(request)
 	return c
 }
