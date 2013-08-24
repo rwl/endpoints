@@ -304,7 +304,7 @@ func test_save_lookup_rpc_method(t *testing.T) {
 	// Now we manually save it, and should find it
 	fake_method := &endpoints.ApiMethod{}
 	config_manager.save_rpc_method("guestbook_api.get", "v1", fake_method)
-	actual_method := config_manager.lookup_rpc_method("guestbook_api.get", "v1")
+	actual_method = config_manager.lookup_rpc_method("guestbook_api.get", "v1")
 	if fake_method != actual_method {
 		t.Fail()
 	}

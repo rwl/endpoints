@@ -16,18 +16,18 @@ const _LIST_API = "apisdev.list"
 var DISCOVERY_API_CONFIG = endpoints.ApiDescriptor{
 	Name: "discovery",
 	Version: "v1",
-	Methods: map[string]*ApiMethod{
-		"discovery.apis.getRest": &ApiMethod{
+	Methods: map[string]*endpoints.ApiMethod{
+		"discovery.apis.getRest": &endpoints.ApiMethod{
 			"path": "apis/{api}/{version}/rest",
 			"httpMethod": "GET",
 			"rosyMethod": _GET_REST_API,
 		},
-		"discovery.apis.getRpc": &ApiMethod{
+		"discovery.apis.getRpc": &endpoints.ApiMethod{
 			"path": "apis/{api}/{version}/rpc",
 			"httpMethod": "GET",
 			"rosyMethod": _GET_RPC_API,
 		},
-		"discovery.apis.list": &ApiMethod{
+		"discovery.apis.list": &endpoints.ApiMethod{
 			"path": "apis",
 			"httpMethod": "GET",
 			"rosyMethod": _LIST_API,

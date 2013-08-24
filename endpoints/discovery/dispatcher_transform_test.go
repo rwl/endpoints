@@ -36,7 +36,7 @@ func test_transform_request(t *testing.T) {
 		t.Fail()
 	}
 	var body_json interface{}
-	err := json.Unmarshal(string(body), body_json)
+	err = json.Unmarshal(string(body), body_json)
 	if err != nil {
 		t.Fail()
 	}
@@ -62,7 +62,7 @@ func test_transform_json_rpc_request(t *testing.T) {
 	expected_body := JsonObject{"sample": "body"}
 	body, err := ioutil.ReadAll(new_request.Body)
 	var body_json interface{}
-	err := json.Unmarshal(string(body), body_json)
+	err = json.Unmarshal(string(body), body_json)
 	if err != nil {
 		t.Fail()
 	}
@@ -110,7 +110,7 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters,
 		return errors.New("JSON bodies do not match")
 	}
 	var tr_body_json interface{}
-	err := json.Unmarshal(transformed_request.Body, &tr_body_json)
+	err = json.Unmarshal(transformed_request.Body, &tr_body_json)
 	if err != nil {
 		return err
 	}
@@ -169,10 +169,10 @@ func test_transform_rest_request_path_only_enum(t *testing.T) {
 	}
 
 	// Bad enum
-	path_parameters := JsonObject{"gid": "Y"}
-	expected := JsonObject{"gid": "Y"}
-	err = transform_rest_request(server, path_parameters, query_parameters,
-		body_object, expected, /*method_params=*/method_params)
+	expected_path_parameters := JsonObject{"gid": "Y"}
+	expected_body := JsonObject{"gid": "Y"}
+	err = transform_rest_request(server, expected_path_parameters, query_parameters,
+		body_object, expected_body, /*method_params=*/method_params)
 	if err == nil {
 		t.Fail("Bad enum should have caused failure.")
 	} else if _, ok := err.(EnumRejectionError); !ok {
@@ -257,8 +257,8 @@ func test_transform_rest_request_query_only_enum(t *testing.T) {
 	}
 
 	// Bad enum
-	query_parameters := JsonObject{"gid": []string{"Y"}}
-	expected := JsonObject{"gid": "Y"}
+	query_parameters = JsonObject{"gid": []string{"Y"}}
+	expected = JsonObject{"gid": "Y"}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, /*method_params=*/method_params)
 	if err == nil {
@@ -295,9 +295,9 @@ func test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 	}
 
 	// Bad enum
-	query_parameters := JsonObject{"gid": []string{"X", "Y", "Z"}}
-	expected := JsonObject{"gid": []string{"X", "Y", "Z"}}
-	err := transform_rest_request(server, path_parameters, query_parameters,
+	query_parameters = JsonObject{"gid": []string{"X", "Y", "Z"}}
+	expected = JsonObject{"gid": []string{"X", "Y", "Z"}}
+	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	if err == nil {
 		t.Fail("Bad enum should have caused failure.")
@@ -381,9 +381,9 @@ func test_transform_rest_request_body_only_enum(t *testing.T) {
 	}
 
 	// Bad enum
-	body_object := JsonObject{"gid": "Y"}
-	expected := JsonObject{"gid": "Y"}
-	err := transform_rest_request(server, path_parameters, query_parameters,
+	body_object = JsonObject{"gid": "Y"}
+	expected = JsonObject{"gid": "Y"}
+	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	if err != nil {
 		t.Fail()

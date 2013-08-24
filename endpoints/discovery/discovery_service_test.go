@@ -34,7 +34,7 @@ func prepare_discovery_request(response_body string) *httptest.Server {
 	return ts
 }
 
-func test_generate_discovery_doc_rest(t *testing.T) {
+func test_generate_discovery_doc_rest_service(t *testing.T) {
 	_, api_request, discovery := common_setup()
 	body, _ := json.Marshal(JsonObject{
 		"baseUrl": "https://tictactoe.appspot.com/_ah/api/tictactoe/v1/",
@@ -52,7 +52,7 @@ func test_generate_discovery_doc_rest(t *testing.T) {
 //	discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rest").AndReturn(body)
 
 //	mox.ReplayAll()
-	_ := discovery.handle_discovery_request(_GET_REST_API, api_request, w)
+	discovery.handle_discovery_request(_GET_REST_API, api_request, w)
 //	mox.VerifyAll()
 
 	assert_http_match_recorder(t, w, 200,
@@ -62,7 +62,7 @@ func test_generate_discovery_doc_rest(t *testing.T) {
 		}, body)
 }
 
-func test_generate_discovery_doc_rpc(t *testing.T) {
+func test_generate_discovery_doc_rpc_service(t *testing.T) {
 	_, api_request, discovery := common_setup()
 	body, _ := json.Marshal(JsonObject{
 		"rpcUrl": "https://tictactoe.appspot.com/_ah/api/rpc",
@@ -80,7 +80,7 @@ func test_generate_discovery_doc_rpc(t *testing.T) {
 //	discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rpc").AndReturn(body)
 
 //	mox.ReplayAll()
-	_ := discovery.handle_discovery_request(_GET_RPC_API, api_request, w)
+	discovery.handle_discovery_request(_GET_RPC_API, api_request, w)
 //	mox.VerifyAll()
 
 	assert_http_match_recorder(t, w, 200,
@@ -118,7 +118,7 @@ func test_generate_directory(t *testing.T) {
 //	discovery._discovery_proxy.generate_directory(mox.IsA(list)).AndReturn(body)
 
 //	mox.ReplayAll()
-	_ := discovery.handle_discovery_request(_LIST_API, api_request, w)
+	discovery.handle_discovery_request(_LIST_API, api_request, w)
 //	mox.VerifyAll()
 
 	assert_http_match_recorder(t, w, 200,

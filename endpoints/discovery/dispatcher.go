@@ -309,7 +309,7 @@ func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *Ap
 		}
 	}
 
-	err := ed.check_error_response(response)
+	err = ed.check_error_response(response)
 	if err != nil {
 		return "", err
 	}
@@ -474,7 +474,7 @@ func (ed *EndpointsDispatcher) check_parameters(parameter_name, value []string, 
 //   field_parameter: The dictionary containing information specific to the
 //     field in question. This is retrieved from request.parameters in the
 //     method config.
-func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, field_parameter *ApiRequestParamSpec) {
+func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, field_parameter *endpoints.ApiRequestParamSpec) {
 	ed.check_enum(parameter_name, value, field_parameter)
 }
 

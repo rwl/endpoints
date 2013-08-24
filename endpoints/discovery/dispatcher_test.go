@@ -16,8 +16,7 @@ import (
 func set_up() *EndpointsDispatcher {
 	config_manager := NewApiConfigManager()
 	mock_dispatcher := new(MockDispatcher)
-	discovery_api := NewDiscoveryApiProxy()
-	return NewEndpointsDispatcherConfig(mock_dispatcher, config_manager, discovery_api)
+	return NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
 }
 
 func prepare_dispatch(mock_dispatcher Dispatcher, config JsonObject) {
@@ -180,7 +179,7 @@ func test_dispatch_invalid_enum(t *testing.T) {
 	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
 	prepare_dispatch(server.dispatcher, config)
 //	mox.ReplayAll()
-	_ := server.dispatch(request, w)
+	server.dispatch(request, w)
 //	mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
@@ -262,7 +261,7 @@ func test_dispatch_spi_error(t *testing.T) {
 //	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
 //	mox.ReplayAll()
-	response := server.dispatch(request, w)
+	server.dispatch(request, w)
 //	self.mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
@@ -278,11 +277,11 @@ func test_dispatch_spi_error(t *testing.T) {
   ],
   "message": "Test error"
  }
-}`)
+}`
 	header := new(http.Header)
 	header.Set("Content-Type", "application/json")
 	header.Set("Content-Length", fmt.Sprintf("%d", len(expected_response)))
-	assert_http_match(t, response, 404, header, expected_response)
+	assert_http_match_recorder(t, w, 404, header, expected_response)
 }
 
 // Test than an RPC call that returns an error is handled properly.
@@ -330,7 +329,7 @@ func test_dispatch_rpc_error(t *testing.T) {
 //	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
 //	mox.ReplayAll()
-	response := server.dispatch(request, w)
+	response_body := server.dispatch(request, w)
 //	mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
@@ -352,7 +351,7 @@ func test_dispatch_rpc_error(t *testing.T) {
 		t.Fail()
 	}
 	var response_json interface{}
-	err := json.Unmarshal(response, &response_json)
+	err := json.Unmarshal(response_body, &response_json)
 	if err != nil {
 		t.Fail()
 	}
@@ -409,43 +408,43 @@ func test_explorer_redirect(t *testing.T) {
 	assert_http_match(t, response, 302, header, "")
 }
 
-func test_static_existing_file(t *testing.T) {
-	relative_url := "/_ah/api/static/proxy.html"
-
-	w := httptest.NewRecorder()
-
-	// Set up mocks for the call to DiscoveryApiProxy.get_static_file.
-	discovery_api := &MockDiscoveryApiProxy{}
-	server := NewEndpointsDispatcherConfig(
-		&http.Client{},
-		NewApiConfigManager(),
-		discovery_api,
-	)
-//	mox.StubOutWithMock(discovery_api_proxy, "DiscoveryApiProxy")
-//	DiscoveryApiProxy().AndReturn(discovery_api)
-	/*static_response = mox.CreateMock(httplib.HTTPResponse)
-	static_response.status = 200
-	static_response.reason = "OK"
-	static_response.getheader("Content-Type").AndReturn("test/type")*/
-	test_body := "test body"
-//	get_static_file(relative_url).AndReturn(static_response, test_body)
-	discovery_api.On(
-		"get_static_file",
-		relative_url,
-	).Return(mock.Anything/*static_response*/, test_body, nil)
-
-	// Make sure the dispatch works as expected.
-	request := build_request(relative_url, "", nil)
-//	mox.ReplayAll()
-	response := server.dispatch(request, w)
-//	mox.VerifyAll()
-	server.Mock.AssertExpectations(t)
-
-	header := new(Header)
-	header.Set("Content-Length", fmt.Sprintf("%d", len(test_body)))
-	header.Set("Content-Type", "test/type")
-	assert_http_match(t, response, 200, header, test_body)
-}
+//func test_static_existing_file(t *testing.T) {
+//	relative_url := "/_ah/api/static/proxy.html"
+//
+//	w := httptest.NewRecorder()
+//
+//	// Set up mocks for the call to DiscoveryApiProxy.get_static_file.
+//	discovery_api := &MockDiscoveryApiProxy{}
+//	server := NewEndpointsDispatcherConfig(
+//		&http.Client{},
+//		NewApiConfigManager(),
+//		discovery_api,
+//	)
+////	mox.StubOutWithMock(discovery_api_proxy, "DiscoveryApiProxy")
+////	DiscoveryApiProxy().AndReturn(discovery_api)
+//	/*static_response = mox.CreateMock(httplib.HTTPResponse)
+//	static_response.status = 200
+//	static_response.reason = "OK"
+//	static_response.getheader("Content-Type").AndReturn("test/type")*/
+//	test_body := "test body"
+////	get_static_file(relative_url).AndReturn(static_response, test_body)
+//	discovery_api.On(
+//		"get_static_file",
+//		relative_url,
+//	).Return(mock.Anything/*static_response*/, test_body, nil)
+//
+//	// Make sure the dispatch works as expected.
+//	request := build_request(relative_url, "", nil)
+////	mox.ReplayAll()
+//	response := server.dispatch(request, w)
+////	mox.VerifyAll()
+//	server.Mock.AssertExpectations(t)
+//
+//	header := new(Header)
+//	header.Set("Content-Length", fmt.Sprintf("%d", len(test_body)))
+//	header.Set("Content-Type", "test/type")
+//	assert_http_match(t, response, 200, header, test_body)
+//}
 
 /*func test_static_non_existing_file(t *testing.T) {
 	relative_url := "/_ah/api/static/blah.html"
@@ -496,11 +495,11 @@ func test_handle_non_json_spi_response(t *testing.T) {
 	}
 	body_bytes, _ := json.Marshal(error_json)
 	body := string(body_bytes)
-	header := Header{
+	expected_header := Header{
 		"Content-Type", "application/json",
 		"Content-Length", fmt.Sprintf("%d", len(body)),
 	}
-	assert_http_match(t, response, 500, header, body)
+	assert_http_match(t, response, 500, expected_header, body)
 }
 
 // Verify Lily protocol correctly uses python method name.
@@ -670,7 +669,7 @@ func test_transform_json_rpc_response_batch(t *testing.T) {
 		nil,
 	)
 	request := orig_request.copy()
-	request.request_id := "42"
+	request.request_id = "42"
 	orig_response := `{"sample": "body"}`
 	response := server.transform_jsonrpc_response(request, orig_response)
 	expected_response := []JsonObject{

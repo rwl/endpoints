@@ -9,6 +9,7 @@ import (
 	"log"
 	"strings"
 	"errors"
+	"bytes"
 )
 
 const _API_PREFIX = "/_ah/api/"
@@ -27,9 +28,9 @@ type ApiRequest struct {
 
 func newApiRequest(r *http.Request) (*ApiRequest, error) {
 	ar := &ApiRequest{
-		r,
+		Request: r,
 //		reconstruct_relative_url(r),
-		false,
+		is_batch: false,
 	}
 
 	if !strings.HasPrefix(ar.URL.Path, _API_PREFIX) {
@@ -76,14 +77,19 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 		}
 		log.Print("Converting batch request to single request.")
 		body_json = body_json_array[0]
-		ar.body_json, ok := body_json.(JsonObject)
+		ar.body_json, ok = body_json.(JsonObject)
 		if !ok {
 			return nil, fmt.Errorf("JSON request body must be a map: %s", body_json)
 		}
-		ar.Body = json.Marshal(ar.body_json)
+		var body_bytes []byte
+		body_bytes, err = json.Marshal(ar.body_json)
+		ar.Body = ioutil.NopCloser(bytes.NewBuffer(body_bytes))
+		if err != nil {
+			return ar, err
+		}
 		ar.is_batch = true
 	} else {
-		ar.body_json, ok := body_json.(JsonObject)
+		ar.body_json, ok = body_json.(JsonObject)
 		if !ok {
 			return nil, fmt.Errorf("JSON request body must be a map: %s", body_json)
 		}
@@ -116,8 +122,8 @@ func (ar *ApiRequest) copy(other *ApiRequest) *ApiRequest {
 //		other.ApiRequest,
 //		other.relative_url,
 //	}
-	ar, _ := newApiRequest(other)
-	return ar
+	new_ar, _ := newApiRequest(other.Request)
+	return new_ar
 }
 
 // Google's JsonRPC protocol creates a handler at /rpc for any Cloud
