@@ -12,6 +12,7 @@ import (
 	"sort"
 	"encoding/base32"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"reflect"
 )
 
 const _PATH_VARIABLE_PATTERN = `[a-zA-Z_][a-zA-Z_.\d]*`
@@ -105,16 +106,20 @@ func (m *ApiConfigManager) parse_api_config_response(body string) error {
 	if !ok {
 		return errors.New(`BackendService.getApiConfigs response missing "items" key.`)
 	}
-	item_array, ok := items.([]string)
+	item_array, ok := items.([]interface{})
 	if !ok {
-		return errors.New(`Invalid type for "items" value in response`)
+		return fmt.Errorf(`Invalid type for "items" value in response: %v`, reflect.TypeOf(items))
 	}
 
 	for _, api_config_json := range item_array {
+		api_config_json_str, ok := api_config_json.(string)
+		if !ok {
+			return fmt.Errorf(`Invalid type for "items" value in response: %v`, reflect.TypeOf(api_config_json))
+		}
 		var config *endpoints.ApiDescriptor
-		err := json.Unmarshal([]byte(api_config_json), config)
+		err := json.Unmarshal([]byte(api_config_json_str), &config)
 		if err != nil {
-			return fmt.Errorf("Can not parse API config: %s", api_config_json)
+			return err//fmt.Errorf("Can not parse API config: %s", api_config_json_str)
 		}
 		lookup_key := lookupKey{config.Name, config.Version}
 		convert_https_to_http(config)
@@ -173,6 +178,8 @@ func (by ByPath) Less(i, j int) bool {
 
 	path_score1 := score_path(path1)
 	path_score2 := score_path(path2)
+//	fmt.Printf("1: %s - %d\n", path1, path_score1)
+//	fmt.Printf("2: %s - %d\n", path2, path_score2)
 	if path_score1 != path_score2 {
 		// Higher path scores come first.
 		return path_score1 > path_score2
@@ -198,7 +205,7 @@ func (by ByPath) Swap(i, j int) {
 // Higher scores have priority, and if scores are equal, the path text
 // is sorted alphabetically.  Scores are based on the number and location
 // of the constant parts of the path.  The server has some special handling
-// for variables with regexes, which we don"t handle here.
+// for variables with regexes, which we don't handle here.
 //
 // Args:
 //   path: The request path that we"re calculating a score for.
@@ -218,7 +225,7 @@ func score_path(path string) int {
 	// Shift by 31 instead of 32 because some (!) versions of Python like
 	// to convert the int to a long if we shift by 32, and the sorted()
 	// function that uses this blows up if it receives anything but an int.
-	score <<= 31 - uint(len(parts))
+	score <<= uint(31 - len(parts))
 	return score
 }
 
