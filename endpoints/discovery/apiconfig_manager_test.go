@@ -7,28 +7,24 @@ import (
 	"regexp"
 	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
-	"reflect"
+	"github.com/stretchr/testify/assert"
 )
 
-func test_parse_api_config_empty_response(t *testing.T) {
+func Test_parse_api_config_empty_response(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	config_manager.parse_api_config_response("")
 	actual_method := config_manager.lookup_rpc_method("guestbook_api.get", "v1")
-	if actual_method != nil {
-		t.Fail()
-	}
+	assert.Nil(t, actual_method)
 }
 
-func test_parse_api_config_invalid_response(t *testing.T) {
+func Test_parse_api_config_invalid_response(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	config_manager.parse_api_config_response(`{"name": "foo"}`)
 	actual_method := config_manager.lookup_rpc_method("guestbook_api.get", "v1")
-	if actual_method != nil {
-		t.Fail()
-	}
+	assert.Nil(t, actual_method)
 }
 
-func test_parse_api_config(t *testing.T) {
+func Test_parse_api_config(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	fake_method := &endpoints.ApiMethod{
 		HttpMethod: "GET",
@@ -47,9 +43,7 @@ func test_parse_api_config(t *testing.T) {
 	})
 	config_manager.parse_api_config_response(string(items))
 	actual_method := config_manager.lookup_rpc_method("guestbook_api.foo.bar", "X")
-	if !reflect.DeepEqual(fake_method, actual_method) {
-		t.Fail()
-	}
+	assert.Equal(t, fake_method, actual_method)
 }
 
 type method_info struct {
@@ -58,7 +52,7 @@ type method_info struct {
 	method string
 }
 
-func test_parse_api_config_order_length(t *testing.T) {
+func Test_parse_api_config_order_length(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	test_method_info := []method_info{
 		method_info{"guestbook_api.foo.bar", "greetings/{gid}", "baz.bim"},
@@ -110,7 +104,7 @@ func test_parse_api_config_order_length(t *testing.T) {
 	}
 }
 
-func test_get_sorted_methods1(t *testing.T) {
+func Test_get_sorted_methods1(t *testing.T) {
 	test_method_info := []method_info{
 		method_info{"name1", "greetings", "POST"},
 		method_info{"name2", "greetings", "GET"},
@@ -149,12 +143,10 @@ func test_get_sorted_methods1(t *testing.T) {
 			},
 		}
 	}
-	if !reflect.DeepEqual(expected_methods, sorted_methods) {
-		t.Fail()
-	}
+	assert.Equal(t, expected_methods, sorted_methods)
 }
 
-func test_get_sorted_methods2(t *testing.T) {
+func Test_get_sorted_methods2(t *testing.T) {
 	test_method_info := []method_info{
 		method_info{"name1", "abcdefghi", "GET"},
 		method_info{"name2", "foo", "GET"},
@@ -194,12 +186,10 @@ func test_get_sorted_methods2(t *testing.T) {
 			},
 		}
 	}
-	if !reflect.DeepEqual(expected_methods, sorted_methods) {
-		t.Fail()
-	}
+	assert.Equal(t, expected_methods, sorted_methods)
 }
 
-func test_parse_api_config_invalid_api_config(t *testing.T) {
+func Test_parse_api_config_invalid_api_config(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	fake_method := &endpoints.ApiMethod{
 		HttpMethod: "GET",
@@ -226,7 +216,7 @@ func test_parse_api_config_invalid_api_config(t *testing.T) {
 }
 
 // Test that the parsed API config has switched HTTPS to HTTP.
-func test_parse_api_config_convert_https(t *testing.T) {
+func Test_parse_api_config_convert_https(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	config, _ := json.Marshal(JsonObject{
 		"name": "guestbook_api",
@@ -253,7 +243,7 @@ func test_parse_api_config_convert_https(t *testing.T) {
 }
 
 // Test that the _convert_https_to_http function works.
-func test_convert_https_to_http(t *testing.T) {
+func Test_convert_https_to_http(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
 		Name: "guestbook_api",
 		Version: "X",
@@ -274,7 +264,7 @@ func test_convert_https_to_http(t *testing.T) {
 }
 
 // Verify that we don"t change non-HTTPS URLs.
-func test_dont_convert_non_https_to_http(t *testing.T) {
+func Test_dont_convert_non_https_to_http(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
 		Name: "guestbook_api",
 		Version: "X",
@@ -294,7 +284,7 @@ func test_dont_convert_non_https_to_http(t *testing.T) {
 	}
 }
 
-func test_save_lookup_rpc_method(t *testing.T) {
+func Test_save_lookup_rpc_method(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	// First attempt, guestbook.get does not exist
 	actual_method := config_manager.lookup_rpc_method("guestbook_api.get", "v1")
@@ -311,7 +301,7 @@ func test_save_lookup_rpc_method(t *testing.T) {
 	}
 }
 
-func test_save_lookup_rest_method(t *testing.T) {
+func Test_save_lookup_rest_method(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	// First attempt, guestbook.get does not exist
 	method_name, api_method, params := config_manager.lookup_rest_method("guestbook_api/v1/greetings/i", "GET")
@@ -332,12 +322,10 @@ func test_save_lookup_rest_method(t *testing.T) {
 	if fake_method != api_method {
 		t.Fail()
 	}
-	if !reflect.DeepEqual(map[string]string{"id": "i"}, params) {
-		t.Fail()
-	}
+	assert.Equal(t, map[string]string{"id": "i"}, params)
 }
 
-func test_trailing_slash_optional(t *testing.T) {
+func Test_trailing_slash_optional(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	// Create a typical get resource URL.
 	fake_method := &endpoints.ApiMethod{
@@ -374,7 +362,7 @@ func test_trailing_slash_optional(t *testing.T) {
 
 /* Parameterized path tests. */
 
-func test_invalid_variable_name_leading_digit(t *testing.T) {
+func Test_invalid_variable_name_leading_digit(t *testing.T) {
 	matched, _ := regexp.MatchString(_PATH_VARIABLE_PATTERN, "1abc")
 	if matched {
 		t.Fail()
@@ -383,14 +371,14 @@ func test_invalid_variable_name_leading_digit(t *testing.T) {
 
 // Ensure users can not add variables starting with !
 // This is used for reserved variables (e.g. !name and !version)
-func test_invalid_var_name_leading_exclamation(t *testing.T) {
+func Test_invalid_var_name_leading_exclamation(t *testing.T) {
 	matched, _ := regexp.MatchString(_PATH_VARIABLE_PATTERN, "!abc")
 	if matched {
 		t.Fail()
 	}
 }
 
-func test_valid_variable_name(t *testing.T) {
+func Test_valid_variable_name(t *testing.T) {
 	re := regexp.MustCompile(_PATH_VARIABLE_PATTERN)
 	if re.FindString("AbC1") != "AbC1" {
 		t.Fail()
@@ -416,19 +404,19 @@ func assert_no_match(t *testing.T, path, param_path string) {
 	}
 }
 
-func test_prefix_no_match(t *testing.T) {
+func Test_prefix_no_match(t *testing.T) {
 	assert_no_match(t, "/xyz/123", "/abc/{x}")
 }
 
-func test_suffix_no_match(t *testing.T) {
+func Test_suffix_no_match(t *testing.T) {
 	assert_no_match(t, "/abc/123", "/abc/{x}/456")
 }
 
-func test_suffix_no_match_with_more_variables(t *testing.T) {
+func Test_suffix_no_match_with_more_variables(t *testing.T) {
 	assert_no_match(t, "/abc/456/123/789", "/abc/{x}/123/{y}/xyz")
 }
 
-func test_no_match_collection_with_item(t *testing.T) {
+func Test_no_match_collection_with_item(t *testing.T) {
 	assert_no_match(t, "/api/v1/resources/123", "/{name}/{version}/resources")
 }
 
@@ -466,14 +454,14 @@ func assert_match(t *testing.T, path, param_path string, param_count int) map[st
 	return params
 }
 
-func test_one_variable_match(t *testing.T) {
+func Test_one_variable_match(t *testing.T) {
 	params := assert_match(t, "/abc/123", "/abc/{x}", 1)
 	if x, ok := params["x"]; !ok || "123" != x {
 		t.Fail()
 	}
 }
 
-func test_two_variable_match(t *testing.T) {
+func Test_two_variable_match(t *testing.T) {
 	params := assert_match(t, "/abc/456/123/789", "/abc/{x}/123/{y}", 2)
 	if x, ok := params["x"]; !ok || x != "456" {
 		t.Fail()
@@ -483,14 +471,14 @@ func test_two_variable_match(t *testing.T) {
 	}
 }
 
-func test_message_variable_match(t *testing.T) {
+func Test_message_variable_match(t *testing.T) {
 	params := assert_match(t, "/abc/123", "/abc/{x.y}", 1)
 	if xy, ok := params["x.y"]; !ok || xy != "123" {
 		t.Fail()
 	}
 }
 
-func test_message_and_simple_variable_match(t *testing.T) {
+func Test_message_and_simple_variable_match(t *testing.T) {
 	params := assert_match(t, "/abc/123/456", "/abc/{x.y.z}/{t}", 2)
 	if xyz, ok := params["x.y.z"]; !ok || xyz != "123" {
 		t.Fail()
@@ -519,7 +507,7 @@ func assert_invalid_value(t *testing.T, value string) {
 	}
 }
 
-func test_invalid_values(t *testing.T) {
+func Test_invalid_values(t *testing.T) {
 	reserved := []string{":", "?", "#", "[", "]", "{", "}"}
 	for _, r := range reserved {
 		assert_invalid_value(t, fmt.Sprintf("123%s", r))

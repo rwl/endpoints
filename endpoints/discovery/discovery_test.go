@@ -37,7 +37,7 @@ func init() {
 //	return ts
 //}
 
-func test_generate_discovery_doc_rest(t *testing.T) {
+func Test_generate_discovery_doc_rest(t *testing.T) {
 //	discovery_api := &DiscoveryApiProxy{}
 	baseUrl := "https://tictactoe.appspot.com/_ah/api/tictactoe/v1/"
 
@@ -70,7 +70,7 @@ func test_generate_discovery_doc_rest(t *testing.T) {
 	}
 }
 
-func test_generate_discovery_doc_rpc(t *testing.T) {
+func Test_generate_discovery_doc_rpc(t *testing.T) {
 	rpcUrl := "https://tictactoe.appspot.com/_ah/api/rpc"
 	body := JsonObject{"rpcUrl": rpcUrl}
 	body_json, _ := json.Marshal(body)
@@ -101,7 +101,7 @@ func test_generate_discovery_doc_rpc(t *testing.T) {
 	}
 }
 
-func test_generate_discovery_doc_invalid_format(t *testing.T) {
+func Test_generate_discovery_doc_invalid_format(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "Error", 400)
 	}))
@@ -116,7 +116,7 @@ func test_generate_discovery_doc_invalid_format(t *testing.T) {
 	}
 }
 
-func test_generate_discovery_doc_bad_api_config(t *testing.T) {
+func Test_generate_discovery_doc_bad_api_config(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "", 503)
 	}))
@@ -138,7 +138,7 @@ func test_generate_discovery_doc_bad_api_config(t *testing.T) {
 	}
 }
 
-func test_get_static_file_existing(t *testing.T) {
+func Test_get_static_file_existing(t *testing.T) {
 	body := "static file body"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, body)

@@ -34,7 +34,7 @@ func prepare_discovery_request(response_body string) *httptest.Server {
 	return ts
 }
 
-func test_generate_discovery_doc_rest_service(t *testing.T) {
+func Test_generate_discovery_doc_rest_service(t *testing.T) {
 	_, api_request, discovery := common_setup()
 	body, _ := json.Marshal(JsonObject{
 		"baseUrl": "https://tictactoe.appspot.com/_ah/api/tictactoe/v1/",
@@ -62,7 +62,7 @@ func test_generate_discovery_doc_rest_service(t *testing.T) {
 		}, string(body))
 }
 
-func test_generate_discovery_doc_rpc_service(t *testing.T) {
+func Test_generate_discovery_doc_rpc_service(t *testing.T) {
 	_, api_request, discovery := common_setup()
 	body, _ := json.Marshal(JsonObject{
 		"rpcUrl": "https://tictactoe.appspot.com/_ah/api/rpc",
@@ -90,7 +90,7 @@ func test_generate_discovery_doc_rpc_service(t *testing.T) {
 		}, string(body))
 }
 
-func test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
+func Test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
 	_, _, discovery_api := common_setup()
 	request := build_request("/_ah/api/foo",
 		`{"api": "blah", "version": "v1"}`, nil)
@@ -102,7 +102,7 @@ func test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
 	}
 }
 
-func test_generate_directory(t *testing.T) {
+func Test_generate_directory(t *testing.T) {
 	_, api_request, discovery := common_setup()
 	body, _ := json.Marshal(JsonObject{"kind": "discovery#directoryItem"})
 

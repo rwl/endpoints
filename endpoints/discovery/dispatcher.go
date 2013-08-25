@@ -603,7 +603,10 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		params map[string]string,
 		method_parameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
 
-	request := orig_request.copy()
+	request, err := orig_request.copy()
+	if err != nil {
+		return request, err
+	}
 	body_json := make(JsonObject)
 
 	// Handle parameters from the URL path.
@@ -686,7 +689,10 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 // Returns:
 //   A new request with the request_id updated and params moved to the body.
 func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request *ApiRequest) (*ApiRequest, error) {
-	request := orig_request.copy()
+	request, err := orig_request.copy()
+	if err != nil {
+		return request, err
+	}
 
 	request_id, ok_id := request.body_json["id"]
 	if ok_id {

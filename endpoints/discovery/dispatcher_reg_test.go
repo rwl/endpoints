@@ -10,7 +10,7 @@ package discovery
 )
 
 // Test that a GET request to a REST API works.
-func test_rest_get(t *testing.T) {
+func Test_rest_get(t *testing.T) {
 	status, content, headers := fetch_url("default", "GET",
 		"/_ah/api/test_service/v1/test")
 	if 200 != status {
@@ -31,12 +31,12 @@ func test_rest_get(t *testing.T) {
 }
 
 // Test that a POST request to a REST API works.
-func test_rest_post(t *testing.T) {
+func Test_rest_post(t *testing.T) {
 	body, err := json.Marshal(map[string]interface{}{
 		"name": "MyName",
 		"number": 23,
 	})
-	send_headers := new(http.Header)
+	send_headers := make(http.Header)
 	send_header.Set("content-type", "application/json")
 	status, content, headers := fetch_url("default", "POST",
 		"/_ah/api/test_service/v1/t2path",
@@ -56,8 +56,8 @@ func test_rest_post(t *testing.T) {
 }
 
 // Test that CORS headers are handled properly.
-func test_cors(t *testing.T) {
-	send_headers := new(http.Header)
+func Test_cors(t *testing.T) {
+	send_headers := make(http.Header)
 	send_headers.Set("Origin", "test.com")
 	send_headers.Set("Access-control-request-method", "GET")
 	send_headers.Set("Access-Control-Request-Headers", "Date,Expires")
@@ -84,7 +84,7 @@ P:
 }
 
 // Test that an RPC request works.
-func test_rpc(t *testing.T) {
+func Test_rpc(t *testing.T) {
 	body, err := json.Marshal([]string{
 		map[string]interface{}{
 			"jsonrpc": "2.0",
@@ -97,7 +97,7 @@ func test_rpc(t *testing.T) {
 			"apiVersion": "v1",
 		},
 	})
-	send_headers := new(http.Header)
+	send_headers := make(http.Header)
 	send_headers.Set("content-type", "application-rpc")
 	status, content, headers := fetch_url("default", "POST",
 		"/_ah/api/rpc",
@@ -124,12 +124,12 @@ func test_rpc(t *testing.T) {
 }
 
 // Test sending and receiving a datetime.
-func test_echo_datetime_message(t *testing.T) {
+func Test_echo_datetime_message(t *testing.T) {
 	body, err := json.Marshal(map[string]interface{}{
 		"milliseconds": "5000",
 		"time_zone_offset": "60",
 	})
-	send_headers := new(http.Header)
+	send_headers := make(http.Header)
 	send_headers.Set("content-type", "application/json")
 	status, content, headers := fetch_url(
 		"default", "POST", "/_ah/api/test_service/v1/echo_datetime_message",
@@ -152,12 +152,12 @@ func test_echo_datetime_message(t *testing.T) {
 }
 
 // Test sending and receiving a message that includes a datetime.
-func test_echo_datetime_field(t *testing.T) {
+func Test_echo_datetime_field(t *testing.T) {
 	body_json := map[string]string{
 		"datetime_value": "2013-03-13T15:29:37.883000+08:00",
 	}
 	body, err := json.Marshal(body_json)
-	send_headers := new(http.Header)
+	send_headers := make(http.Header)
 	send_headers.Set("content-type", "application/json")
 	status, content, headers := fetch_url(
 		"default", "POST", "/_ah/api/test_service/v1/echo_datetime_field",
@@ -177,7 +177,7 @@ func test_echo_datetime_field(t *testing.T) {
 }
 
 // Test sending and receiving integer values.
-func test_increment_integers(t *testing.T) {
+func Test_increment_integers(t *testing.T) {
 	body_json := map[string]interface{}{
 		"var_int32": 100,
 		"var_int64": "1000",
@@ -188,7 +188,7 @@ func test_increment_integers(t *testing.T) {
 		"var_uint64": 4320,
 	}
 	body, err := json.Marshal(body_json)
-	send_headers := new(http.Header)
+	send_headers := make(http.Header)
 	send_headers.Set("content-type", "application/json")
 	status, content, headers := fetch_url(
 		"default", "POST", "/_ah/api/test_service/v1/increment_integers",
@@ -217,7 +217,7 @@ func test_increment_integers(t *testing.T) {
 }
 
 // Test that the discovery configuration looks right.
-func test_discovery_config(t *testing.T) {
+func Test_discovery_config(t *testing.T) {
 	status, content, headers := fetch_url(
 		"default", "GET", "/_ah/api/discovery/v1/apis/test_service/v1/rest")
 	if 200 != status {
@@ -243,7 +243,7 @@ func test_discovery_config(t *testing.T) {
 }
 
 // Test that a GET request to a second class in the REST API works.
-func test_multiclass_rest_get(t *testing.T) {
+func Test_multiclass_rest_get(t *testing.T) {
 	status, content, headers := fetch_url(
 		"default", "GET", "/_ah/api/test_service/v1/extrapath/test")
 	if 200 != status {
@@ -264,7 +264,7 @@ func test_multiclass_rest_get(t *testing.T) {
 }
 
 // Test that an RPC request to a second class in the API works.
-func test_multiclass_rpc(t *testing.T) {
+func Test_multiclass_rpc(t *testing.T) {
 	body, err := json.Marshal([]string{
 		map[string]interface{}{
 			"jsonrpc": "2.0",
@@ -274,7 +274,7 @@ func test_multiclass_rpc(t *testing.T) {
 			"apiVersion": "v1",
 		},
 	})
-	send_headers := new(http.Header)
+	send_headers := make(http.Header)
 	send_headers.Set("content-type", "application-rpc")
 	status, content, headers := fetch_url("default", "POST",
 		"/_ah/api/rpc",
@@ -301,7 +301,7 @@ func test_multiclass_rpc(t *testing.T) {
 }
 
 // Test that a GET request to a second similar API works.
-func test_second_api_no_collision(t *testing.T) {
+func Test_second_api_no_collision(t *testing.T) {
 	status, content, headers := fetch_url("default", "GET",
 		"/_ah/api/second_service/v1/test")
 	if 200 != status {

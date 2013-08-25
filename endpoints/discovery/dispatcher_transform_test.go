@@ -21,7 +21,7 @@ func setUpTransformRequestTests() *EndpointsDispatcher {
 }
 
 // Verify path is method name after a request is transformed.
-func test_transform_request(t *testing.T) {
+func Test_transform_request(t *testing.T) {
 	server := setUpTransformRequestTests()
 
 	request := build_request("/_ah/api/test/{gid}", `{"sample": "body"}`, nil)
@@ -50,7 +50,7 @@ func test_transform_request(t *testing.T) {
 }
 
 // Verify request_id is extracted and body is scoped to body.params.
-func test_transform_json_rpc_request(t *testing.T) {
+func Test_transform_json_rpc_request(t *testing.T) {
 	server := setUpTransformRequestTests()
 
 	orig_request := build_request(
@@ -132,7 +132,7 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters map[str
 
 /* Path only. */
 
-func test_transform_rest_request_path_only(t *testing.T) {
+func Test_transform_rest_request_path_only(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"gid": "X"}
 	query_parameters := ""
@@ -145,7 +145,7 @@ func test_transform_rest_request_path_only(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_path_only_message_field(t *testing.T) {
+func Test_transform_rest_request_path_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"gid.val": "X"}
 	query_parameters := ""
@@ -158,7 +158,7 @@ func test_transform_rest_request_path_only_message_field(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_path_only_enum(t *testing.T) {
+func Test_transform_rest_request_path_only_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
 	query_parameters := ""
 	body_object := JsonObject{}
@@ -199,7 +199,7 @@ func test_transform_rest_request_path_only_enum(t *testing.T) {
 
 /* Query only. */
 
-func test_transform_rest_request_query_only(t *testing.T) {
+func Test_transform_rest_request_query_only(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "foo=bar"
@@ -212,7 +212,7 @@ func test_transform_rest_request_query_only(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_query_only_message_field(t *testing.T) {
+func Test_transform_rest_request_query_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val=X"
@@ -225,7 +225,7 @@ func test_transform_rest_request_query_only_message_field(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_query_only_multiple_values_not_repeated(t *testing.T) {
+func Test_transform_rest_request_query_only_multiple_values_not_repeated(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "foo=bar,baz" // todo: check query form
@@ -238,7 +238,7 @@ func test_transform_rest_request_query_only_multiple_values_not_repeated(t *test
 	}
 }
 
-func test_transform_rest_request_query_only_multiple_values_repeated(t *testing.T) {
+func Test_transform_rest_request_query_only_multiple_values_repeated(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "foo=bar,baz"
@@ -254,7 +254,7 @@ func test_transform_rest_request_query_only_multiple_values_repeated(t *testing.
 	}
 }
 
-func test_transform_rest_request_query_only_enum(t *testing.T) {
+func Test_transform_rest_request_query_only_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	body_object := JsonObject{}
@@ -293,7 +293,7 @@ func test_transform_rest_request_query_only_enum(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
+func Test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	body_object := JsonObject{}
@@ -336,7 +336,7 @@ func test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 
 /* Body only. */
 
-func test_transform_rest_request_body_only(t *testing.T) {
+func Test_transform_rest_request_body_only(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
@@ -349,7 +349,7 @@ func test_transform_rest_request_body_only(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_body_only_any_old_value(t *testing.T) {
+func Test_transform_rest_request_body_only_any_old_value(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
@@ -370,7 +370,7 @@ func test_transform_rest_request_body_only_any_old_value(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_body_only_message_field(t *testing.T) {
+func Test_transform_rest_request_body_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
@@ -383,7 +383,7 @@ func test_transform_rest_request_body_only_message_field(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_body_only_enum(t *testing.T) {
+func Test_transform_rest_request_body_only_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
@@ -417,7 +417,7 @@ func test_transform_rest_request_body_only_enum(t *testing.T) {
 
 /* Path and query only */
 
-func test_transform_rest_request_path_query_no_collision(t *testing.T) {
+func Test_transform_rest_request_path_query_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"
@@ -430,7 +430,7 @@ func test_transform_rest_request_path_query_no_collision(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_path_query_collision(t *testing.T) {
+func Test_transform_rest_request_path_query_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "a=d"
@@ -443,7 +443,7 @@ func test_transform_rest_request_path_query_collision(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_path_query_collision_in_repeated_param(t *testing.T) {
+func Test_transform_rest_request_path_query_collision_in_repeated_param(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "a=d,c"
@@ -462,7 +462,7 @@ func test_transform_rest_request_path_query_collision_in_repeated_param(t *testi
 
 /* Path and body only. */
 
-func test_transform_rest_request_path_body_no_collision(t *testing.T) {
+func Test_transform_rest_request_path_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
@@ -475,7 +475,7 @@ func test_transform_rest_request_path_body_no_collision(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_path_body_collision(t *testing.T) {
+func Test_transform_rest_request_path_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
@@ -488,7 +488,7 @@ func test_transform_rest_request_path_body_collision(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_path_body_collision_in_repeated_param(t *testing.T) {
+func Test_transform_rest_request_path_body_collision_in_repeated_param(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
@@ -504,7 +504,7 @@ func test_transform_rest_request_path_body_collision_in_repeated_param(t *testin
 	}
 }
 
-func test_transform_rest_request_path_body_message_field_cooperative(t *testing.T) {
+func Test_transform_rest_request_path_body_message_field_cooperative(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"gid.val1": "X"}
 	query_parameters := ""
@@ -517,7 +517,7 @@ func test_transform_rest_request_path_body_message_field_cooperative(t *testing.
 	}
 }
 
-func test_transform_rest_request_path_body_message_field_collision(t *testing.T) {
+func Test_transform_rest_request_path_body_message_field_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"gid.val": "X"}
 	query_parameters := ""
@@ -532,7 +532,7 @@ func test_transform_rest_request_path_body_message_field_collision(t *testing.T)
 
 /* Query and body only */
 
-func test_transform_rest_request_query_body_no_collision(t *testing.T) {
+func Test_transform_rest_request_query_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
@@ -545,7 +545,7 @@ func test_transform_rest_request_query_body_no_collision(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_query_body_collision(t *testing.T) {
+func Test_transform_rest_request_query_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
@@ -558,7 +558,7 @@ func test_transform_rest_request_query_body_collision(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_query_body_collision_in_repeated_param(t *testing.T) {
+func Test_transform_rest_request_query_body_collision_in_repeated_param(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
@@ -574,7 +574,7 @@ func test_transform_rest_request_query_body_collision_in_repeated_param(t *testi
 	}
 }
 
-func test_transform_rest_request_query_body_message_field_cooperative(t *testing.T) {
+func Test_transform_rest_request_query_body_message_field_cooperative(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val1=X"
@@ -587,7 +587,7 @@ func test_transform_rest_request_query_body_message_field_cooperative(t *testing
 	}
 }
 
-func test_transform_rest_request_query_body_message_field_collision(t *testing.T) {
+func Test_transform_rest_request_query_body_message_field_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val=X"
@@ -602,7 +602,7 @@ func test_transform_rest_request_query_body_message_field_collision(t *testing.T
 
 /* Path, body and query. */
 
-func test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
+func Test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"
@@ -615,7 +615,7 @@ func test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_path_query_body_collision(t *testing.T) {
+func Test_transform_rest_request_path_query_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "a=d"
@@ -628,7 +628,7 @@ func test_transform_rest_request_path_query_body_collision(t *testing.T) {
 	}
 }
 
-func test_transform_rest_request_unknown_parameters(t *testing.T) {
+func Test_transform_rest_request_unknown_parameters(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"

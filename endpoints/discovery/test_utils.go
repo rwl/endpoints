@@ -9,6 +9,7 @@ import (
 	"testing"
 	"github.com/stretchr/testify/mock"
 	"net/http/httptest"
+	"log"
 )
 
 // Build an ApiRequest for the given path and body.
@@ -22,8 +23,12 @@ import (
 //   An ApiRequest object built based on the incoming parameters.
 func build_request(url, body string, http_headers http.Header) *ApiRequest {
 	//	unused_scheme, unused_netloc, path, query, unused_fragment := urlparse.urlsplit(path)
-	req, _ := http.NewRequest("GET", url,//fmt.Sprintf("localhost:%d/%s", 42, path),
+	req, err := http.NewRequest("GET", url,//fmt.Sprintf("http://localhost%s", url),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
+	if err != nil {
+		log.Print(err.Error())
+		panic(err.Error())
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	if http_headers != nil {
@@ -32,7 +37,11 @@ func build_request(url, body string, http_headers http.Header) *ApiRequest {
 		}
 	}
 
-	api_request, _ := newApiRequest(req)
+	api_request, err := newApiRequest(req)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
 	return api_request
 }
 
