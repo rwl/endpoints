@@ -2,17 +2,17 @@
 package discovery
 
 import (
-	"sync"
-	"encoding/json"
-	"fmt"
-	"regexp"
-	"log"
-	"strings"
-	"errors"
-	"sort"
 	"encoding/base32"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"log"
 	"reflect"
+	"regexp"
+	"sort"
+	"strings"
+	"sync"
 )
 
 const _PATH_VARIABLE_PATTERN = `[a-zA-Z_][a-zA-Z_.\d]*`
@@ -21,34 +21,34 @@ const _PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
 // Manages loading api configs and method lookup.
 type ApiConfigManager struct {
 	rpc_method_dict map[lookupKey]*endpoints.ApiMethod
-	rest_methods []*restMethod
-	configs map[lookupKey]*endpoints.ApiDescriptor
-	config_lock sync.Mutex
+	rest_methods    []*restMethod
+	configs         map[lookupKey]*endpoints.ApiDescriptor
+	config_lock     sync.Mutex
 }
 
 func NewApiConfigManager() *ApiConfigManager {
 	return &ApiConfigManager{
 		rpc_method_dict: make(map[lookupKey]*endpoints.ApiMethod),
-		rest_methods: make([]*restMethod, 0),
-		configs: make(map[lookupKey]*endpoints.ApiDescriptor),
-		config_lock: sync.Mutex{},
+		rest_methods:    make([]*restMethod, 0),
+		configs:         make(map[lookupKey]*endpoints.ApiDescriptor),
+		config_lock:     sync.Mutex{},
 	}
 }
 
 type lookupKey struct {
 	method_name string
-	version string
+	version     string
 }
 
 type restMethod struct {
 	compiled_path_pattern *regexp.Regexp
-	path string
-	methods map[string]*methodInfo
+	path                  string
+	methods               map[string]*methodInfo
 }
 
 type methodInfo struct {
 	method_name string
-	api_method *endpoints.ApiMethod
+	api_method  *endpoints.ApiMethod
 }
 
 // Switch the URLs in one API configuration to use HTTP instead of HTTPS.
@@ -73,6 +73,7 @@ func convert_https_to_http(config *endpoints.ApiDescriptor) {
 		config.Root = strings.Replace(config.Root, "https://", "http://", 1)
 	}
 }
+
 /*func _convert_https_to_http(config map[string]interface{}) {
 	if "adapter" in config and "bns" in config["adapter"]:
 		bns_adapter = config["adapter"]["bns"]
@@ -119,7 +120,7 @@ func (m *ApiConfigManager) parse_api_config_response(body string) error {
 		var config *endpoints.ApiDescriptor
 		err := json.Unmarshal([]byte(api_config_json_str), &config)
 		if err != nil {
-			return err//fmt.Errorf("Can not parse API config: %s", api_config_json_str)
+			return err //fmt.Errorf("Can not parse API config: %s", api_config_json_str)
 		}
 		lookup_key := lookupKey{config.Name, config.Version}
 		convert_https_to_http(config)
@@ -178,8 +179,8 @@ func (by ByPath) Less(i, j int) bool {
 
 	path_score1 := score_path(path1)
 	path_score2 := score_path(path2)
-//	fmt.Printf("1: %s - %d\n", path1, path_score1)
-//	fmt.Printf("2: %s - %d\n", path2, path_score2)
+	//	fmt.Printf("1: %s - %d\n", path1, path_score1)
+	//	fmt.Printf("2: %s - %d\n", path2, path_score2)
 	if path_score1 != path_score2 {
 		// Higher path scores come first.
 		return path_score1 > path_score2
@@ -237,7 +238,11 @@ func score_path(path string) int {
 // Returns:
 //   A dictionary containing the variable names converted from base64.
 func get_path_params(names []string, match []string) (map[string]string, error) {
-	var result map[string]string
+	result := make(map[string]string)
+	if len(names) != len(match) {
+		return result, fmt.Errorf("Length of names [%d] and matches [%d] not equal.",
+			len(names), len(match))
+	}
 	for i, var_name := range names {
 		if i == 0 || var_name == "" {
 			continue
@@ -305,6 +310,8 @@ func (m *ApiConfigManager) lookup_rest_method(path, http_method string) (string,
 			if ok {
 				//break
 				return method.method_name, method.api_method, params
+			} else {
+				log.Printf("No %s method found for path: %s", http_method, path)
 			}
 		}
 	}
@@ -355,7 +362,10 @@ func from_safe_path_param_name(safe_parameter string) (string, error) {
 	}
 	safe_parameter_as_base32 := safe_parameter[1:]
 
-	padding_length := - len(safe_parameter_as_base32) % 8
+	padding_length := -len(safe_parameter_as_base32) % 8
+	if padding_length < 0 {
+		padding_length = padding_length + 8
+	}
 	padding := strings.Repeat("=", padding_length)
 	data, err := base32.StdEncoding.DecodeString(safe_parameter_as_base32 + padding)
 	if err != nil {
@@ -399,8 +409,12 @@ func compile_path_pattern(pattern string) (*regexp.Regexp, error) {
 		return match[0]
 	}
 
-	p := fmt.Sprintf("(/|^){(%s)}(?=/|$)", _PATH_VARIABLE_PATTERN)
-	re := regexp.MustCompile(p)
+	//p := fmt.Sprintf("(/|^){(%s)}(?=/|$)", _PATH_VARIABLE_PATTERN)
+	p := fmt.Sprintf("(/|^){(%s)}(/|$)", _PATH_VARIABLE_PATTERN)
+	re, err := regexp.Compile(p)
+	if err != nil {
+		return re, err
+	}
 
 	matches := re.FindAllStringSubmatch(pattern, -1)
 	indexes := re.FindAllStringSubmatchIndex(pattern, -1)
@@ -411,13 +425,13 @@ func compile_path_pattern(pattern string) (*regexp.Regexp, error) {
 		replaced := replace_variable(match)
 		if index != nil && len(index) > 1 {
 			pattern = pattern[:offset+index[0]] + replaced + pattern[offset+index[1]:]
-			offset += len(replaced)-index[1]-index[0]
+			offset += len(replaced) - index[1] - index[0]
 		}
 	}
 
-//	pattern = re.ReplaceAllString(pattern, replace_variable)
+	//	pattern = re.ReplaceAllString(pattern, replace_variable)
 
-	re, err := regexp.Compile(pattern + "/?$")
+	re, err = regexp.Compile(pattern + "/?$")
 	if err != nil {
 		return nil, err
 	}
@@ -470,27 +484,31 @@ func (m *ApiConfigManager) save_rpc_method(method_name, version string, method *
 //   method: A dict containing the method descriptor (as in the api config
 //     file).
 func (m *ApiConfigManager) save_rest_method(method_name, api_name, version string, method *endpoints.ApiMethod) {
+	var compiled_pattern *regexp.Regexp
+	var err error
 	path_pattern := api_name + "/" + version + "/" + method.Path
 	http_method := strings.ToLower(method.HttpMethod)
 	for _, rm := range m.rest_methods {
 		if rm.path == path_pattern {
 			rm.methods[http_method] = &methodInfo{method_name, method}
-			break
-		} else {
-			compiled_pattern, err := compile_path_pattern(path_pattern)
-			if err != nil {
-				// fixme: handle error
-				continue
-			}
-			m.rest_methods = append(m.rest_methods,
-				&restMethod{
-					compiled_pattern,
-					path_pattern,
-					map[string]*methodInfo{
-						"http_method": &methodInfo{method_name, method},
-					},
-				},
-			)
+			goto R
 		}
 	}
+	compiled_pattern, err = compile_path_pattern(path_pattern)
+	if err != nil {
+		log.Println(err.Error())
+		// fixme: handle error
+		return
+	}
+	m.rest_methods = append(m.rest_methods,
+		&restMethod{
+			compiled_pattern,
+			path_pattern,
+			map[string]*methodInfo{
+				http_method: &methodInfo{method_name, method},
+			},
+		},
+	)
+R:
+	return
 }

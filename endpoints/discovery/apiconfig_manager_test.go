@@ -1,13 +1,12 @@
-
 package discovery
 
 import (
-	"testing"
 	"encoding/json"
-	"regexp"
 	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
+	"regexp"
+	"testing"
 )
 
 func Test_parse_api_config_empty_response(t *testing.T) {
@@ -28,11 +27,11 @@ func Test_parse_api_config(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	fake_method := &endpoints.ApiMethod{
 		HttpMethod: "GET",
-		Path: "greetings/{gid}",
+		Path:       "greetings/{gid}",
 		RosyMethod: "baz.bim",
 	}
 	config, _ := json.Marshal(&endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "X",
 		Methods: map[string]*endpoints.ApiMethod{
 			"guestbook_api.foo.bar": fake_method,
@@ -49,8 +48,8 @@ func Test_parse_api_config(t *testing.T) {
 
 type method_info struct {
 	method_name string
-	path string
-	method string
+	path        string
+	method      string
 }
 
 func Test_parse_api_config_order_length(t *testing.T) {
@@ -65,38 +64,41 @@ func Test_parse_api_config_order_length(t *testing.T) {
 	for _, mi := range test_method_info {
 		method := &endpoints.ApiMethod{
 			HttpMethod: "GET",
-			Path: mi.path,
+			Path:       mi.path,
 			RosyMethod: mi.method,
 		}
 		methods[mi.method_name] = method
 	}
-	config, _ := json.Marshal(&endpoints.ApiDescriptor{
-			Name: "guestbook_api",
-			Version: "X",
-			Methods: methods,
+	config, err := json.Marshal(&endpoints.ApiDescriptor{
+		Name:    "guestbook_api",
+		Version: "X",
+		Methods: methods,
 	})
-	items, _ := json.Marshal(JsonObject{
+	assert.NoError(t, err)
+	items, err := json.Marshal(JsonObject{
 		"items": []string{string(config)},
 	})
-	config_manager.parse_api_config_response(string(items))
+	assert.NoError(t, err)
+	err = config_manager.parse_api_config_response(string(items))
+	assert.NoError(t, err)
 	// Make sure all methods appear in the result.
 	for _, mi := range test_method_info {
 		assert.NotNil(t, config_manager.lookup_rpc_method(mi.method_name, "X"))
-
-		var mn string
-		// Make sure paths and partial paths return the right methods.
-		mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings", "GET")
-		assert.Equal(t, mn, "guestbook_api.list")
-
-		mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings/1", "GET")
-		assert.Equal(t, mn, "guestbook_api.foo.bar")
-
-		mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings/2/sender/property/blah", "GET")
-		assert.Equal(t, mn, "guestbook_api.f3")
-
-		mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greet", "GET")
-		assert.Equal(t, mn, "guestbook_api.shortgreet")
 	}
+
+	var mn string
+	// Make sure paths and partial paths return the right methods.
+	mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings", "GET")
+	assert.Equal(t, mn, "guestbook_api.list")
+
+	mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings/1", "GET")
+	assert.Equal(t, mn, "guestbook_api.foo.bar")
+
+	mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings/2/sender/property/blah", "GET")
+	assert.Equal(t, mn, "guestbook_api.f3")
+
+	mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greet", "GET")
+	assert.Equal(t, mn, "guestbook_api.shortgreet")
 }
 
 func Test_get_sorted_methods1(t *testing.T) {
@@ -113,15 +115,15 @@ func Test_get_sorted_methods1(t *testing.T) {
 	for _, mi := range test_method_info {
 		method := &endpoints.ApiMethod{
 			HttpMethod: mi.method,
-			Path: mi.path,
+			Path:       mi.path,
 		}
 		methods[mi.method_name] = method
 	}
 	sorted_methods := get_sorted_methods(methods)
 
-	for _, s := range sorted_methods {
-		fmt.Printf("%s : %v\n", s.method_name, s.api_method)
-	}
+	//for _, s := range sorted_methods {
+	//	fmt.Printf("%s : %v\n", s.method_name, s.api_method)
+	//}
 
 	expected_data := []method_info{
 		method_info{"name3", "short/but/many/constants", "GET"},
@@ -138,11 +140,11 @@ func Test_get_sorted_methods1(t *testing.T) {
 			mi.method_name,
 			&endpoints.ApiMethod{
 				HttpMethod: mi.method,
-				Path: mi.path,
+				Path:       mi.path,
 			},
 		}
 
-//		fmt.Printf("%s : %v\n", mi.method_name, expected_methods[i].api_method)
+		//fmt.Printf("%s : %v\n", mi.method_name, expected_methods[i].api_method)
 	}
 	assert.Equal(t, expected_methods, sorted_methods)
 }
@@ -161,7 +163,7 @@ func Test_get_sorted_methods2(t *testing.T) {
 	for _, mi := range test_method_info {
 		method := &endpoints.ApiMethod{
 			HttpMethod: mi.method,
-			Path: mi.path,
+			Path:       mi.path,
 		}
 		methods[mi.method_name] = method
 	}
@@ -183,7 +185,7 @@ func Test_get_sorted_methods2(t *testing.T) {
 			mi.method_name,
 			&endpoints.ApiMethod{
 				HttpMethod: mi.method,
-				Path: mi.path,
+				Path:       mi.path,
 			},
 		}
 	}
@@ -194,11 +196,11 @@ func Test_parse_api_config_invalid_api_config(t *testing.T) {
 	config_manager := NewApiConfigManager()
 	fake_method := &endpoints.ApiMethod{
 		HttpMethod: "GET",
-		Path: "greetings/{gid}",
+		Path:       "greetings/{gid}",
 		RosyMethod: "baz.bim",
 	}
 	config, _ := json.Marshal(&endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "X",
 		Methods: map[string]*endpoints.ApiMethod{
 			"guestbook_api.foo.bar": fake_method,
@@ -219,9 +221,9 @@ func Test_parse_api_config_convert_https(t *testing.T) {
 	config_manager := NewApiConfigManager()
 
 	descriptor := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "X",
-		Root: "https://localhost/_ah/api",
+		Root:    "https://localhost/_ah/api",
 		Methods: make(map[string]*endpoints.ApiMethod),
 	}
 	descriptor.Adapter.Bns = "https://localhost/_ah/spi"
@@ -241,9 +243,9 @@ func Test_parse_api_config_convert_https(t *testing.T) {
 // Test that the _convert_https_to_http function works.
 func Test_convert_https_to_http(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "X",
-		Root: "https://tictactoe.appspot.com/_ah/api",
+		Root:    "https://tictactoe.appspot.com/_ah/api",
 		Methods: make(map[string]*endpoints.ApiMethod),
 	}
 	config.Adapter.Bns = "https://tictactoe.appspot.com/_ah/spi"
@@ -258,9 +260,9 @@ func Test_convert_https_to_http(t *testing.T) {
 // Verify that we don"t change non-HTTPS URLs.
 func Test_dont_convert_non_https_to_http(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "X",
-		Root: "ios://https.appspot.com/_ah/api",
+		Root:    "ios://https.appspot.com/_ah/api",
 		Methods: make(map[string]*endpoints.ApiMethod),
 	}
 	config.Adapter.Bns = "http://https.appspot.com/_ah/spi"
@@ -296,7 +298,7 @@ func Test_save_lookup_rest_method(t *testing.T) {
 	// Now we manually save it, and should find it
 	fake_method := &endpoints.ApiMethod{
 		HttpMethod: "GET",
-		Path: "greetings/{id}",
+		Path:       "greetings/{id}",
 	}
 	config_manager.save_rest_method("guestbook_api.get", "guestbook_api", "v1", fake_method)
 	method_name, api_method, params = config_manager.lookup_rest_method("guestbook_api/v1/greetings/i", "GET")
@@ -310,7 +312,7 @@ func Test_trailing_slash_optional(t *testing.T) {
 	// Create a typical get resource URL.
 	fake_method := &endpoints.ApiMethod{
 		HttpMethod: "GET",
-		Path: "trailingslash",
+		Path:       "trailingslash",
 	}
 	config_manager.save_rest_method("guestbook_api.trailingslash", "guestbook_api", "v1", fake_method)
 
@@ -318,32 +320,34 @@ func Test_trailing_slash_optional(t *testing.T) {
 	method_name, method_spec, params := config_manager.lookup_rest_method("guestbook_api/v1/trailingslash", "GET")
 	assert.Equal(t, "guestbook_api.trailingslash", method_name)
 	assert.Equal(t, fake_method, method_spec)
-	assert.Empty(t, params)
+	assert.Equal(t, params, make(map[string]string))
 
 	// Make sure we get this method when we query with a slash.
 	method_name, method_spec, params = config_manager.lookup_rest_method("guestbook_api/v1/trailingslash/", "GET")
 	assert.Equal(t, "guestbook_api.trailingslash", method_name)
 	assert.Equal(t, fake_method, method_spec)
-	assert.Empty(t, params)
+	assert.Equal(t, params, make(map[string]string))
 }
-
 
 /* Parameterized path tests. */
 
 func Test_invalid_variable_name_leading_digit(t *testing.T) {
-	matched, _ := regexp.MatchString(_PATH_VARIABLE_PATTERN, "1abc")
+	matched, err := regexp.MatchString(_PATH_VARIABLE_PATTERN, "1abc")
+	assert.NoError(t, err)
 	assert.False(t, matched)
 }
 
 // Ensure users can not add variables starting with !
 // This is used for reserved variables (e.g. !name and !version)
 func Test_invalid_var_name_leading_exclamation(t *testing.T) {
-	matched, _ := regexp.MatchString(_PATH_VARIABLE_PATTERN, "!abc")
+	matched, err := regexp.MatchString(_PATH_VARIABLE_PATTERN, "!abc")
+	assert.NoError(t, err)
 	assert.False(t, matched)
 }
 
 func Test_valid_variable_name(t *testing.T) {
-	re := regexp.MustCompile(_PATH_VARIABLE_PATTERN)
+	re, err := regexp.Compile(_PATH_VARIABLE_PATTERN)
+	assert.NoError(t, err)
 	assert.Equal(t, re.FindString("AbC1"), "AbC1")
 }
 
@@ -393,15 +397,18 @@ func Test_no_match_collection_with_item(t *testing.T) {
 //   Dict mapping path variable name to path variable value.
 func assert_match(t *testing.T, path, param_path string, param_count int) map[string]string {
 	re, err := compile_path_pattern(param_path)
-	assert.Nil(t, err)
-	match := re.MatchString(path)
-	assert.True(t, match) // Will be None if path was not matched.
-	names := re.SubexpNames()
-	submatch := re.FindStringSubmatch(path)
-	params, err := get_path_params(names, submatch)
-	assert.NoError(t, err)
-	assert.Equal(t, param_count, len(params))
-	return params
+	ok := assert.NoError(t, err)
+	if ok {
+		match := re.MatchString(path)
+		assert.True(t, match) // Will be None if path was not matched.
+		names := re.SubexpNames()
+		submatch := re.FindStringSubmatch(path)
+		params, err := get_path_params(names, submatch)
+		assert.NoError(t, err)
+		assert.Equal(t, param_count, len(params))
+		return params
+	}
+	return make(map[string]string)
 }
 
 func Test_one_variable_match(t *testing.T) {
