@@ -2,6 +2,7 @@
 package discovery
 
 import (
+	"bytes"
 	"encoding/base32"
 	"encoding/json"
 	"errors"
@@ -384,7 +385,7 @@ func from_safe_path_param_name(safe_parameter string) (string, error) {
 //
 // Returns:
 // A compiled regex object to match this path pattern.
-func compile_path_pattern(pattern string) (*regexp.Regexp, error) {
+func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
 
 	// Replaces a {variable} with a regex to match it by name.
 	//
@@ -400,7 +401,14 @@ func compile_path_pattern(pattern string) (*regexp.Regexp, error) {
 	// Returns:
 	//   A string regex to match the variable by name, if the full pattern was
 	//   matched.
-	replace_variable := func(match []string) string {
+	replace_variable := func(var_name string) string {
+		if var_name != "" {
+			safe_name := to_safe_path_param_name(var_name)
+			return fmt.Sprintf("(?P<%s>%s)", safe_name, _PATH_VALUE_PATTERN)
+		}
+		return var_name
+	}
+	/*replace_variable := func(match []string) string {
 		if len(match) > 2 {
 			var_name := to_safe_path_param_name(match[2])
 			return fmt.Sprintf("%s(?P<%s>%s)", match[1], var_name,
@@ -427,11 +435,31 @@ func compile_path_pattern(pattern string) (*regexp.Regexp, error) {
 			pattern = pattern[:offset+index[0]] + replaced + pattern[offset+index[1]:]
 			offset += len(replaced) - index[1] - index[0]
 		}
-	}
+	}*/
 
 	//	pattern = re.ReplaceAllString(pattern, replace_variable)
 
-	re, err = regexp.Compile(pattern + "/?$")
+	idxs, err := braceIndices(ppp)
+	if err != nil {
+		return nil, err
+	}
+	replacements := make([]string, len(idxs)/2)
+	for i := 0; i < len(idxs); i += 2 {
+		var_name := ppp[idxs[i]+1 : idxs[i+1]-1]
+		replaced := replace_variable(var_name)
+		replacements[i/2] = replaced
+	}
+
+	var pattern bytes.Buffer
+	start := 0
+	for i := 0; i < len(idxs); i += 2 {
+		pattern.WriteString(ppp[start:idxs[i]])
+		pattern.WriteString(replacements[i/2])
+		start = idxs[i+1] // + 1
+	}
+	pattern.WriteString(ppp[start:])
+
+	re, err := regexp.Compile(pattern.String() + "/?$")
 	if err != nil {
 		return nil, err
 	}
