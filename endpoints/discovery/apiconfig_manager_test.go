@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
-	"regexp"
 	"testing"
 )
 
@@ -121,10 +120,6 @@ func Test_get_sorted_methods1(t *testing.T) {
 	}
 	sorted_methods := get_sorted_methods(methods)
 
-	//for _, s := range sorted_methods {
-	//	fmt.Printf("%s : %v\n", s.method_name, s.api_method)
-	//}
-
 	expected_data := []method_info{
 		method_info{"name3", "short/but/many/constants", "GET"},
 		method_info{"name7", "a/b/{var}/{var2}", "GET"},
@@ -143,8 +138,6 @@ func Test_get_sorted_methods1(t *testing.T) {
 				Path:       mi.path,
 			},
 		}
-
-		//fmt.Printf("%s : %v\n", mi.method_name, expected_methods[i].api_method)
 	}
 	assert.Equal(t, expected_methods, sorted_methods)
 }
@@ -332,23 +325,19 @@ func Test_trailing_slash_optional(t *testing.T) {
 /* Parameterized path tests. */
 
 func Test_invalid_variable_name_leading_digit(t *testing.T) {
-	matched, err := regexp.MatchString(_PATH_VARIABLE_PATTERN, "1abc")
-	assert.NoError(t, err)
+	matched := _PATH_VARIABLE_PATTERN.MatchString("1abc")
 	assert.False(t, matched)
 }
 
 // Ensure users can not add variables starting with !
 // This is used for reserved variables (e.g. !name and !version)
 func Test_invalid_var_name_leading_exclamation(t *testing.T) {
-	matched, err := regexp.MatchString(_PATH_VARIABLE_PATTERN, "!abc")
-	assert.NoError(t, err)
+	matched := _PATH_VARIABLE_PATTERN.MatchString("!abc")
 	assert.False(t, matched)
 }
 
 func Test_valid_variable_name(t *testing.T) {
-	re, err := regexp.Compile(_PATH_VARIABLE_PATTERN)
-	assert.NoError(t, err)
-	assert.Equal(t, re.FindString("AbC1"), "AbC1")
+	assert.Equal(t, _PATH_VARIABLE_PATTERN.FindString("AbC1"), "AbC1")
 }
 
 // Assert that the given path does not match param_path pattern.

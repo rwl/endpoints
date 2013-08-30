@@ -16,8 +16,10 @@ import (
 	"sync"
 )
 
-const _PATH_VARIABLE_PATTERN = `[a-zA-Z_][a-zA-Z_.\d]*`
 const _PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
+
+var _PATH_VARIABLE_PATTERN = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
+
 
 // Manages loading api configs and method lookup.
 type ApiConfigManager struct {
@@ -121,11 +123,12 @@ func (m *ApiConfigManager) parse_api_config_response(body string) error {
 		var config *endpoints.ApiDescriptor
 		err := json.Unmarshal([]byte(api_config_json_str), &config)
 		if err != nil {
-			return err //fmt.Errorf("Can not parse API config: %s", api_config_json_str)
+			log.Printf("Can not parse API config: %s", api_config_json_str)
+		} else {
+			lookup_key := lookupKey{config.Name, config.Version}
+			convert_https_to_http(config)
+			m.configs[lookup_key] = config
 		}
-		lookup_key := lookupKey{config.Name, config.Version}
-		convert_https_to_http(config)
-		m.configs[lookup_key] = config
 	}
 
 	for _, config := range m.configs {
@@ -219,7 +222,7 @@ func score_path(path string) int {
 	parts := strings.Split(path, "/")
 	for _, part := range parts {
 		score <<= 1
-		if part == "" || strings.HasPrefix(part, "{") {
+		if part == "" || !strings.HasPrefix(part, "{") {
 			// Found a constant.
 			score += 1
 		}
@@ -446,7 +449,12 @@ func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
 	replacements := make([]string, len(idxs)/2)
 	for i := 0; i < len(idxs); i += 2 {
 		var_name := ppp[idxs[i]+1 : idxs[i+1]-1]
-		replaced := replace_variable(var_name)
+		ok := _PATH_VARIABLE_PATTERN.MatchString(var_name)
+		var replaced string
+		if !ok {
+			return nil, fmt.Errorf("Invalid variable name: %s", var_name)
+		}
+		replaced = replace_variable(var_name)
 		replacements[i/2] = replaced
 	}
 
