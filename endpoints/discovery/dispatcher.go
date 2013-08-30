@@ -3,16 +3,16 @@
 package discovery
 
 import (
-	"net/http"
-	"fmt"
-	"log"
-	"encoding/json"
-	"regexp"
-	"errors"
-	"io/ioutil"
 	"bytes"
-	"strings"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"regexp"
+	"strings"
 )
 
 // Pattern for paths handled by this module.
@@ -25,9 +25,9 @@ const _API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
 
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsDispatcher struct {
-	dispatcher Dispatcher // A Dispatcher instance that can be used to make HTTP requests.
+	dispatcher     Dispatcher        // A Dispatcher instance that can be used to make HTTP requests.
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
-	dispatchers []dispatchPair
+	dispatchers    []dispatchPair
 }
 
 type Dispatcher interface {
@@ -35,7 +35,7 @@ type Dispatcher interface {
 }
 
 type dispatchPair struct {
-	path_regex *regexp.Regexp
+	path_regex    *regexp.Regexp
 	dispatch_func func(http.ResponseWriter, *http.Request) string
 }
 
@@ -44,7 +44,7 @@ func NewEndpointsDispatcher(dispatcher Dispatcher) *EndpointsDispatcher {
 }
 
 func NewEndpointsDispatcherConfig(dispatcher Dispatcher,
-		config_manager *ApiConfigManager) *EndpointsDispatcher {
+	config_manager *ApiConfigManager) *EndpointsDispatcher {
 	d := &EndpointsDispatcher{
 		dispatcher,
 		config_manager,
@@ -154,7 +154,7 @@ func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter
 // A string containing the response body.
 func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, request *http.Request) string {
 	response, body, err := get_static_file(request.URL.RequestURI())
-//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
+	//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
 		// along in our response.  Specifically, the response from the server has
@@ -167,7 +167,7 @@ func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, 
 		log.Printf("Discovery API proxy failed on %s with %d. Details: %s",
 			request.URL.RequestURI(), response.StatusCode, body)
 		http.Error(w, body, response.StatusCode)
-//		return send_response(status_string, response.getheaders(), body, start_response)
+		//return send_response(status_string, response.getheaders(), body, start_response)
 	}
 	return body
 }
@@ -179,7 +179,7 @@ func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, 
 // request.
 func (ed *EndpointsDispatcher) get_api_configs() *http.Response {
 	req, err := http.NewRequest("POST",
-		_SERVER_SOURCE_IP + "/_ah/spi/BackendService.getApiConfigs",
+		_SERVER_SOURCE_IP+"/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	if err != nil {
 		return nil // fixme: handle error
@@ -204,7 +204,7 @@ func (ed *EndpointsDispatcher) get_api_configs() *http.Response {
 // Returns:
 // True if both status_code and content_type match, else False.
 func verify_response(response *http.Response, status_code int, content_type string) bool {
-//	status = int(response.StatusCode.split(" ", 1)[0])
+	//	status = int(response.StatusCode.split(" ", 1)[0])
 	if response.StatusCode != status_code {
 		return false
 	}
@@ -340,7 +340,7 @@ func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *Ap
 	cors_handler := newCheckCorsHeaders(orig_request.Request)
 	cors_handler.UpdateHeaders(w.Header())
 	fmt.Fprint(w, body)
-//	return send_response(response.status, response.headers, body, w, /*cors_handler=*/cors_handler)
+	//return send_response(response.status, response.headers, body, w, /*cors_handler=*/cors_handler)
 	return body, nil
 }
 
@@ -600,8 +600,8 @@ func (ed *EndpointsDispatcher) update_from_body(destination JsonObject, source J
 //   A copy of the current request that's been modified so it can be sent
 //   to the SPI.  The body is updated to include parameters from the URL.
 func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
-		params map[string]string,
-		method_parameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
+	params map[string]string,
+	method_parameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
 
 	request, err := orig_request.copy()
 	if err != nil {
@@ -817,25 +817,25 @@ func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_
 		body = err.rest_error()
 	}
 
-//	response_status = fmt.Sprintf("%d %s", status_code,
-//		http.StatusText(status_code)) // fixme: handle unknown status code "Unknown Error"
+	//	response_status = fmt.Sprintf("%d %s", status_code,
+	//		http.StatusText(status_code)) // fixme: handle unknown status code "Unknown Error"
 
 	newCheckCorsHeaders(orig_request.Request).UpdateHeaders(w.Header())
 	http.Error(w, body, status_code)
-//	return send_response(response_status, body, w, cors_handler)
+	//	return send_response(response_status, body, w, cors_handler)
 	return body
 }
 
 /* Utilities */
 
-func send_not_found_response(w http.ResponseWriter, cors_handler/*=None*/ CorsHandler) string {
+func send_not_found_response(w http.ResponseWriter, cors_handler /*=None*/ CorsHandler) string {
 	if cors_handler != nil {
 		cors_handler.UpdateHeaders(w.Header())
 	}
 	w.Header().Add("Content-Type", "text/plain")
 	body := "Not Found"
 	http.Error(w, body, http.StatusNotFound)
-//	return send_wsgi_response("404", h, , w, /*cors_handler=*/cors_handler)
+	//	return send_wsgi_response("404", h, , w, /*cors_handler=*/cors_handler)
 	return body
 }
 
@@ -846,32 +846,32 @@ func send_error_response(message string, w http.ResponseWriter, cors_handler Cor
 		},
 	}
 	body, _ := json.Marshal(body_map)
-//	header := make(http.Header)
+	//header := make(http.Header)
 	if cors_handler != nil {
 		cors_handler.UpdateHeaders(w.Header())
 	}
 	w.Header().Add("Content-Type", "application/json")
 	http.Error(w, string(body), http.StatusInternalServerError)
-//	return send_response("500", header, string(body), w, /*cors_handler=*/cors_handler)
+	//return send_response("500", header, string(body), w, /*cors_handler=*/cors_handler)
 	return string(body)
 }
 
-func send_rejected_response(rejection_error JsonObject, w http.ResponseWriter, cors_handler/*=None*/ CorsHandler) string {
-//	body = rejection_error.to_json()
+func send_rejected_response(rejection_error JsonObject, w http.ResponseWriter, cors_handler /*=None*/ CorsHandler) string {
+	//body = rejection_error.to_json()
 	body, _ := json.Marshal(rejection_error)
 	if cors_handler != nil {
 		cors_handler.UpdateHeaders(w.Header())
 	}
 	w.Header().Add("Content-Type", "application/json")
 	http.Error(w, string(body), http.StatusBadRequest)
-//	return send_response("400", header, body, w, /*cors_handler=*/cors_handler)
+	//return send_response("400", header, body, w, /*cors_handler=*/cors_handler)
 	return string(body)
 }
 
-func send_redirect_response(redirect_location string, w http.ResponseWriter, r *http.Request, cors_handler/*=None*/ CorsHandler) string {
-//	header := make(http.Header)
-//	header.Add("Location", redirect_location)
-//	return send_response("302", header, "", w, /*cors_handler=*/cors_handler)
+func send_redirect_response(redirect_location string, w http.ResponseWriter, r *http.Request, cors_handler /*=None*/ CorsHandler) string {
+	//header := make(http.Header)
+	//header.Add("Location", redirect_location)
+	//return send_response("302", header, "", w, /*cors_handler=*/cors_handler)
 	if cors_handler != nil {
 		cors_handler.UpdateHeaders(w.Header())
 	}

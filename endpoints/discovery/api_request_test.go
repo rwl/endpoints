@@ -1,14 +1,13 @@
-
 package discovery
 
 import (
-	"testing"
-	"net/http"
-	"encoding/json"
-	"net/url"
-	"io/ioutil"
 	"bytes"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"testing"
 )
 
 func Test_parse_no_body(t *testing.T) {

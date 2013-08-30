@@ -1,18 +1,17 @@
-
 package discovery
 
 import (
-	"testing"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"io/ioutil"
-	"bytes"
-	"reflect"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/assert"
-	"net/http/httptest"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"testing"
 )
 
 func set_up() (*EndpointsDispatcher, *MockDispatcher) {
@@ -26,7 +25,7 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 	// The dispatch call will make a call to get_api_configs, making a
 	// dispatcher request. Set up that request.
 	req, _ := http.NewRequest("POST",
-		_SERVER_SOURCE_IP + "/_ah/spi/BackendService.getApiConfigs",
+		_SERVER_SOURCE_IP+"/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -37,10 +36,10 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 	header.Set("Content-Type", "application/json")
 	header.Set("Content-Length", string(len(response_body)))
 	resp := &http.Response{
-		Body: ioutil.NopCloser(bytes.NewBuffer(response_body)),
+		Body:       ioutil.NopCloser(bytes.NewBuffer(response_body)),
 		StatusCode: 200,
-		Status: "200 OK",
-		Header: header,
+		Status:     "200 OK",
+		Header:     header,
 	}
 
 	mock_dispatcher.On("Do", req).Return(resp, nil)
@@ -60,14 +59,14 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 //     the mock response sent by the back end.  If None, this will create an
 //     empty response.
 func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spi_path string,
-		expected_spi_body_json JsonObject) {
+	expected_spi_body_json JsonObject) {
 	server, dispatcher := newMockEndpointsDispatcher()
 	prepare_dispatch(dispatcher, config)
 
 	w := httptest.NewRecorder()
 
-//	spi_headers := make(http.Header)
-//	spi_headers.Set("Content-Type", "application/json")
+	//spi_headers := make(http.Header)
+	//spi_headers.Set("Content-Type", "application/json")
 
 	var spi_body_json JsonObject
 	if expected_spi_body_json != nil {
@@ -84,21 +83,21 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 
 	spi_request, err := http.NewRequest(
 		"POST",
-		request.RemoteAddr + spi_path,
+		request.RemoteAddr+spi_path,
 		ioutil.NopCloser(bytes.NewBuffer(spi_body)),
 	)
 	spi_request.Header.Set("Content-Type", "application/json")
 
-//	spi_response := dispatcher.ResponseTuple("200 OK", [], "Test")
+	//spi_response := dispatcher.ResponseTuple("200 OK", [], "Test")
 	spi_response := &http.Response{
 		StatusCode: 200,
-		Status: "200 OK",
-		Body: ioutil.NopCloser(bytes.NewBufferString("Test")),
+		Status:     "200 OK",
+		Body:       ioutil.NopCloser(bytes.NewBufferString("Test")),
 	}
 
-//	mock_dispatcher.add_request(
-//		"POST", spi_path, spi_headers, JsonMatches(spi_body_json),
-//		request.source_ip).AndReturn(spi_response)
+	//mock_dispatcher.add_request(
+	//	"POST", spi_path, spi_headers, JsonMatches(spi_body_json),
+	//	request.source_ip).AndReturn(spi_response)
 	dispatcher.On("Do", spi_request).Return(spi_response, nil)
 
 	server.On(
@@ -108,15 +107,15 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 		spi_response,
 		w,
 	).Return("Test", nil)
-//	mox.StubOutWithMock(self.server, "handle_spi_response")
-//	server.handle_spi_response(
-//		mox.IsA(api_request.ApiRequest), mox.IsA(api_request.ApiRequest),
-//		spi_response, self.start_response).AndReturn("Test")
+	//mox.StubOutWithMock(self.server, "handle_spi_response")
+	//server.handle_spi_response(
+	//	mox.IsA(api_request.ApiRequest), mox.IsA(api_request.ApiRequest),
+	//	spi_response, self.start_response).AndReturn("Test")
 
 	// Run the test.
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	response := server.dispatch(w, request.Request)
-//	mox.VerifyAll()
+	//mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
 	if "Test" != response {
@@ -127,12 +126,12 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 func Test_dispatch_invalid_path(t *testing.T) {
 	server, dispatcher := set_up()
 	config := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "v1",
 		Methods: map[string]*endpoints.ApiMethod{
 			"guestbook.get": &endpoints.ApiMethod{
 				HttpMethod: "GET",
-				Path: "greetings/{gid}",
+				Path:       "greetings/{gid}",
 				RosyMethod: "MyApi.greetings_get",
 			},
 		},
@@ -153,9 +152,9 @@ func Test_dispatch_invalid_path(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	server.dispatch(w, request.Request)
-//	mox.VerifyAll()
+	//mox.VerifyAll()
 	dispatcher.Mock.AssertExpectations(t)
 
 	header := make(http.Header)
@@ -167,12 +166,12 @@ func Test_dispatch_invalid_path(t *testing.T) {
 func Test_dispatch_invalid_enum(t *testing.T) {
 	server, dispatcher := set_up()
 	config := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "v1",
 		Methods: map[string]*endpoints.ApiMethod{
 			"guestbook.get": &endpoints.ApiMethod{
 				HttpMethod: "GET",
-				Path: "greetings/{gid}",
+				Path:       "greetings/{gid}",
 				RosyMethod: "MyApi.greetings_get",
 				Request: endpoints.ApiReqRespDescriptor{
 					Body: "empty",
@@ -219,9 +218,9 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 
 	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
 	prepare_dispatch(dispatcher, config)
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	server.dispatch(w, request.Request)
-//	mox.VerifyAll()
+	//mox.VerifyAll()
 	dispatcher.Mock.AssertExpectations(t)
 
 	t.Logf("Config %s", server.config_manager.configs)
@@ -266,12 +265,12 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 func Test_dispatch_spi_error(t *testing.T) {
 	server, dispatcher := newMockEndpointsDispatcherSPI()
 	config := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "v1",
 		Methods: map[string]*endpoints.ApiMethod{
 			"guestbook.get": &endpoints.ApiMethod{
 				HttpMethod: "GET",
-				Path: "greetings/{gid}",
+				Path:       "greetings/{gid}",
 				RosyMethod: "MyApi.greetings_get",
 			},
 		},
@@ -292,10 +291,10 @@ func Test_dispatch_spi_error(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-//	mox.StubOutWithMock(server, "call_spi")
+	//mox.StubOutWithMock(server, "call_spi")
 	// The application chose to throw a 404 error.
 	response := &http.Response{
-		Status: "404 Not Found",
+		Status:     "404 Not Found",
 		StatusCode: 404,
 		Body: ioutil.NopCloser(
 			bytes.NewBufferString(
@@ -303,20 +302,20 @@ func Test_dispatch_spi_error(t *testing.T) {
 			),
 		),
 	}
-//	response := dispatcher.ResponseTuple("404 Not Found", [],
-//		(`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`))
+	//response := dispatcher.ResponseTuple("404 Not Found", [],
+	//	(`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`))
 	server.On(
 		"call_spi",
 		request,
 		mock.Anything,
 	).Return(NewBackendError(response))
-//	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
+	//server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	server.dispatch(w, request.Request)
-//	self.mox.VerifyAll()
+	//self.mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
-//	dispatcher.Mock.AssertExpectations(t)
+	//	dispatcher.Mock.AssertExpectations(t)
 
 	expected_response := `{
  "error": {
@@ -341,12 +340,12 @@ func Test_dispatch_spi_error(t *testing.T) {
 func Test_dispatch_rpc_error(t *testing.T) {
 	server, dispatcher := newMockEndpointsDispatcherSPI()
 	config := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "v1",
 		Methods: map[string]*endpoints.ApiMethod{
 			"guestbook.get": &endpoints.ApiMethod{
 				HttpMethod: "GET",
-				Path: "greetings/{gid}",
+				Path:       "greetings/{gid}",
 				RosyMethod: "MyApi.greetings_get",
 			},
 		},
@@ -371,10 +370,10 @@ func Test_dispatch_rpc_error(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-//	mox.StubOutWithMock(server, "call_spi")
+	//mox.StubOutWithMock(server, "call_spi")
 	// The application chose to throw a 404 error.
 	response := &http.Response{
-		Status: "404 Not Found",
+		Status:     "404 Not Found",
 		StatusCode: 404,
 		Body: ioutil.NopCloser(
 			bytes.NewBufferString(
@@ -382,29 +381,29 @@ func Test_dispatch_rpc_error(t *testing.T) {
 			),
 		),
 	}
-//	response = dispatcher.ResponseTuple("404 Not Found", [],
-//	(`{"state": "APPLICATION_ERROR","
-//	  "error_message": "Test error"}`))
+	//response = dispatcher.ResponseTuple("404 Not Found", [],
+	//(`{"state": "APPLICATION_ERROR","
+	//  "error_message": "Test error"}`))
 	server.On(
 		"call_spi",
 		request,
 		mock.Anything,
 	).Return(NewBackendError(response))
-//	server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
+	//server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	response_body := server.dispatch(w, request.Request)
-//	mox.VerifyAll()
+	//mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
 	expected_response := JsonObject{
 		"error": JsonObject{
-			"code": 404,
+			"code":    404,
 			"message": "Test error",
 			"data": []JsonObject{
 				JsonObject{
-					"domain": "global",
-					"reason": "notFound",
+					"domain":  "global",
+					"reason":  "notFound",
 					"message": "Test error",
 				},
 			},
@@ -426,12 +425,12 @@ func Test_dispatch_rpc_error(t *testing.T) {
 
 func Test_dispatch_json_rpc(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "X",
 		Methods: map[string]*endpoints.ApiMethod{
 			"foo.bar": &endpoints.ApiMethod{
 				HttpMethod: "GET",
-				Path: "greetings/{gid}",
+				Path:       "greetings/{gid}",
 				RosyMethod: "baz.bim",
 			},
 		},
@@ -457,12 +456,12 @@ func Test_dispatch_json_rpc(t *testing.T) {
 
 func Test_dispatch_rest(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
-		Name: "myapi",
+		Name:    "myapi",
 		Version: "v1",
 		Methods: map[string]*endpoints.ApiMethod{
 			"bar": &endpoints.ApiMethod{
 				HttpMethod: "GET",
-				Path: "foo/{id}",
+				Path:       "foo/{id}",
 				RosyMethod: "baz.bim",
 			},
 		},
@@ -568,10 +567,10 @@ func Test_handle_non_json_spi_response(t *testing.T) {
 	header := make(http.Header)
 	header.Set("Content-type", "text/plain")
 	spi_response := &http.Response{
-		Header: header,
-		Body: ioutil.NopCloser(bytes.NewBufferString("This is an invalid response.")),
+		Header:     header,
+		Body:       ioutil.NopCloser(bytes.NewBufferString("This is an invalid response.")),
 		StatusCode: 200,
-		Status: "200 OK",
+		Status:     "200 OK",
 	}
 	server.handle_spi_response(orig_request, spi_request, spi_response, w)
 	error_json := JsonObject{
@@ -582,7 +581,7 @@ func Test_handle_non_json_spi_response(t *testing.T) {
 	body_bytes, _ := json.Marshal(error_json)
 	body := string(body_bytes)
 	expected_header := http.Header{
-		"Content-Type": []string{"application/json"},
+		"Content-Type":   []string{"application/json"},
 		"Content-Length": []string{fmt.Sprintf("%d", len(body))},
 	}
 	assert_http_match_recorder(t, w, 500, expected_header, body)
@@ -593,12 +592,12 @@ func Test_handle_non_json_spi_response(t *testing.T) {
 // This test verifies the fix to http://b/7189819
 func Test_lily_uses_python_method_name(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
-		Name: "guestbook_api",
+		Name:    "guestbook_api",
 		Version: "X",
 		Methods: map[string]*endpoints.ApiMethod{
 			"author.greeting.info.get": &endpoints.ApiMethod{
 				HttpMethod: "GET",
-				Path: "authors/{aid}/greetings/{gid}/infos/{iid}",
+				Path:       "authors/{aid}/greetings/{gid}/infos/{iid}",
 				RosyMethod: "InfoService.get",
 			},
 		},
@@ -638,15 +637,15 @@ func Test_handle_spi_response_json_rpc(t *testing.T) {
 	spi_request, err := orig_request.copy()
 	assert.NoError(t, err)
 	spi_response := &http.Response{
-		Status: "200 OK",
+		Status:     "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"a": []string{"b"}},
-		Body: ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
+		Header:     http.Header{"a": []string{"b"}},
+		Body:       ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
 	}
 
 	response, err := server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
-//	response = "".join(response)  // Merge response iterator into single body.
+	//response = "".join(response)  // Merge response iterator into single body.
 	if err != nil {
 		t.Fail()
 	}
@@ -661,7 +660,7 @@ func Test_handle_spi_response_json_rpc(t *testing.T) {
 		t.Fail()
 	}
 	expected_response := JsonObject{
-		"id": "Z",
+		"id":     "Z",
 		"result": JsonObject{"some": "response"},
 	}
 	var response_json interface{}
@@ -693,15 +692,15 @@ func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 	spi_request, err := orig_request.copy()
 	assert.NoError(t, err)
 	spi_response := &http.Response{
-		Status: "200 OK",
+		Status:     "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"a": []string{"b"}},
-		Body: ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
+		Header:     http.Header{"a": []string{"b"}},
+		Body:       ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
 	}
 
 	response, err := server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
-//	response = "".join(response)  // Merge response iterator into single body.
+	//response = "".join(response)  // Merge response iterator into single body.
 	if err != nil {
 		t.Fail()
 	}
@@ -716,7 +715,7 @@ func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 		t.Fail()
 	}
 	expected_response := JsonObject{
-		"id": "Z",
+		"id":     "Z",
 		"result": JsonObject{"some": "response"},
 	}
 	var response_json interface{}
@@ -737,10 +736,10 @@ func Test_handle_spi_response_rest(t *testing.T) {
 	assert.NoError(t, err)
 	body, _ := json.MarshalIndent(JsonObject{"some": "response"}, "", " ")
 	spi_response := &http.Response{
-		Status: "200 OK",
+		Status:     "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"a": []string{"b"}},
-		Body: ioutil.NopCloser(bytes.NewBuffer(body)),
+		Header:     http.Header{"a": []string{"b"}},
+		Body:       ioutil.NopCloser(bytes.NewBuffer(body)),
 	}
 	_, err = server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
@@ -748,7 +747,7 @@ func Test_handle_spi_response_rest(t *testing.T) {
 		t.Fail()
 	}
 	header := http.Header{
-		"a": []string{"b"},
+		"a":              []string{"b"},
 		"Content-Length": []string{fmt.Sprintf("%d", len(body))},
 	}
 	assert_http_match_recorder(t, w, 200, header, string(body))
@@ -792,7 +791,7 @@ func Test_transform_json_rpc_response_batch(t *testing.T) {
 	expected_response := []JsonObject{
 		JsonObject{
 			"result": JsonObject{"sample": "body"},
-			"id": "42",
+			"id":     "42",
 		},
 	}
 	var response_json interface{}
@@ -831,10 +830,10 @@ func Test_lookup_rpc_method_no_body(t *testing.T) {
 
 func Test_verify_response(t *testing.T) {
 	response := &http.Response{
-		Status: "200 OK",
+		Status:     "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"Content-Type": []string{"a"}},
-		Body: ioutil.NopCloser(bytes.NewBufferString("")),
+		Header:     http.Header{"Content-Type": []string{"a"}},
+		Body:       ioutil.NopCloser(bytes.NewBufferString("")),
 	}
 	// Expected response
 	if !verify_response(response, 200, "a") {
@@ -854,10 +853,10 @@ func Test_verify_response(t *testing.T) {
 	}
 
 	response = &http.Response{
-		Status: "200 OK",
+		Status:     "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"Content-Length": []string{"10"}},
-		Body: ioutil.NopCloser(bytes.NewBufferString("")),
+		Header:     http.Header{"Content-Length": []string{"10"}},
+		Body:       ioutil.NopCloser(bytes.NewBufferString("")),
 	}
 	// Any content type accepted
 	if !verify_response(response, 200, "") {

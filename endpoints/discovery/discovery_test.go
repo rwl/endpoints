@@ -1,13 +1,12 @@
-
 package discovery
 
 import (
-	"testing"
 	"encoding/json"
-	"net/http/httptest"
-	"net/http"
 	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
 var api_config_map endpoints.ApiDescriptor
@@ -38,7 +37,7 @@ func init() {
 //}
 
 func Test_generate_discovery_doc_rest(t *testing.T) {
-//	discovery_api := &DiscoveryApiProxy{}
+	//discovery_api := &DiscoveryApiProxy{}
 	baseUrl := "https://tictactoe.appspot.com/_ah/api/tictactoe/v1/"
 
 	body := JsonObject{"baseUrl": baseUrl}
@@ -46,13 +45,13 @@ func Test_generate_discovery_doc_rest(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, string(body_json))
 	}))
-//	ts := prepare_discovery_request(200, body_json)
+	//ts := prepare_discovery_request(200, body_json)
 	defer ts.Close()
 	_DISCOVERY_PROXY_HOST = ts.URL
 
-//	self.mox.ReplayAll()
+	//self.mox.ReplayAll()
 	doc, err := generate_discovery_doc(&api_config_map, "rest")
-//	self.mox.VerifyAll()
+	//self.mox.VerifyAll()
 
 	if err != nil {
 		t.Fail()
@@ -77,13 +76,13 @@ func Test_generate_discovery_doc_rpc(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, string(body_json))
 	}))
-//	ts := prepare_discovery_request(200, body_json)
+	//ts := prepare_discovery_request(200, body_json)
 	defer ts.Close()
 	_DISCOVERY_PROXY_HOST = ts.URL
 
-//	self.mox.ReplayAll()
+	//self.mox.ReplayAll()
 	doc, err := generate_discovery_doc(&api_config_map, "rpc")
-//	self.mox.VerifyAll()
+	//self.mox.VerifyAll()
 
 	if err != nil {
 		t.Fail()
@@ -108,7 +107,7 @@ func Test_generate_discovery_doc_invalid_format(t *testing.T) {
 	defer ts.Close()
 
 	_DISCOVERY_PROXY_HOST = ts.URL
-//	_DISCOVERY_API_PATH_PREFIX = ""
+	//_DISCOVERY_API_PATH_PREFIX = ""
 
 	_, err := generate_discovery_doc(&api_config_map, "blah")
 	if err == nil {
@@ -126,9 +125,9 @@ func Test_generate_discovery_doc_bad_api_config(t *testing.T) {
 	bad := &endpoints.ApiDescriptor{
 		Name: "none",
 	}
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	doc, err := generate_discovery_doc(bad, "rpc")
-//	self.mox.VerifyAll()
+	//self.mox.VerifyAll()
 
 	if err == nil {
 		t.Fail()
@@ -143,13 +142,13 @@ func Test_get_static_file_existing(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, body)
 	}))
-//	prepare_discovery_request(200, body)
+	//prepare_discovery_request(200, body)
 	defer ts.Close()
 	_STATIC_PROXY_HOST = ts.URL
 
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	response, response_body, err := get_static_file("/_ah/api/static/proxy.html")
-//	self.mox.VerifyAll()
+	//self.mox.VerifyAll()
 
 	if err != nil {
 		t.Fail()

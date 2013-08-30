@@ -1,8 +1,6 @@
-
 package discovery
 
 import "fmt"
-
 
 // braceIndices returns the first level curly brace indices from a string.
 // It returns an error in case of unbalanced braces.

@@ -1,12 +1,11 @@
-
 package discovery
 
 import (
 	"encoding/json"
-	"testing"
-	"net/http"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
+	"testing"
 )
 
 func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
@@ -19,7 +18,7 @@ func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
 		`{"api": "tictactoe", "version": "v1"}`, nil)
 
 	discovery := NewDiscoveryService(api_config_manager)
-//	discovery._discovery_proxy = mox.CreateMock(NewDiscoveryApiProxy())
+	//discovery._discovery_proxy = mox.CreateMock(NewDiscoveryApiProxy())
 
 	return api_config_manager, api_request, discovery
 }
@@ -30,7 +29,7 @@ func prepare_discovery_request(response_body string) *httptest.Server {
 	}))
 	// Call ts.Close() when finished, to shut down the test server.
 
-//	response := test_utils.MockConnectionResponse(200, response_body)
+	//response := test_utils.MockConnectionResponse(200, response_body)
 	return ts
 }
 
@@ -48,16 +47,16 @@ func Test_generate_discovery_doc_rest_service(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-//	discovery := prepare_discovery_request(body, api_config_manager)
-//	discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rest").AndReturn(body)
+	//discovery := prepare_discovery_request(body, api_config_manager)
+	//discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rest").AndReturn(body)
 
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	discovery.handle_discovery_request(_GET_REST_API, api_request, w)
-//	mox.VerifyAll()
+	//mox.VerifyAll()
 
 	assert_http_match_recorder(t, w, 200,
 		http.Header{
-			"Content-Type": []string{"application/json; charset=UTF-8"},
+			"Content-Type":   []string{"application/json; charset=UTF-8"},
 			"Content-Length": []string{fmt.Sprintf("%d", len(body))},
 		}, string(body))
 }
@@ -76,16 +75,16 @@ func Test_generate_discovery_doc_rpc_service(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-//	discovery := prepare_discovery_request(body, api_config_manager)
-//	discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rpc").AndReturn(body)
+	//discovery := prepare_discovery_request(body, api_config_manager)
+	//discovery._discovery_proxy.generate_discovery_doc(mox.IsA(object), "rpc").AndReturn(body)
 
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	discovery.handle_discovery_request(_GET_RPC_API, api_request, w)
-//	mox.VerifyAll()
+	//mox.VerifyAll()
 
 	assert_http_match_recorder(t, w, 200,
 		http.Header{
-			"Content-Type": []string{"application/json; charset=UTF-8"},
+			"Content-Type":   []string{"application/json; charset=UTF-8"},
 			"Content-Length": []string{fmt.Sprintf("%d", len(body))},
 		}, string(body))
 }
@@ -95,7 +94,7 @@ func Test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
 	request := build_request("/_ah/api/foo",
 		`{"api": "blah", "version": "v1"}`, nil)
 	w := httptest.NewRecorder()
-//	discovery_api = NewDiscoveryService(api_config_manager)
+	//discovery_api = NewDiscoveryService(api_config_manager)
 	discovery_api.handle_discovery_request(_GET_REST_API, request, w)
 	if w.Code != 404 {
 		t.Fail()
@@ -114,16 +113,16 @@ func Test_generate_directory(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-//	discovery := prepare_discovery_request(body, api_config_manager)
-//	discovery._discovery_proxy.generate_directory(mox.IsA(list)).AndReturn(body)
+	//discovery := prepare_discovery_request(body, api_config_manager)
+	//discovery._discovery_proxy.generate_directory(mox.IsA(list)).AndReturn(body)
 
-//	mox.ReplayAll()
+	//mox.ReplayAll()
 	discovery.handle_discovery_request(_LIST_API, api_request, w)
-//	mox.VerifyAll()
+	//mox.VerifyAll()
 
 	assert_http_match_recorder(t, w, 200,
 		http.Header{
-			"Content-Type": []string{"application/json; charset=UTF-8"},
+			"Content-Type":   []string{"application/json; charset=UTF-8"},
 			"Content-Length": []string{fmt.Sprintf("%d", len(body))},
 		}, string(body))
 }

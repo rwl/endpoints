@@ -3,13 +3,13 @@
 package discovery
 
 import (
-	"io/ioutil"
-	"net/http"
 	"bytes"
-	"testing"
 	"github.com/stretchr/testify/mock"
-	"net/http/httptest"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
 // Build an ApiRequest for the given path and body.
@@ -22,8 +22,8 @@ import (
 // Returns:
 //   An ApiRequest object built based on the incoming parameters.
 func build_request(url, body string, http_headers http.Header) *ApiRequest {
-	//	unused_scheme, unused_netloc, path, query, unused_fragment := urlparse.urlsplit(path)
-	req, err := http.NewRequest("GET", url,//fmt.Sprintf("http://localhost%s", url),
+	//unused_scheme, unused_netloc, path, query, unused_fragment := urlparse.urlsplit(path)
+	req, err := http.NewRequest("GET", url, //fmt.Sprintf("http://localhost%s", url),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
 	if err != nil {
 		log.Print(err.Error())
@@ -47,7 +47,7 @@ func build_request(url, body string, http_headers http.Header) *ApiRequest {
 
 // Test that the headers and body match.
 func assert_http_match(t *testing.T, response *http.Response, expected_status int,
-		expected_headers http.Header, expected_body string) {
+	expected_headers http.Header, expected_body string) {
 	if expected_status != response.StatusCode {
 		t.Fail()
 	}
@@ -75,7 +75,7 @@ func assert_http_match(t *testing.T, response *http.Response, expected_status in
 
 // Test that the headers and body match.
 func assert_http_match_recorder(t *testing.T, recorder *httptest.ResponseRecorder, expected_status int,
-expected_headers http.Header, expected_body string) {
+	expected_headers http.Header, expected_body string) {
 	if expected_status != recorder.Code {
 		t.Fail()
 	}
@@ -100,7 +100,6 @@ expected_headers http.Header, expected_body string) {
 		t.Fail()
 	}
 }
-
 
 type MockDispatcher struct {
 	mock.Mock

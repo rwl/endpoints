@@ -1,12 +1,11 @@
-
 package discovery
 
 import (
-	"fmt"
-	"net/http"
-	"log"
 	"encoding/json"
+	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"log"
+	"net/http"
 )
 
 const _GET_REST_API = "apisdev.getRest"
@@ -14,21 +13,21 @@ const _GET_RPC_API = "apisdev.getRpc"
 const _LIST_API = "apisdev.list"
 
 var DISCOVERY_API_CONFIG = &endpoints.ApiDescriptor{
-	Name: "discovery",
+	Name:    "discovery",
 	Version: "v1",
 	Methods: map[string]*endpoints.ApiMethod{
 		"discovery.apis.getRest": &endpoints.ApiMethod{
-			Path: "apis/{api}/{version}/rest",
+			Path:       "apis/{api}/{version}/rest",
 			HttpMethod: "GET",
 			RosyMethod: _GET_REST_API,
 		},
 		"discovery.apis.getRpc": &endpoints.ApiMethod{
-			Path: "apis/{api}/{version}/rpc",
+			Path:       "apis/{api}/{version}/rpc",
 			HttpMethod: "GET",
 			RosyMethod: _GET_RPC_API,
 		},
 		"discovery.apis.list": &endpoints.ApiMethod{
-			Path: "apis",
+			Path:       "apis",
 			HttpMethod: "GET",
 			RosyMethod: _LIST_API,
 		},
@@ -67,7 +66,7 @@ func NewDiscoveryService(config_manager *ApiConfigManager) *DiscoveryService {
 func send_success_response(response string, w http.ResponseWriter) string {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	fmt.Fprintf(w, response)
-//	return send_response('200', headers, response, start_response)
+	//	return send_response('200', headers, response, start_response)
 	return response
 }
 

@@ -1,26 +1,25 @@
-
 package discovery
 
 import (
-	"testing"
-	"net/http"
-	"strings"
-	"sort"
-	"io/ioutil"
 	"bytes"
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
+	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"reflect"
-	"github.com/stretchr/testify/assert"
+	"sort"
+	"strings"
+	"testing"
 )
 
 // Test that an error response still handles CORS headers.
 func Test_handle_non_json_spi_response_cors(t *testing.T) {
 	server_response := &http.Response{
-		Status: "200 OK",
+		Status:     "200 OK",
 		StatusCode: 200,
-		Header: http.Header{"Content-Type": []string{"text/plain"}},
-		Body: ioutil.NopCloser(bytes.NewBufferString("This is an invalid response.")),
+		Header:     http.Header{"Content-Type": []string{"text/plain"}},
+		Body:       ioutil.NopCloser(bytes.NewBufferString("This is an invalid response.")),
 	}
 	response := check_cors(
 		t,
@@ -72,10 +71,10 @@ func check_cors(t *testing.T, request_headers http.Header, expect_response bool,
 
 	if server_response == nil {
 		server_response = &http.Response{
-			Status: "200 OK",
+			Status:     "200 OK",
 			StatusCode: 200,
-			Header: http.Header{"Content-type": []string{"application/json"}},
-			Body: ioutil.NopCloser(bytes.NewBufferString("{}")),
+			Header:     http.Header{"Content-type": []string{"application/json"}},
+			Body:       ioutil.NopCloser(bytes.NewBufferString("{}")),
 		}
 	}
 
@@ -139,7 +138,7 @@ func Test_handle_cors(t *testing.T) {
 // Test a CORS preflight request.
 func Test_handle_cors_preflight(t *testing.T) {
 	header := http.Header{
-		"origin": []string{"http://example.com"},
+		"origin":                        []string{"http://example.com"},
 		"Access-Control-Request-Method": []string{"GET"},
 	}
 	check_cors(t, header, true, "http://example.com", "", nil)
@@ -148,7 +147,7 @@ func Test_handle_cors_preflight(t *testing.T) {
 // Test a CORS preflight request for an unaccepted OPTIONS request.
 func Test_handle_cors_preflight_invalid(t *testing.T) {
 	header := http.Header{
-		"origin": []string{"http://example.com"},
+		"origin":                        []string{"http://example.com"},
 		"Access-Control-Request-Method": []string{"OPTIONS"},
 	}
 	check_cors(t, header, false, "", "", nil)
@@ -157,8 +156,8 @@ func Test_handle_cors_preflight_invalid(t *testing.T) {
 // Test a CORS preflight request.
 func Test_handle_cors_preflight_request_headers(t *testing.T) {
 	header := http.Header{
-		"origin": []string{"http://example.com"},
-		"Access-Control-Request-Method": []string{"GET"},
+		"origin":                         []string{"http://example.com"},
+		"Access-Control-Request-Method":  []string{"GET"},
 		"Access-Control-Request-Headers": []string{"Date,Expires"},
 	}
 	check_cors(t, header, true, "http://example.com", "Date,Expires", nil)

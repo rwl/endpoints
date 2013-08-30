@@ -20,7 +20,6 @@ const _PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
 
 var _PATH_VARIABLE_PATTERN = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
 
-
 // Manages loading api configs and method lookup.
 type ApiConfigManager struct {
 	rpc_method_dict map[lookupKey]*endpoints.ApiMethod
@@ -183,8 +182,8 @@ func (by ByPath) Less(i, j int) bool {
 
 	path_score1 := score_path(path1)
 	path_score2 := score_path(path2)
-	//	fmt.Printf("1: %s - %d\n", path1, path_score1)
-	//	fmt.Printf("2: %s - %d\n", path2, path_score2)
+	//fmt.Printf("1: %s - %d\n", path1, path_score1)
+	//fmt.Printf("2: %s - %d\n", path2, path_score2)
 	if path_score1 != path_score2 {
 		// Higher path scores come first.
 		return path_score1 > path_score2
@@ -440,7 +439,7 @@ func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
 		}
 	}*/
 
-	//	pattern = re.ReplaceAllString(pattern, replace_variable)
+	//pattern = re.ReplaceAllString(pattern, replace_variable)
 
 	idxs, err := braceIndices(ppp)
 	if err != nil {

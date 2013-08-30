@@ -5,16 +5,15 @@ package discovery
 // match the errors that will be returned by the server.
 // TODO: Generate from /google/appengine/tools/devappserver2/endpoints/generated_error_info.py
 
-
 type ErrorInfo struct {
 	http_status, rpc_status int
-	reason, domain string
+	reason, domain          string
 }
 
 var UNSUPPORTED_ERROR = &ErrorInfo{404, 404, "unsupportedProtocol", "global"}
 var BACKEND_ERROR = &ErrorInfo{503, -32099, "backendError", "global"}
 
-var ERROR_MAP = map[int]*ErrorInfo {
+var ERROR_MAP = map[int]*ErrorInfo{
 	400: &ErrorInfo{400, 400, "badRequest", "global"},
 	401: &ErrorInfo{401, 401, "required", "global"},
 	402: &ErrorInfo{404, 404, "unsupportedProtocol", "global"},

@@ -4,8 +4,8 @@ package discovery
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"io/ioutil"
+	"net/http"
 )
 
 // Base type for errors that happen while processing a request.
@@ -32,8 +32,8 @@ func (re *RequestError) Error() string {
 // Format this error into a JSON response.
 func (err *RequestError) format_error(error_list_tag string) JsonObject {
 	error := JsonObject{
-		"domain": err.Domain,
-		"reason": err.Reason,
+		"domain":  err.Domain,
+		"reason":  err.Reason,
 		"message": err.Message,
 	}
 	for k, v := range err.ExtraFields {
@@ -42,8 +42,8 @@ func (err *RequestError) format_error(error_list_tag string) JsonObject {
 	return JsonObject{
 		"error": JsonObject{
 			error_list_tag: []JsonObject{error},
-			"code": err.StatusCode,
-			"message": err.Message,
+			"code":         err.StatusCode,
+			"message":      err.Message,
 		},
 	}
 }
@@ -63,8 +63,8 @@ func (err *RequestError) rpc_error() JsonObject {
 // Request rejection exception for enum values.
 type EnumRejectionError struct {
 	RequestError
-	parameter_name string // The name of the enum parameter which had a value rejected.
-	value string // The actual value passed in for the enum.
+	parameter_name string   // The name of the enum parameter which had a value rejected.
+	value          string   // The actual value passed in for the enum.
 	allowed_values []string // List of strings allowed for the enum.
 }
 
@@ -72,15 +72,15 @@ func NewEnumRejectionError(parameter_name, value string, allowed_values []string
 	return &EnumRejectionError{
 		RequestError: RequestError{
 			StatusCode: 400,
-			Message: fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowed_values),
-			Reason: "invalidParameter",
+			Message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowed_values),
+			Reason:     "invalidParameter",
 			ExtraFields: JsonObject{
 				"locationType": "parameter",
-				"location": parameter_name,
+				"location":     parameter_name,
 			},
 		},
 		parameter_name: parameter_name,
-		value: value,
+		value:          value,
 		allowed_values: allowed_values,
 	}
 }
@@ -115,9 +115,9 @@ func NewBackendError(response *http.Response) *BackendError {
 	return &BackendError{
 		RequestError: RequestError{
 			StatusCode: error_info.http_status,
-			Message: message,
-			Reason: error_info.reason,
-			Domain: error_info.domain,
+			Message:    message,
+			Reason:     error_info.reason,
+			Domain:     error_info.domain,
 		},
 		errorInfo: error_info,
 	}

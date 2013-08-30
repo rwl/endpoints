@@ -1,4 +1,3 @@
-
 package discovery
 
 import (
@@ -21,9 +20,9 @@ type CorsHandler interface {
 
 // Track information about CORS headers and our response to them.
 type checkCorsHeaders struct {
-	allow_cors_request bool
-	origin string
-	cors_request_method string
+	allow_cors_request   bool
+	origin               string
+	cors_request_method  string
 	cors_request_headers string
 }
 

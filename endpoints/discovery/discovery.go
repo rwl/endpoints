@@ -5,24 +5,25 @@ package discovery
 
 import (
 	"encoding/json"
-	"net/http"
-	"io/ioutil"
 	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"io/ioutil"
+	"net/http"
 )
 
 // The endpoint host we're using to proxy discovery and static requests.
 // Using separate constants to make it easier to change the discovery service.
 var (
-	_DISCOVERY_PROXY_HOST = "webapis-discovery.appspot.com"
-	_STATIC_PROXY_HOST = "webapis-discovery.appspot.com"
+	_DISCOVERY_PROXY_HOST      = "webapis-discovery.appspot.com"
+	_STATIC_PROXY_HOST         = "webapis-discovery.appspot.com"
 	_DISCOVERY_API_PATH_PREFIX = "/_ah/api/discovery/v1/"
 )
 
 type ApiFormat string
+
 const (
 	REST ApiFormat = "rest"
-	RPC ApiFormat = "rpc"
+	RPC  ApiFormat = "rpc"
 )
 
 // Proxies discovery service requests to a known cloud endpoint.
@@ -44,7 +45,7 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (
 	full_path := _DISCOVERY_API_PATH_PREFIX + path
 	client := &http.Client{}
 
-	req, err := http.NewRequest("POST", _DISCOVERY_PROXY_HOST + full_path, nil)
+	req, err := http.NewRequest("POST", _DISCOVERY_PROXY_HOST+full_path, nil)
 	if err != nil {
 		return "", err
 	}
@@ -79,11 +80,11 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (
 // ValueError: When api_format is invalid.
 func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config *endpoints.ApiDescriptor, api_format ApiFormat) (string, error) {
 	path := "apis/generate/" + string(api_format)
-//	var config interface{}
-//	err := json.Unmarshal([]byte(api_config), &config)
-//	if err != nil {
-//		return "", err
-//	}
+	//var config interface{}
+	//err := json.Unmarshal([]byte(api_config), &config)
+	//if err != nil {
+	//	return "", err
+	//}
 	request_dict := JsonObject{"config": api_config}
 	request_body, err := json.Marshal(request_dict)
 	if err != nil {

@@ -1,16 +1,14 @@
-
 package discovery
 
 import (
-	"testing"
-	"encoding/json"
-	"io/ioutil"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"github.com/crhym3/go-endpoints/endpoints"
+	"io/ioutil"
 	"reflect"
+	"testing"
 )
-
 
 /* Tests that only hit the request transformation functions.*/
 
@@ -91,8 +89,8 @@ func Test_transform_json_rpc_request(t *testing.T) {
 //   method_params: Optional dictionary specifying the parameter configuration
 //     associated with the method.
 func transform_rest_request(server *EndpointsDispatcher, path_parameters map[string]string,
-		query_parameters string, body_json JsonObject,
-		expected JsonObject, method_params map[string]*endpoints.ApiRequestParamSpec) error {
+	query_parameters string, body_json JsonObject,
+	expected JsonObject, method_params map[string]*endpoints.ApiRequestParamSpec) error {
 
 	if method_params == nil {
 		method_params = make(map[string]*endpoints.ApiRequestParamSpec)
@@ -175,7 +173,7 @@ func Test_transform_rest_request_path_only_enum(t *testing.T) {
 	path_parameters := map[string]string{"gid": "X"}
 	expected := JsonObject{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
-		body_object, expected, /*method_params=*/method_params)
+		body_object, expected /*method_params=*/, method_params)
 	if err != nil {
 		t.Fail()
 	}
@@ -184,7 +182,7 @@ func Test_transform_rest_request_path_only_enum(t *testing.T) {
 	expected_path_parameters := map[string]string{"gid": "Y"}
 	expected_body := JsonObject{"gid": "Y"}
 	err = transform_rest_request(server, expected_path_parameters, query_parameters,
-		body_object, expected_body, /*method_params=*/method_params)
+		body_object, expected_body /*method_params=*/, method_params)
 	if err == nil {
 		t.Error("Bad enum should have caused failure.")
 	} else if _, ok := err.(*EnumRejectionError); !ok {
@@ -280,7 +278,7 @@ func Test_transform_rest_request_query_only_enum(t *testing.T) {
 	query_parameters = "gid=Y"
 	expected = JsonObject{"gid": "Y"}
 	err = transform_rest_request(server, path_parameters, query_parameters,
-		body_object, expected, /*method_params=*/method_params)
+		body_object, expected /*method_params=*/, method_params)
 	if err == nil {
 		t.Error("Bad enum should have caused failure.")
 	} else if _, ok := err.(*EnumRejectionError); !ok {
@@ -303,7 +301,7 @@ func Test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 	}
 	method_params := map[string]*endpoints.ApiRequestParamSpec{
 		"gid": &endpoints.ApiRequestParamSpec{
-			Enum: enum_descriptor,
+			Enum:     enum_descriptor,
 			Repeated: true,
 		},
 	}
