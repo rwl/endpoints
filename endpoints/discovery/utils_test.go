@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
 // Build an ApiRequest for the given path and body.
@@ -48,57 +49,39 @@ func build_request(url, body string, http_headers http.Header) *ApiRequest {
 // Test that the headers and body match.
 func assert_http_match(t *testing.T, response *http.Response, expected_status int,
 	expected_headers http.Header, expected_body string) {
-	if expected_status != response.StatusCode {
-		t.Fail()
-	}
+	assert.Equal(t, expected_status, response.StatusCode)
 
 	// Verify that headers match. Order shouldn't matter.
-	if len(response.Header) != len(expected_headers) {
-		t.Fail()
-	}
+	/*assert.Equal(t, len(response.Header), len(expected_headers))
 	for key, value := range response.Header {
 		expected_value, ok := expected_headers[key]
-		if !ok {
-			t.Fail()
-		}
-		if value[0] != expected_value[0] {
-			t.Fail()
-		}
-	}
+		assert.True(t, ok)
+		assert.Equal(t, value[0], expected_value[0])
+	}*/
+	assert.Equal(t, response.Header, expected_headers)
 
 	// Convert the body to a string.
 	body, _ := ioutil.ReadAll(response.Body)
-	if expected_body != string(body) {
-		t.Fail()
-	}
+	assert.Equal(t, expected_body, string(body))
 }
 
 // Test that the headers and body match.
 func assert_http_match_recorder(t *testing.T, recorder *httptest.ResponseRecorder, expected_status int,
 	expected_headers http.Header, expected_body string) {
-	if expected_status != recorder.Code {
-		t.Fail()
-	}
+	assert.Equal(t, expected_status, recorder.Code)
 
 	// Verify that headers match. Order shouldn't matter.
-	if len(recorder.Header()) != len(expected_headers) {
-		t.Fail()
-	}
+	/*assert.Equal(t, len(recorder.Header()), len(expected_headers))
 	for key, value := range recorder.Header() {
 		expected_value, ok := expected_headers[key]
-		if !ok {
-			t.Fail()
-		}
-		if value[0] != expected_value[0] {
-			t.Fail()
-		}
-	}
+		assert.True(t, ok)
+		assert.Equal(t, value[0], expected_value[0])
+	}*/
+	assert.Equal(t, recorder.Header(), expected_headers)
 
-	// Convert the body to a string.
+		// Convert the body to a string.
 	body, _ := ioutil.ReadAll(recorder.Body)
-	if expected_body != string(body) {
-		t.Fail()
-	}
+	assert.Equal(t, expected_body, string(body))
 }
 
 type MockDispatcher struct {

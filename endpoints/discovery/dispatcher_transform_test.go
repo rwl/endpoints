@@ -3,11 +3,12 @@ package discovery
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"github.com/crhym3/go-endpoints/endpoints"
 	"io/ioutil"
-	"reflect"
 	"testing"
+	"github.com/stretchr/testify/assert"
+	"reflect"
 )
 
 /* Tests that only hit the request transformation functions.*/
@@ -31,20 +32,12 @@ func Test_transform_request(t *testing.T) {
 	new_request := server.transform_request(request, params, method_config)
 	expected_body := JsonObject{"sample": "body", "gid": "X"}
 	body, err := ioutil.ReadAll(new_request.Body)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 	var body_json interface{}
 	err = json.Unmarshal(body, body_json)
-	if err != nil {
-		t.Fail()
-	}
-	if !reflect.DeepEqual(expected_body, body_json) {
-		t.Fail()
-	}
-	if "GuestbookApi.greetings_get" != new_request.URL.Path {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected_body, body_json)
+	assert.Equal(t, "GuestbookApi.greetings_get", new_request.URL.Path)
 }
 
 // Verify request_id is extracted and body is scoped to body.params.
@@ -58,22 +51,14 @@ func Test_transform_json_rpc_request(t *testing.T) {
 	)
 
 	new_request, err := server.transform_jsonrpc_request(orig_request)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 	expected_body := JsonObject{"sample": "body"}
 	body, err := ioutil.ReadAll(new_request.Body)
 	var body_json interface{}
 	err = json.Unmarshal(body, body_json)
-	if err != nil {
-		t.Fail()
-	}
-	if !reflect.DeepEqual(expected_body, body_json) {
-		t.Fail()
-	}
-	if "42" != new_request.request_id {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected_body, body_json)
+	assert.Equal(t, "42", new_request.request_id)
 }
 
 // Takes body, query and path values from a rest request for testing.
@@ -111,7 +96,8 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters map[str
 		return err
 	}
 	if !reflect.DeepEqual(expected, transformed_request.body_json) {
-		return errors.New("JSON bodies do not match")
+		return fmt.Errorf("JSON bodies do not match: %v != %v", expected,
+			transformed_request.body_json)
 	}
 	var tr_body_json interface{}
 	body, err = ioutil.ReadAll(transformed_request.Body)
@@ -123,7 +109,8 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters map[str
 		return err
 	}
 	if !reflect.DeepEqual(transformed_request.body_json, tr_body_json) {
-		return errors.New("Transformed JSON bodies do not match")
+		return fmt.Errorf("Transformed JSON bodies do not match: %v != %v",
+			transformed_request.body_json, tr_body_json)
 	}
 	return nil
 }
@@ -138,9 +125,7 @@ func Test_transform_rest_request_path_only(t *testing.T) {
 	expected := JsonObject{"gid": "X"}
 	err := transform_rest_request(server, path_parameters,
 		query_parameters, body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_only_message_field(t *testing.T) {
@@ -151,9 +136,7 @@ func Test_transform_rest_request_path_only_message_field(t *testing.T) {
 	expected := JsonObject{"gid": JsonObject{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_only_enum(t *testing.T) {
@@ -174,23 +157,18 @@ func Test_transform_rest_request_path_only_enum(t *testing.T) {
 	expected := JsonObject{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected /*method_params=*/, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Bad enum
 	expected_path_parameters := map[string]string{"gid": "Y"}
 	expected_body := JsonObject{"gid": "Y"}
 	err = transform_rest_request(server, expected_path_parameters, query_parameters,
 		body_object, expected_body /*method_params=*/, method_params)
-	if err == nil {
-		t.Error("Bad enum should have caused failure.")
-	} else if _, ok := err.(*EnumRejectionError); !ok {
-		t.Error("Bad enum should have caused failure.")
-	} else {
-		enum_error := err.(*EnumRejectionError)
-		if enum_error.parameter_name != "gid" {
-			t.Fail()
+
+	if assert.Error(t, err, "Bad enum should have caused failure.") {
+		enum_error, ok := err.(*EnumRejectionError)
+		if assert.True(t, ok, "Bad enum should have caused failure.") {
+			assert.Equal(t, enum_error.parameter_name, "gid")
 		}
 	}
 }
@@ -205,9 +183,7 @@ func Test_transform_rest_request_query_only(t *testing.T) {
 	expected := JsonObject{"foo": "bar"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_query_only_message_field(t *testing.T) {
@@ -218,10 +194,7 @@ func Test_transform_rest_request_query_only_message_field(t *testing.T) {
 	expected := JsonObject{"gid": JsonObject{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
-}
+	assert.NoError(t, err)}
 
 func Test_transform_rest_request_query_only_multiple_values_not_repeated(t *testing.T) {
 	server := setUpTransformRequestTests()
@@ -231,9 +204,7 @@ func Test_transform_rest_request_query_only_multiple_values_not_repeated(t *test
 	expected := JsonObject{"foo": "bar"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_query_only_multiple_values_repeated(t *testing.T) {
@@ -247,9 +218,7 @@ func Test_transform_rest_request_query_only_multiple_values_repeated(t *testing.
 	expected := JsonObject{"foo": []string{"bar", "baz"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_query_only_enum(t *testing.T) {
@@ -270,23 +239,18 @@ func Test_transform_rest_request_query_only_enum(t *testing.T) {
 	expected := JsonObject{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Bad enum
 	query_parameters = "gid=Y"
 	expected = JsonObject{"gid": "Y"}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected /*method_params=*/, method_params)
-	if err == nil {
-		t.Error("Bad enum should have caused failure.")
-	} else if _, ok := err.(*EnumRejectionError); !ok {
-		t.Error("Bad enum should have caused failure.")
-	} else {
-		enum_err := err.(*EnumRejectionError)
-		if enum_err.parameter_name != "gid" {
-			t.Fail()
+
+	if assert.Error(t, err, "Bad enum should have caused failure.") {
+		enum_error, ok := err.(*EnumRejectionError)
+		if assert.True(t, ok, "Bad enum should have caused failure.") {
+			assert.Equal(t, enum_error.parameter_name, "gid")
 		}
 	}
 }
@@ -311,23 +275,18 @@ func Test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 	expected := JsonObject{"gid": []string{"X", "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Bad enum
 	query_parameters = "gid=X,Y,Z"
 	expected = JsonObject{"gid": []string{"X", "Y", "Z"}}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err == nil {
-		t.Error("Bad enum should have caused failure.")
-	} else if _, ok := err.(*EnumRejectionError); !ok {
-		t.Error("Bad enum should have caused failure.")
-	} else {
-		enum_err := err.(*EnumRejectionError)
-		if enum_err.parameter_name != "gid[2]" {
-			t.Fail()
+
+	if assert.Error(t, err, "Bad enum should have caused failure.") {
+		enum_error, ok := err.(*EnumRejectionError)
+		if assert.True(t, ok, "Bad enum should have caused failure.") {
+			assert.Equal(t, enum_error.parameter_name, "gid[2]")
 		}
 	}
 }
@@ -342,9 +301,7 @@ func Test_transform_rest_request_body_only(t *testing.T) {
 	expected := JsonObject{"sample": "body"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_body_only_any_old_value(t *testing.T) {
@@ -363,9 +320,7 @@ func Test_transform_rest_request_body_only_any_old_value(t *testing.T) {
 	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_body_only_message_field(t *testing.T) {
@@ -376,9 +331,7 @@ func Test_transform_rest_request_body_only_message_field(t *testing.T) {
 	expected := JsonObject{"gid": JsonObject{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_body_only_enum(t *testing.T) {
@@ -399,18 +352,14 @@ func Test_transform_rest_request_body_only_enum(t *testing.T) {
 	expected := JsonObject{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Bad enum
 	body_object = JsonObject{"gid": "Y"}
 	expected = JsonObject{"gid": "Y"}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 /* Path and query only */
@@ -423,9 +372,7 @@ func Test_transform_rest_request_path_query_no_collision(t *testing.T) {
 	expected := JsonObject{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_query_collision(t *testing.T) {
@@ -436,9 +383,7 @@ func Test_transform_rest_request_path_query_collision(t *testing.T) {
 	expected := JsonObject{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_query_collision_in_repeated_param(t *testing.T) {
@@ -453,9 +398,7 @@ func Test_transform_rest_request_path_query_collision_in_repeated_param(t *testi
 
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 /* Path and body only. */
@@ -468,9 +411,7 @@ func Test_transform_rest_request_path_body_no_collision(t *testing.T) {
 	expected := JsonObject{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_body_collision(t *testing.T) {
@@ -481,9 +422,7 @@ func Test_transform_rest_request_path_body_collision(t *testing.T) {
 	expected := JsonObject{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_body_collision_in_repeated_param(t *testing.T) {
@@ -497,9 +436,7 @@ func Test_transform_rest_request_path_body_collision_in_repeated_param(t *testin
 	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_body_message_field_cooperative(t *testing.T) {
@@ -510,9 +447,7 @@ func Test_transform_rest_request_path_body_message_field_cooperative(t *testing.
 	expected := JsonObject{"gid": JsonObject{"val1": "X", "val2": "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_body_message_field_collision(t *testing.T) {
@@ -523,9 +458,7 @@ func Test_transform_rest_request_path_body_message_field_collision(t *testing.T)
 	expected := JsonObject{"gid": JsonObject{"val": "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 /* Query and body only */
@@ -538,9 +471,7 @@ func Test_transform_rest_request_query_body_no_collision(t *testing.T) {
 	expected := JsonObject{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_query_body_collision(t *testing.T) {
@@ -551,9 +482,7 @@ func Test_transform_rest_request_query_body_collision(t *testing.T) {
 	expected := JsonObject{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_query_body_collision_in_repeated_param(t *testing.T) {
@@ -567,9 +496,7 @@ func Test_transform_rest_request_query_body_collision_in_repeated_param(t *testi
 	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_query_body_message_field_cooperative(t *testing.T) {
@@ -580,9 +507,7 @@ func Test_transform_rest_request_query_body_message_field_cooperative(t *testing
 	expected := JsonObject{"gid": JsonObject{"val1": "X", "val2": "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_query_body_message_field_collision(t *testing.T) {
@@ -593,9 +518,7 @@ func Test_transform_rest_request_query_body_message_field_collision(t *testing.T
 	expected := JsonObject{"gid": JsonObject{"val": "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 /* Path, body and query. */
@@ -608,9 +531,7 @@ func Test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
 	expected := JsonObject{"a": "b", "c": "d", "e": "f"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_path_query_body_collision(t *testing.T) {
@@ -621,9 +542,7 @@ func Test_transform_rest_request_path_query_body_collision(t *testing.T) {
 	expected := JsonObject{"a": "f"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }
 
 func Test_transform_rest_request_unknown_parameters(t *testing.T) {
@@ -638,7 +557,5 @@ func Test_transform_rest_request_unknown_parameters(t *testing.T) {
 	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 }

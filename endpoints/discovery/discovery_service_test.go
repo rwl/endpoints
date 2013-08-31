@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
 func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
@@ -23,7 +24,7 @@ func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
 	return api_config_manager, api_request, discovery
 }
 
-func prepare_discovery_request(response_body string) *httptest.Server {
+/*func prepare_discovery_request(response_body string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, response_body)
 	}))
@@ -31,7 +32,7 @@ func prepare_discovery_request(response_body string) *httptest.Server {
 
 	//response := test_utils.MockConnectionResponse(200, response_body)
 	return ts
-}
+}*/
 
 func Test_generate_discovery_doc_rest_service(t *testing.T) {
 	_, api_request, discovery := common_setup()
@@ -96,9 +97,7 @@ func Test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
 	w := httptest.NewRecorder()
 	//discovery_api = NewDiscoveryService(api_config_manager)
 	discovery_api.handle_discovery_request(_GET_REST_API, request, w)
-	if w.Code != 404 {
-		t.Fail()
-	}
+	assert.Equal(t, w.Code, 404)
 }
 
 func Test_generate_directory(t *testing.T) {

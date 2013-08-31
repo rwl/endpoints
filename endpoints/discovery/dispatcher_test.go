@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 )
 
@@ -77,15 +76,14 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 
 	// todo: compare a string of a JSON object to a JSON object
 	spi_body, err := json.Marshal(spi_body_json)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	spi_request, err := http.NewRequest(
 		"POST",
 		request.RemoteAddr+spi_path,
 		ioutil.NopCloser(bytes.NewBuffer(spi_body)),
 	)
+	assert.NoError(t, err)
 	spi_request.Header.Set("Content-Type", "application/json")
 
 	//spi_response := dispatcher.ResponseTuple("200 OK", [], "Test")
@@ -118,9 +116,7 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 	//mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
-	if "Test" != response {
-		t.Fail()
-	}
+	assert.Equal(t, "Test", response)
 }
 
 func Test_dispatch_invalid_path(t *testing.T) {
@@ -136,17 +132,6 @@ func Test_dispatch_invalid_path(t *testing.T) {
 			},
 		},
 	}
-	/*config, _ := json.Marshal(JsonObject{
-		"name": "guestbook_api",
-		"version": "v1",
-		"methods": JsonObject{
-			"guestbook.get": JsonObject{
-				"httpMethod": "GET",
-				"path": "greetings/{gid}",
-				"rosyMethod": "MyApi.greetings_get",
-			},
-		},
-	})*/
 	request := build_request("/_ah/api/foo", "", nil)
 	prepare_dispatch(dispatcher, config)
 
@@ -189,31 +174,6 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 			},
 		},
 	}
-	/*config, _ := json.Marshal(JsonObject{
-		"name": "guestbook_api",
-		"version": "v1",
-		"methods": {
-			"guestbook.get": {
-				"httpMethod": "GET",
-				"path": "greetings/{gid}",
-				"rosyMethod": "MyApi.greetings_get",
-				"request": {
-					"body": "empty",
-					"parameters": {
-						"gid": {
-							"enum": {
-								"X": {
-									"backendValue": "X",
-								},
-							},
-							"type": "string",
-						},
-					},
-				},
-			},
-		},
-	})*/
-
 	w := httptest.NewRecorder()
 
 	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
@@ -225,39 +185,23 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 
 	t.Logf("Config %s", server.config_manager.configs)
 
-	if w.Code != 400 {
-		t.Fail()
-	}
+	assert.Equal(t, w.Code, 400)
 	body := w.Body.Bytes()
 	var body_json JsonObject
 	err := json.Unmarshal(body, &body_json)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 	error, ok := body_json["error"]
-	if !ok {
-		t.Fail()
-	}
+	assert.True(t, ok)
 	error_json, ok := error.(JsonObject)
-	if !ok {
-		t.Fail()
-	}
+	assert.True(t, ok)
 	errors, ok := error_json["errors"]
-	if !ok {
-		t.Fail()
-	}
+	assert.True(t, ok)
 	errors_json, ok := errors.([]JsonObject)
-	if !ok {
-		t.Fail()
-	}
-	if 1 != len(errors_json) {
-		t.Fail()
-	}
-	if "gid" != errors_json[0]["location"] {
-		t.Fail()
-	}
-	if "invalidParameter" != errors_json[0]["reason"] {
-		t.Fail()
+	assert.True(t, ok)
+	ok = assert.Equal(t, 1, len(errors_json))
+	if ok {
+		assert.Equal(t, "gid", errors_json[0]["location"])
+		assert.Equal(t, "invalidParameter", errors_json[0]["reason"])
 	}
 }
 
@@ -275,17 +219,6 @@ func Test_dispatch_spi_error(t *testing.T) {
 			},
 		},
 	}
-	/*config, _ := json.Marshal(JsonObject{
-		"name": "guestbook_api",
-		"version": "v1",
-		"methods": JsonObject{
-			"guestbook.get": JsonObject{
-				"httpMethod": "GET",
-				"path": "greetings/{gid}",
-				"rosyMethod": "MyApi.greetings_get",
-			},
-		},
-	})*/
 	request := build_request("/_ah/api/foo", "", nil)
 	prepare_dispatch(dispatcher, config)
 
@@ -350,17 +283,6 @@ func Test_dispatch_rpc_error(t *testing.T) {
 			},
 		},
 	}
-	/*config, _ := json.Marshal(JsonObject{
-		"name": "guestbook_api",
-		"version": "v1",
-		"methods": {
-			"guestbook.get": {
-				"httpMethod": "GET",
-				"path": "greetings/{gid}",
-				"rosyMethod": "MyApi.greetings_get",
-			},
-		},
-	})*/
 	request := build_request(
 		"/_ah/api/rpc",
 		`{"method": "foo.bar", "apiVersion": "X", "id": "gapiRpc"}`,
@@ -410,17 +332,11 @@ func Test_dispatch_rpc_error(t *testing.T) {
 		},
 		"id": "gapiRpc",
 	}
-	if w.Code != 200 {
-		t.Fail()
-	}
+	assert.Equal(t, w.Code, 200)
 	var response_json interface{}
 	err := json.Unmarshal([]byte(response_body), &response_json)
-	if err != nil {
-		t.Fail()
-	}
-	if !reflect.DeepEqual(expected_response, response_json) {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected_response, response_json)
 }
 
 func Test_dispatch_json_rpc(t *testing.T) {
@@ -435,17 +351,6 @@ func Test_dispatch_json_rpc(t *testing.T) {
 			},
 		},
 	}
-	/*config, _ := json.Marshal(JsonObject{
-		"name": "guestbook_api",
-		"version": "X",
-		"methods": {
-			"foo.bar": {
-				"httpMethod": "GET",
-				"path": "greetings/{gid}",
-				"rosyMethod": "baz.bim",
-			},
-		},
-	})*/
 	request := build_request(
 		"/_ah/api/rpc",
 		`{"method": "foo.bar", "apiVersion": "X"}`,
@@ -466,17 +371,6 @@ func Test_dispatch_rest(t *testing.T) {
 			},
 		},
 	}
-	/*config, _ := json.Marshal(JsonObject{
-		"name": "myapi",
-		"version": "v1",
-		"methods": {
-			"bar": {
-				"httpMethod": "GET",
-				"path": "foo/{id}",
-				"rosyMethod": "baz.bim",
-			},
-		},
-	})*/
 	request := build_request("/_ah/api/myapi/v1/foo/testId", "", nil)
 	assert_dispatch_to_spi(t, request, config, "/_ah/spi/baz.bim",
 		JsonObject{"id": "testId"})
@@ -602,17 +496,6 @@ func Test_lily_uses_python_method_name(t *testing.T) {
 			},
 		},
 	}
-	/*config, _ := json.Marshal(JsonObject{
-		"name": "guestbook_api",
-		"version": "X",
-		"methods": {
-			"author.greeting.info.get": {
-				"httpMethod": "GET",
-				"path": "authors/{aid}/greetings/{gid}/infos/{iid}",
-				"rosyMethod": "InfoService.get",
-			},
-		},
-	})*/
 	request := build_request(
 		"/_ah/api/rpc",
 		`{"method": "author.greeting.info.get", "apiVersion": "X"}`,
@@ -630,9 +513,7 @@ func Test_handle_spi_response_json_rpc(t *testing.T) {
 		`{"method": "foo.bar", "apiVersion": "X"}`,
 		nil,
 	)
-	if !orig_request.is_rpc() {
-		t.Fail()
-	}
+	assert.True(t, orig_request.is_rpc())
 	orig_request.request_id = "Z"
 	spi_request, err := orig_request.copy()
 	assert.NoError(t, err)
@@ -646,31 +527,19 @@ func Test_handle_spi_response_json_rpc(t *testing.T) {
 	response, err := server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
 	//response = "".join(response)  // Merge response iterator into single body.
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
-	if w.Code != 200 {
-		t.Fail()
-	}
-	if w.Header().Get("a") == "" {
-		t.Fail()
-	}
-	if w.Header().Get("b") == "" {
-		t.Fail()
-	}
+	assert.Equal(t, w.Code, 200)
+	assert.NotEmpty(t, w.Header().Get("a"))
+	assert.NotEmpty(t, w.Header().Get("b"))
 	expected_response := JsonObject{
 		"id":     "Z",
 		"result": JsonObject{"some": "response"},
 	}
 	var response_json interface{}
 	err = json.Unmarshal([]byte(response), &response_json)
-	if err != nil {
-		t.Fail()
-	}
-	if !reflect.DeepEqual(expected_response, response_json) {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected_response, response_json)
 }
 
 // Verify that batch requests have an appropriate batch response.
@@ -682,12 +551,8 @@ func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 		`[{"method": "foo.bar", "apiVersion": "X"}]`,
 		nil,
 	)
-	if !orig_request.is_batch {
-		t.Fail()
-	}
-	if !orig_request.is_rpc() {
-		t.Fail()
-	}
+	assert.True(t, orig_request.is_batch)
+	assert.True(t, orig_request.is_rpc())
 	orig_request.request_id = "Z"
 	spi_request, err := orig_request.copy()
 	assert.NoError(t, err)
@@ -701,31 +566,19 @@ func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 	response, err := server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
 	//response = "".join(response)  // Merge response iterator into single body.
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
-	if w.Code != 200 {
-		t.Fail()
-	}
-	if w.Header().Get("a") == "" {
-		t.Fail()
-	}
-	if w.Header().Get("b") == "" {
-		t.Fail()
-	}
+	assert.Equal(t, w.Code, 200)
+	assert.NotEmpty(t, w.Header().Get("a"))
+	assert.NotEmpty(t, w.Header().Get("b"))
 	expected_response := JsonObject{
 		"id":     "Z",
 		"result": JsonObject{"some": "response"},
 	}
 	var response_json interface{}
 	err = json.Unmarshal([]byte(response), &response_json)
-	if err != nil {
-		t.Fail()
-	}
-	if !reflect.DeepEqual(expected_response, response_json) {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected_response, response_json)
 }
 
 func Test_handle_spi_response_rest(t *testing.T) {
@@ -743,9 +596,7 @@ func Test_handle_spi_response_rest(t *testing.T) {
 	}
 	_, err = server.handle_spi_response(orig_request, spi_request,
 		spi_response, w)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 	header := http.Header{
 		"a":              []string{"b"},
 		"Content-Length": []string{fmt.Sprintf("%d", len(body))},
@@ -758,18 +609,14 @@ func Test_transform_rest_response(t *testing.T) {
 	server, _ := set_up()
 	orig_response := `{"sample": "test", "value1": {"value2": 2}}`
 	expected_response := `{
- "sample": "test",
- "value1": {
-  "value2": 2
- }
+  "sample": "test",
+  "value1": {
+    "value2": 2
+  }
 }`
 	response, err := server.transform_rest_response(orig_response)
-	if err != nil {
-		t.Fail()
-	}
-	if expected_response != response {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected_response, response)
 }
 
 // Verify request_id inserted into the body, and body into body.result.
@@ -785,31 +632,23 @@ func Test_transform_json_rpc_response_batch(t *testing.T) {
 	request.request_id = "42"
 	orig_response := `{"sample": "body"}`
 	response, err := server.transform_jsonrpc_response(request, orig_response)
-	if err != nil {
-		t.Fail()
-	}
-	expected_response := []JsonObject{
-		JsonObject{
-			"result": JsonObject{"sample": "body"},
+	assert.NoError(t, err)
+	expected_response := []map[string]interface{}{
+		map[string]interface{}{
+			"result": map[string]interface{}{"sample": "body"},
 			"id":     "42",
 		},
 	}
-	var response_json interface{}
+	var response_json []map[string]interface{}
 	err = json.Unmarshal([]byte(response), &response_json)
-	if err != nil {
-		t.Fail()
-	}
-	if !reflect.DeepEqual(expected_response, response_json) {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, expected_response, response_json)
 }
 
 func Test_lookup_rpc_method_no_body(t *testing.T) {
 	server, _ := set_up()
 	orig_request := build_request("/_ah/api/rpc", "", nil)
-	if server.lookup_rpc_method(orig_request) != nil {
-		t.Fail()
-	}
+	assert.NotNil(t, server.lookup_rpc_method(orig_request))
 }
 
 /*func Test_lookup_rpc_method(t *testing.T) {
@@ -836,21 +675,13 @@ func Test_verify_response(t *testing.T) {
 		Body:       ioutil.NopCloser(bytes.NewBufferString("")),
 	}
 	// Expected response
-	if !verify_response(response, 200, "a") {
-		t.Fail()
-	}
+	assert.True(t, verify_response(response, 200, "a"))
 	// Any content type accepted
-	if !verify_response(response, 200, "") {
-		t.Fail()
-	}
+	assert.True(t, verify_response(response, 200, ""))
 	// Status code mismatch
-	if verify_response(response, 400, "a") {
-		t.Fail()
-	}
+	assert.False(t, verify_response(response, 400, "a"))
 	// Content type mismatch
-	if verify_response(response, 200, "b") {
-		t.Fail()
-	}
+	assert.False(t, verify_response(response, 200, "b"))
 
 	response = &http.Response{
 		Status:     "200 OK",
@@ -859,11 +690,7 @@ func Test_verify_response(t *testing.T) {
 		Body:       ioutil.NopCloser(bytes.NewBufferString("")),
 	}
 	// Any content type accepted
-	if !verify_response(response, 200, "") {
-		t.Fail()
-	}
+	assert.True(t, verify_response(response, 200, ""))
 	// Specified content type not matched
-	if verify_response(response, 200, "a") {
-		t.Fail()
-	}
+	assert.False(t, verify_response(response, 200, "a"))
 }

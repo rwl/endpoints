@@ -65,6 +65,7 @@ func NewDiscoveryService(config_manager *ApiConfigManager) *DiscoveryService {
 //   A string, the response body.
 func send_success_response(response string, w http.ResponseWriter) string {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(response)))
 	fmt.Fprintf(w, response)
 	//	return send_response('200', headers, response, start_response)
 	return response
@@ -161,9 +162,9 @@ func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 func (ds *DiscoveryService) handle_discovery_request(path string, request *ApiRequest, w http.ResponseWriter) (string, bool) {
 	switch path {
 	case _GET_REST_API:
-		return ds.get_rpc_or_rest("rest", request, w), true
+		return ds.get_rpc_or_rest(REST, request, w), true
 	case _GET_RPC_API:
-		return ds.get_rpc_or_rest("rpc", request, w), true
+		return ds.get_rpc_or_rest(RPC, request, w), true
 	case _LIST_API:
 		return ds.list(w), true
 	}

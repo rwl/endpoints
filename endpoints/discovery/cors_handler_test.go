@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -29,19 +28,15 @@ func Test_handle_non_json_spi_response_cors(t *testing.T) {
 		"",
 		server_response,
 	)
-	error_json := JsonObject{
-		"error": JsonObject{
+	error_json := map[string]interface{}{
+		"error": map[string]interface{}{
 			"message": "Non-JSON reply: This is an invalid response.",
 		},
 	}
 	var response_json interface{}
 	err := json.Unmarshal([]byte(response), &response_json)
-	if err != nil {
-		t.Fail()
-	}
-	if !reflect.DeepEqual(error_json, response_json) {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, error_json, response_json)
 }
 
 // Check that CORS headers are handled correctly.
@@ -83,48 +78,19 @@ func check_cors(t *testing.T, request_headers http.Header, expect_response bool,
 
 	response, err := server.handle_spi_response(orig_request, spi_request,
 		server_response, w)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	headers := w.Header()
 	if expect_response {
-		if headers.Get(_CORS_HEADER_ALLOW_ORIGIN) == "" {
-			t.Fail()
-		} else if headers.Get(_CORS_HEADER_ALLOW_ORIGIN) != expected_origin {
-			t.Fail()
-		}
-
-		if headers.Get(_CORS_HEADER_ALLOW_METHODS) == "" {
-			t.Fail()
-		}
+		assert.Equal(t, headers.Get(_CORS_HEADER_ALLOW_ORIGIN), expected_origin)
 		allow_methods := strings.Split(headers.Get(_CORS_HEADER_ALLOW_METHODS), ",")
 		sort.Strings(allow_methods)
-		if !reflect.DeepEqual(allow_methods, _CORS_ALLOWED_METHODS) {
-			t.Fail()
-		}
-
-		if expected_allow_headers != "" {
-			if headers.Get(_CORS_HEADER_ALLOW_HEADERS) != "" {
-				t.Fail()
-			} else if headers.Get(_CORS_HEADER_ALLOW_HEADERS) != expected_allow_headers {
-				t.Fail()
-			}
-		} else {
-			if headers.Get(_CORS_HEADER_ALLOW_HEADERS) != "" {
-				t.Fail()
-			}
-		}
+		assert.Equal(t, allow_methods, _CORS_ALLOWED_METHODS)
+		assert.Equal(t, headers.Get(_CORS_HEADER_ALLOW_HEADERS), expected_allow_headers)
 	} else {
-		if headers.Get(_CORS_HEADER_ALLOW_ORIGIN) != "" {
-			t.Fail()
-		}
-		if headers.Get(_CORS_HEADER_ALLOW_METHODS) != "" {
-			t.Fail()
-		}
-		if headers.Get(_CORS_HEADER_ALLOW_HEADERS) != "" {
-			t.Fail()
-		}
+		assert.Empty(t, headers.Get(_CORS_HEADER_ALLOW_ORIGIN))
+		assert.Empty(t, headers.Get(_CORS_HEADER_ALLOW_METHODS))
+		assert.Empty(t, headers.Get(_CORS_HEADER_ALLOW_HEADERS))
 	}
 	return response
 }

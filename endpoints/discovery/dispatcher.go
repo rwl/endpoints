@@ -451,7 +451,7 @@ func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, param
 // EnumRejectionError: If the given value is not among the accepted
 // enum values in the field parameter.
 func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
-	if field_parameter.Enum == nil {
+	if field_parameter == nil || field_parameter.Enum == nil {
 		return nil
 	}
 
@@ -474,11 +474,15 @@ func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, f
 //
 // "[index-of-value]" is appended to the parameter name for
 // error reporting purposes.
-func (ed *EndpointsDispatcher) check_parameters(parameter_name, value []string, field_parameter *endpoints.ApiRequestParamSpec) {
-	for index, element := range value {
+func (ed *EndpointsDispatcher) check_parameters(parameter_name string, values []string, field_parameter *endpoints.ApiRequestParamSpec) error {
+	for index, element := range values {
 		parameter_name_index := fmt.Sprintf("%s[%d]", parameter_name, index)
-		ed.check_parameter(parameter_name_index, element, field_parameter)
+		err := ed.check_parameter(parameter_name_index, element, field_parameter)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // Checks if the parameter value is valid against all parameter rules.
@@ -657,8 +661,16 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		// we need to call _check_parameter on them before calling
 		// _add_message_field.
 
-		val_str := value.(string)
-		err := ed.check_parameter(key, val_str, current_parameter)
+		val_str, ok := value.(string)
+		err = nil
+		if ok {
+			err = ed.check_parameter(key, val_str, current_parameter)
+		} else if val_str_arr, ok := value.([]string); ok {
+			err = ed.check_parameters(key, val_str_arr, current_parameter)
+		} else {
+			panic(fmt.Sprintf("Param value not a string or string array: %v",
+				value))
+		}
 		if err == nil {
 			// Remove the old key and try to convert to nested message value
 			delete(body_json, key)
@@ -841,7 +853,7 @@ func send_not_found_response(w http.ResponseWriter, cors_handler /*=None*/ CorsH
 
 func send_error_response(message string, w http.ResponseWriter, cors_handler CorsHandler) string {
 	body_map := JsonObject{
-		"string": JsonObject{
+		"error": JsonObject{
 			"message": message,
 		},
 	}
