@@ -21,7 +21,7 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	req.Header.Set("Content-Type", "application/json")
 
-	response_body, _ := json.Marshal(JsonObject{
+	response_body, _ := json.Marshal(map[string]interface{}{
 		"items": []*endpoints.ApiDescriptor{config},
 	})
 	header := make(http.Header)
@@ -51,7 +51,7 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 //     the mock response sent by the back end.  If None, this will create an
 //     empty response.
 func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spi_path string,
-	expected_spi_body_json JsonObject) {
+	expected_spi_body_json map[string]interface{}) {
 	server, dispatcher := newMockEndpointsDispatcher()
 	prepare_dispatch(dispatcher, config)
 
@@ -60,11 +60,11 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 	//spi_headers := make(http.Header)
 	//spi_headers.Set("Content-Type", "application/json")
 
-	var spi_body_json JsonObject
+	var spi_body_json map[string]interface{}
 	if expected_spi_body_json != nil {
 		spi_body_json = expected_spi_body_json
 	} else {
-		spi_body_json = make(JsonObject)
+		spi_body_json = make(map[string]interface{})
 	}
 
 	// todo: compare a string of a JSON object to a JSON object
@@ -180,16 +180,16 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 
 	assert.Equal(t, w.Code, 400)
 	body := w.Body.Bytes()
-	var body_json JsonObject
+	var body_json map[string]interface{}
 	err := json.Unmarshal(body, &body_json)
 	assert.NoError(t, err)
 	error, ok := body_json["error"]
 	assert.True(t, ok)
-	error_json, ok := error.(JsonObject)
+	error_json, ok := error.(map[string]interface{})
 	assert.True(t, ok)
 	errors, ok := error_json["errors"]
 	assert.True(t, ok)
-	errors_json, ok := errors.([]JsonObject)
+	errors_json, ok := errors.([]map[string]interface{})
 	assert.True(t, ok)
 	ok = assert.Equal(t, 1, len(errors_json))
 	if ok {
@@ -311,12 +311,12 @@ func Test_dispatch_rpc_error(t *testing.T) {
 	//mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
-	expected_response := JsonObject{
-		"error": JsonObject{
+	expected_response := map[string]interface{}{
+		"error": map[string]interface{}{
 			"code":    404,
 			"message": "Test error",
-			"data": []JsonObject{
-				JsonObject{
+			"data": []map[string]interface{}{
+				map[string]interface{}{
 					"domain":  "global",
 					"reason":  "notFound",
 					"message": "Test error",
@@ -366,7 +366,7 @@ func Test_dispatch_rest(t *testing.T) {
 	}
 	request := build_request("/_ah/api/myapi/v1/foo/testId", "", nil)
 	assert_dispatch_to_spi(t, request, config, "/_ah/spi/baz.bim",
-		JsonObject{"id": "testId"})
+		map[string]interface{}{"id": "testId"})
 }
 
 func Test_explorer_redirect(t *testing.T) {
@@ -460,8 +460,8 @@ func Test_handle_non_json_spi_response(t *testing.T) {
 		Status:     "200 OK",
 	}
 	server.handle_spi_response(orig_request, spi_request, spi_response, w)
-	error_json := JsonObject{
-		"error": JsonObject{
+	error_json := map[string]interface{}{
+		"error": map[string]interface{}{
 			"message": "Non-JSON reply: This is an invalid response.",
 		},
 	}
@@ -494,7 +494,7 @@ func Test_lily_uses_python_method_name(t *testing.T) {
 		`{"method": "author.greeting.info.get", "apiVersion": "X"}`,
 		nil,
 	)
-	assert_dispatch_to_spi(t, request, config, "/_ah/spi/InfoService.get", JsonObject{})
+	assert_dispatch_to_spi(t, request, config, "/_ah/spi/InfoService.get", map[string]interface{}{})
 }
 
 // Verify headers transformed, JsonRpc response transformed, written.
@@ -525,9 +525,9 @@ func Test_handle_spi_response_json_rpc(t *testing.T) {
 	assert.Equal(t, w.Code, 200)
 	assert.NotEmpty(t, w.Header().Get("a"))
 	assert.NotEmpty(t, w.Header().Get("b"))
-	expected_response := JsonObject{
+	expected_response := map[string]interface{}{
 		"id":     "Z",
-		"result": JsonObject{"some": "response"},
+		"result": map[string]interface{}{"some": "response"},
 	}
 	var response_json interface{}
 	err = json.Unmarshal([]byte(response), &response_json)
@@ -564,9 +564,9 @@ func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 	assert.Equal(t, w.Code, 200)
 	assert.NotEmpty(t, w.Header().Get("a"))
 	assert.NotEmpty(t, w.Header().Get("b"))
-	expected_response := JsonObject{
+	expected_response := map[string]interface{}{
 		"id":     "Z",
-		"result": JsonObject{"some": "response"},
+		"result": map[string]interface{}{"some": "response"},
 	}
 	var response_json interface{}
 	err = json.Unmarshal([]byte(response), &response_json)
@@ -580,7 +580,7 @@ func Test_handle_spi_response_rest(t *testing.T) {
 	orig_request := build_request("/_ah/api/test", "{}", nil)
 	spi_request, err := orig_request.copy()
 	assert.NoError(t, err)
-	body, _ := json.MarshalIndent(JsonObject{"some": "response"}, "", " ")
+	body, _ := json.MarshalIndent(map[string]interface{}{"some": "response"}, "", " ")
 	spi_response := &http.Response{
 		Status:     "200 OK",
 		StatusCode: 200,
