@@ -21,8 +21,12 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	req.Header.Set("Content-Type", "application/json")
 
+	config_bytes, err := json.Marshal(config)
+	if err != nil {
+		panic("Invalid config")
+	}
 	response_body, _ := json.Marshal(map[string]interface{}{
-		"items": []*endpoints.ApiDescriptor{config},
+		"items": []string{string(config_bytes)},
 	})
 	header := make(http.Header)
 	header.Set("Content-Type", "application/json")
@@ -105,7 +109,7 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 
 	// Run the test.
 	//mox.ReplayAll()
-	response := server.dispatch(w, request.Request)
+	response := server.dispatch(w, request)
 	//mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
@@ -131,14 +135,14 @@ func Test_dispatch_invalid_path(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	//mox.ReplayAll()
-	server.dispatch(w, request.Request)
+	server.dispatch(w, request)
 	//mox.VerifyAll()
 	dispatcher.Mock.AssertExpectations(t)
 
 	header := make(http.Header)
-	header.Set("Content-Type", "text/plain")
-	header.Set("Content-Length", "9")
-	assert_http_match_recorder(t, w, 404, header, "Not Found")
+	header.Set("Content-Type", "text/plain; charset=utf-8")
+	//header.Set("Content-Length", "9")
+	assert_http_match_recorder(t, w, 404, header, "Not Found\n")
 }
 
 func Test_dispatch_invalid_enum(t *testing.T) {
@@ -172,29 +176,31 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
 	prepare_dispatch(dispatcher, config)
 	//mox.ReplayAll()
-	server.dispatch(w, request.Request)
+	server.dispatch(w, request)
 	//mox.VerifyAll()
 	dispatcher.Mock.AssertExpectations(t)
 
-	t.Logf("Config %s", server.config_manager.configs)
+	//t.Logf("Config %s", server.config_manager.configs)
 
 	assert.Equal(t, w.Code, 400)
 	body := w.Body.Bytes()
 	var body_json map[string]interface{}
 	err := json.Unmarshal(body, &body_json)
-	assert.NoError(t, err)
+	assert.NoError(t, err, "Body: %s", string(body))
 	error, ok := body_json["error"]
 	assert.True(t, ok)
 	error_json, ok := error.(map[string]interface{})
 	assert.True(t, ok)
 	errors, ok := error_json["errors"]
 	assert.True(t, ok)
-	errors_json, ok := errors.([]map[string]interface{})
+	errors_json, ok := errors.([]interface{})
+	assert.True(t, ok)
+	errors_json0, ok := errors_json[0].(map[string]interface{})
 	assert.True(t, ok)
 	ok = assert.Equal(t, 1, len(errors_json))
 	if ok {
-		assert.Equal(t, "gid", errors_json[0]["location"])
-		assert.Equal(t, "invalidParameter", errors_json[0]["reason"])
+		assert.Equal(t, "gid", errors_json0["location"])
+		assert.Equal(t, "invalidParameter", errors_json0["reason"])
 	}
 }
 
@@ -238,7 +244,7 @@ func Test_dispatch_spi_error(t *testing.T) {
 	//server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
 	//mox.ReplayAll()
-	server.dispatch(w, request.Request)
+	server.dispatch(w, request)
 	//self.mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 	//	dispatcher.Mock.AssertExpectations(t)
@@ -307,7 +313,7 @@ func Test_dispatch_rpc_error(t *testing.T) {
 	//server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
 	//mox.ReplayAll()
-	response_body := server.dispatch(w, request.Request)
+	response_body := server.dispatch(w, request)
 	//mox.VerifyAll()
 	server.Mock.AssertExpectations(t)
 
@@ -373,7 +379,7 @@ func Test_explorer_redirect(t *testing.T) {
 	server, _ := set_up()
 	w := httptest.NewRecorder()
 	request := build_request("/_ah/api/explorer", "", nil)
-	server.dispatch(w, request.Request)
+	server.dispatch(w, request)
 	header := make(http.Header)
 	header.Set("Content-Length", "0")
 	header.Set("Location", "https://developers.google.com/apis-explorer/?base=http://localhost:42/_ah/api")
@@ -668,13 +674,13 @@ func Test_verify_response(t *testing.T) {
 		Body:       ioutil.NopCloser(bytes.NewBufferString("")),
 	}
 	// Expected response
-	assert.True(t, verify_response(response, 200, "a"))
+	assert.NoError(t, verify_response(response, 200, "a"))
 	// Any content type accepted
-	assert.True(t, verify_response(response, 200, ""))
+	assert.NoError(t, verify_response(response, 200, ""))
 	// Status code mismatch
-	assert.False(t, verify_response(response, 400, "a"))
+	assert.Error(t, verify_response(response, 400, "a"))
 	// Content type mismatch
-	assert.False(t, verify_response(response, 200, "b"))
+	assert.Error(t, verify_response(response, 200, "b"))
 
 	response = &http.Response{
 		Status:     "200 OK",
@@ -683,7 +689,7 @@ func Test_verify_response(t *testing.T) {
 		Body:       ioutil.NopCloser(bytes.NewBufferString("")),
 	}
 	// Any content type accepted
-	assert.True(t, verify_response(response, 200, ""))
+	assert.NoError(t, verify_response(response, 200, ""))
 	// Specified content type not matched
-	assert.False(t, verify_response(response, 200, "a"))
+	assert.Error(t, verify_response(response, 200, "a"))
 }

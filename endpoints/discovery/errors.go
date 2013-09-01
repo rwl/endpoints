@@ -8,8 +8,14 @@ import (
 	"net/http"
 )
 
+type RequestError interface {
+	status_code() int
+	rpc_error() map[string]interface{}
+	rest_error() string
+}
+
 // Base type for errors that happen while processing a request.
-type RequestError struct {
+type BaseRequestError struct {
 	StatusCode int // HTTP status code number associated with this error.
 
 	Message string // Text message explaining the error.
@@ -25,12 +31,16 @@ type RequestError struct {
 	ExtraFields map[string]interface{} // Some errors have additional information. This provides a way for subclasses to provide that information.
 }
 
-func (re *RequestError) Error() string {
+func (re *BaseRequestError) status_code() int {
+	return re.StatusCode
+}
+
+func (re *BaseRequestError) Error() string {
 	return re.Message
 }
 
 // Format this error into a JSON response.
-func (err *RequestError) format_error(error_list_tag string) map[string]interface{} {
+func (err *BaseRequestError) format_error(error_list_tag string) map[string]interface{} {
 	error := map[string]interface{}{
 		"domain":  err.Domain,
 		"reason":  err.Reason,
@@ -49,20 +59,20 @@ func (err *RequestError) format_error(error_list_tag string) map[string]interfac
 }
 
 // Format this error into a response to a REST request.
-func (err *RequestError) rest_error() string {
+func (err *BaseRequestError) rest_error() string {
 	error_json := err.format_error("errors")
 	rest, _ := json.Marshal(error_json) // todo: sort keys
 	return string(rest)
 }
 
 // Format this error into a response to a JSON RPC request.
-func (err *RequestError) rpc_error() map[string]interface{} {
+func (err *BaseRequestError) rpc_error() map[string]interface{} {
 	return err.format_error("data")
 }
 
 // Request rejection exception for enum values.
 type EnumRejectionError struct {
-	RequestError
+	BaseRequestError
 	parameter_name string   // The name of the enum parameter which had a value rejected.
 	value          string   // The actual value passed in for the enum.
 	allowed_values []string // List of strings allowed for the enum.
@@ -70,7 +80,7 @@ type EnumRejectionError struct {
 
 func NewEnumRejectionError(parameter_name, value string, allowed_values []string) *EnumRejectionError {
 	return &EnumRejectionError{
-		RequestError: RequestError{
+		BaseRequestError: BaseRequestError{
 			StatusCode: 400,
 			Message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowed_values),
 			Reason:     "invalidParameter",
@@ -86,12 +96,12 @@ func NewEnumRejectionError(parameter_name, value string, allowed_values []string
 }
 
 func (err *EnumRejectionError) Error() string {
-	return err.RequestError.Message
+	return err.Message
 }
 
 // Error returned when the backend SPI returns an error code.
 type BackendError struct {
-	RequestError
+	BaseRequestError
 	errorInfo *ErrorInfo
 }
 
@@ -113,7 +123,7 @@ func NewBackendError(response *http.Response) *BackendError {
 	}
 
 	return &BackendError{
-		RequestError: RequestError{
+		BaseRequestError: BaseRequestError{
 			StatusCode: error_info.http_status,
 			Message:    message,
 			Reason:     error_info.reason,
@@ -124,5 +134,5 @@ func NewBackendError(response *http.Response) *BackendError {
 }
 
 func (err *BackendError) Error() string {
-	return err.RequestError.Message
+	return err.Message
 }

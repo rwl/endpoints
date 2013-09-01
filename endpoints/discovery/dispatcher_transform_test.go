@@ -29,11 +29,12 @@ func Test_transform_request(t *testing.T) {
 	}
 
 	params := map[string]string{"gid": "X"}
-	new_request := server.transform_request(request, params, method_config)
+	new_request, err := server.transform_request(request, params, method_config)
 	expected_body := map[string]interface{}{
 		"sample": "body",
 		"gid": "X",
 	}
+	assert.NoError(t, err)
 	body, err := ioutil.ReadAll(new_request.Body)
 	assert.NoError(t, err)
 	var body_json map[string]interface{}

@@ -4,15 +4,14 @@ package discovery
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"github.com/stretchr/testify/assert"
 )
-
 
 func set_up() (*EndpointsDispatcher, *MockDispatcher) {
 	config_manager := NewApiConfigManager()
@@ -35,8 +34,7 @@ func build_request(url, body string, http_headers http.Header) *ApiRequest {
 	req, err := http.NewRequest("GET", url, //fmt.Sprintf("http://localhost%s", url),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
 	if err != nil {
-		log.Print(err.Error())
-		panic(err.Error())
+		log.Fatal(err.Error())
 	}
 	req.Header.Set("Content-Type", "application/json")
 
@@ -87,7 +85,7 @@ func assert_http_match_recorder(t *testing.T, recorder *httptest.ResponseRecorde
 	}*/
 	assert.Equal(t, recorder.Header(), expected_headers)
 
-		// Convert the body to a string.
+	// Convert the body to a string.
 	body, _ := ioutil.ReadAll(recorder.Body)
 	assert.Equal(t, expected_body, string(body))
 }

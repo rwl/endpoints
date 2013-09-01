@@ -67,34 +67,32 @@ func (ed *EndpointsDispatcher) add_dispatcher(path_regex string, dispatch_functi
 	ed.dispatchers = append(ed.dispatchers, dispatchPair{regex, dispatch_function})
 }
 
-func (ed *EndpointsDispatcher) Handle(w http.ResponseWriter, r *http.Request) {
-	ed.dispatch(w, r)
+func (ed *EndpointsDispatcher) Handle(w http.ResponseWriter, ar *ApiRequest) {
+	ed.dispatch(w, ar)
 }
 
-func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, r *http.Request) string {
+func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	// Check if this matches any of our special handlers.
-	dispatched_response, err := ed.dispatch_non_api_requests(w, r)
+	dispatched_response, err := ed.dispatch_non_api_requests(w, ar.Request)
 	if err == nil {
 		return dispatched_response
 	}
 
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
-	api_config_response := ed.get_api_configs()
-	if !ed.handle_get_api_configs_response(api_config_response) {
-		return ed.fail_request(w, r, "BackendService.getApiConfigs Error")
-	}
-
-	var ar *ApiRequest
-	ar, err = newApiRequest(r)
+	api_config_response, err := ed.get_api_configs()
 	if err != nil {
-		return ed.fail_request(w, r, "Error making ApiRequest")
+		return ed.fail_request(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
+	}
+	err = ed.handle_get_api_configs_response(api_config_response)
+	if err != nil {
+		return ed.fail_request(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
 	}
 
 	// Call the service.
 	body, err := ed.call_spi(w, ar)
 	if err != nil {
-		req_err, ok := err.(*RequestError)
+		req_err, ok := err.(RequestError)
 		if ok {
 			return ed.handle_request_error(w, ar, req_err)
 		} else {
@@ -177,19 +175,19 @@ func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, 
 // Returns:
 // A ResponseTuple containing the response information from the HTTP
 // request.
-func (ed *EndpointsDispatcher) get_api_configs() *http.Response {
+func (ed *EndpointsDispatcher) get_api_configs() (*http.Response, error) {
 	req, err := http.NewRequest("POST",
 		_SERVER_SOURCE_IP+"/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	if err != nil {
-		return nil // fixme: handle error
+		return nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := ed.dispatcher.Do(req)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return resp
+	return resp, nil
 }
 
 // Verifies that a response has the expected status and content type.
@@ -203,22 +201,22 @@ func (ed *EndpointsDispatcher) get_api_configs() *http.Response {
 //
 // Returns:
 // True if both status_code and content_type match, else False.
-func verify_response(response *http.Response, status_code int, content_type string) bool {
+func verify_response(response *http.Response, status_code int, content_type string) error {
 	//	status = int(response.StatusCode.split(" ", 1)[0])
 	if response.StatusCode != status_code {
-		return false
+		return fmt.Errorf("HTTP status code does not match the response status code: %d != %d", status_code, response.StatusCode)
 	}
 	if len(content_type) == 0 {
-		return true
+		return nil
 	}
 	ct := response.Header.Get("Content-Type")
 	if len(ct) == 0 {
-		return false
+		return errors.New("Response does not specify a Content-Type")
 	}
 	if ct == content_type {
-		return true
+		return nil
 	}
-	return false
+	return fmt.Errorf("Incorrect response Content-Type: %s != %s", ct != content_type)
 }
 
 // Parses the result of GetApiConfigs and stores its information.
@@ -228,17 +226,21 @@ func verify_response(response *http.Response, status_code int, content_type stri
 //
 // Returns:
 //   True on success, False on failure
-func (ed *EndpointsDispatcher) handle_get_api_configs_response(api_config_response *http.Response) bool {
-	if verify_response(api_config_response, 200, "application/json") {
+func (ed *EndpointsDispatcher) handle_get_api_configs_response(api_config_response *http.Response) error {
+	err := verify_response(api_config_response, 200, "application/json")
+	if err == nil {
 		body, err := ioutil.ReadAll(api_config_response.Body)
 		defer api_config_response.Body.Close()
 		if err != nil {
-			return false
+			return err
 		}
-		ed.config_manager.parse_api_config_response(string(body))
-		return true
+		err = ed.config_manager.parse_api_config_response(string(body))
+		if err != nil {
+			return err
+		}
+		return nil
 	}
-	return false
+	return err
 }
 
 // Generate SPI call (from earlier-saved request).
@@ -266,7 +268,10 @@ func (ed *EndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *Api
 	}
 
 	// Prepare the request for the back end.
-	spi_request := ed.transform_request(orig_request, params, method_config)
+	spi_request, err := ed.transform_request(orig_request, params, method_config)
+	if err != nil {
+		return err.Error(), err
+	}
 
 	// Check if this SPI call is for the Discovery service. If so, route
 	// it to our Discovery handler.
@@ -416,7 +421,7 @@ func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request *ApiRequest) *endp
 // An ApiRequest that"s a copy of the current request, modified so it can
 // be sent to the SPI.  The path is updated and parts of the body or other
 // properties may also be changed.
-func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, params map[string]string, method_config *endpoints.ApiMethod) *ApiRequest {
+func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, params map[string]string, method_config *endpoints.ApiMethod) (*ApiRequest, error) {
 	var request *ApiRequest
 	var err error
 	if orig_request.is_rpc() {
@@ -426,10 +431,10 @@ func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, param
 		request, err = ed.transform_rest_request(orig_request, params, method_params)
 	}
 	if err != nil {
-		// fixme: handle error
+		return request, err
 	}
 	request.URL.Path = method_config.RosyMethod
-	return request
+	return request, nil
 }
 
 // Checks if the parameter value is valid if an enum.
@@ -696,7 +701,7 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		ed.update_from_body(body_json, request.body_json)
 	}
 
-//	request.body_json = body_json
+	//	request.body_json = body_json
 	body, err := json.Marshal(body_json)
 	if err == nil {
 		request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
@@ -844,7 +849,7 @@ func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch b
 //
 // Returns:
 //   A string containing the response body.
-func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_request *ApiRequest, err *RequestError) string {
+func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_request *ApiRequest, err RequestError) string {
 	w.Header().Set("Content-Type", "application/json")
 	var status_code int
 	var body string
@@ -859,7 +864,7 @@ func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_
 		body = ed.finish_rpc_response(id,
 			orig_request.is_batch, err.rpc_error())
 	} else {
-		status_code = err.StatusCode
+		status_code = err.status_code()
 		body = err.rest_error()
 	}
 
@@ -878,10 +883,11 @@ func send_not_found_response(w http.ResponseWriter, cors_handler /*=None*/ CorsH
 	if cors_handler != nil {
 		cors_handler.UpdateHeaders(w.Header())
 	}
-	w.Header().Add("Content-Type", "text/plain")
 	body := "Not Found"
+	w.Header().Add("Content-Type", "text/plain")
+	//w.Header().Add("Content-Length", fmt.Sprintf("%d", len(body)))
 	http.Error(w, body, http.StatusNotFound)
-	//	return send_wsgi_response("404", h, , w, /*cors_handler=*/cors_handler)
+	//return send_wsgi_response("404", h, , w, /*cors_handler=*/cors_handler)
 	return body
 }
 
