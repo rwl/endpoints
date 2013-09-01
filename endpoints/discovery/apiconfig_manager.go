@@ -380,7 +380,7 @@ func from_safe_path_param_name(safe_parameter string) (string, error) {
 // Generates a compiled regex pattern for a path pattern.
 //
 // e.g. "/MyApi/v1/notes/{id}"
-// returns re.compile(r"/MyApi/v1/notes/(?P<id>[^:/?#\[\]{}]*)")
+// returns re.compile(r"^/MyApi/v1/notes/(?P<id>[^:/?#\[\]{}]*)")
 //
 // Args:
 //   pattern: A string, the parameterized path pattern to be checked.
@@ -466,7 +466,7 @@ func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
 	}
 	pattern.WriteString(ppp[start:])
 
-	re, err := regexp.Compile(pattern.String() + "/?$")
+	re, err := regexp.Compile("^" + pattern.String() + "/?$")
 	if err != nil {
 		return nil, err
 	}

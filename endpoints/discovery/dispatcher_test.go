@@ -238,9 +238,9 @@ func Test_dispatch_spi_error(t *testing.T) {
 	//	(`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`))
 	server.On(
 		"call_spi",
-		request,
 		mock.Anything,
-	).Return(NewBackendError(response))
+		request,
+	).Return("", NewBackendError(response))
 	//server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
 	//mox.ReplayAll()
@@ -250,21 +250,22 @@ func Test_dispatch_spi_error(t *testing.T) {
 	//	dispatcher.Mock.AssertExpectations(t)
 
 	expected_response := `{
- "error": {
-  "code": 404,
-  "errors": [
-   {
-	"domain": "global",
-	"message": "Test error",
-	"reason": "notFound"
-   }
-  ],
-  "message": "Test error"
- }
-}`
+  "error": {
+    "code": 404,
+    "errors": [
+      {
+        "domain": "global",
+        "message": "Test error",
+        "reason": "notFound"
+      }
+    ],
+    "message": "Test error"
+  }
+}
+`
 	header := make(http.Header)
 	header.Set("Content-Type", "application/json")
-	header.Set("Content-Length", fmt.Sprintf("%d", len(expected_response)))
+//	header.Set("Content-Length", fmt.Sprintf("%d", len(expected_response)))
 	assert_http_match_recorder(t, w, 404, header, expected_response)
 }
 

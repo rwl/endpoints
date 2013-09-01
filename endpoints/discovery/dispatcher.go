@@ -872,7 +872,10 @@ func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_
 	//		http.StatusText(status_code)) // fixme: handle unknown status code "Unknown Error"
 
 	newCheckCorsHeaders(orig_request.Request).UpdateHeaders(w.Header())
-	http.Error(w, body, status_code)
+	//http.Error(w, body, status_code)
+//	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+	w.WriteHeader(status_code)
+	fmt.Fprintln(w, body)
 	//	return send_response(response_status, body, w, cors_handler)
 	return body
 }

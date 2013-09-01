@@ -61,7 +61,7 @@ func (err *BaseRequestError) format_error(error_list_tag string) map[string]inte
 // Format this error into a response to a REST request.
 func (err *BaseRequestError) rest_error() string {
 	error_json := err.format_error("errors")
-	rest, _ := json.Marshal(error_json) // todo: sort keys
+	rest, _ := json.MarshalIndent(error_json, "", "  ") // todo: sort keys
 	return string(rest)
 }
 
@@ -112,11 +112,17 @@ func NewBackendError(response *http.Response) *BackendError {
 	var error_json map[string]interface{}
 	body, _ := ioutil.ReadAll(response.Body)
 	err := json.Unmarshal(body, &error_json)
+	//	fmt.Printf("%s\n%s\n", string(body), err.Error())
 	var message string
-	if err != nil {
+	if err == nil {
 		_message, ok := error_json["error_message"]
 		if ok {
-			message = _message.(string)
+			message, ok = _message.(string)
+			if !ok {
+				message = string(body)
+			}
+		} else {
+			message = string(body)
 		}
 	} else {
 		message = string(body)

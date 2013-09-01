@@ -87,6 +87,8 @@ func assert_http_match_recorder(t *testing.T, recorder *httptest.ResponseRecorde
 
 	// Convert the body to a string.
 	body, _ := ioutil.ReadAll(recorder.Body)
+//	fmt.Printf("EXPECTED:\n%s", expected_body)
+//	fmt.Printf("ACTUAL:\n%s", body)
 	assert.Equal(t, expected_body, string(body))
 }
 
@@ -128,7 +130,39 @@ func newMockEndpointsDispatcherSPI() (*MockEndpointsDispatcherSPI, *MockDispatch
 	}, dispatcher
 }
 
-func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
+func (ed *MockEndpointsDispatcherSPI) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
+	// Check if this matches any of our special handlers.
+	dispatched_response, err := ed.dispatch_non_api_requests(w, ar.Request)
+	if err == nil {
+		return dispatched_response
+	}
+
+	// Get API configuration first.  We need this so we know how to
+	// call the back end.
+	api_config_response, err := ed.get_api_configs()
+	if err != nil {
+		return ed.fail_request(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
+	}
+	err = ed.handle_get_api_configs_response(api_config_response)
+	if err != nil {
+		return ed.fail_request(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
+	}
+
+	// Call the service.
+	body, err := ed.call_spi(w, ar)
+	if err != nil {
+		req_err, ok := err.(RequestError)
+		if ok {
+			return ed.handle_request_error(w, ar, req_err)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return body
+		}
+	}
+	return body
+}
+
+func (ed *MockEndpointsDispatcherSPI) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
 	args := ed.Mock.Called(w, orig_request)
 	return args.String(0), args.Error(1)
 }
