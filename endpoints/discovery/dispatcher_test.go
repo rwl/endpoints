@@ -13,13 +13,6 @@ import (
 	"testing"
 )
 
-func set_up() (*EndpointsDispatcher, *MockDispatcher) {
-	config_manager := NewApiConfigManager()
-	mock_dispatcher := new(MockDispatcher)
-	server := NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
-	return server, mock_dispatcher
-}
-
 func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDescriptor) {
 	// The dispatch call will make a call to get_api_configs, making a
 	// dispatcher request. Set up that request.

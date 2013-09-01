@@ -451,7 +451,7 @@ func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, param
 // EnumRejectionError: If the given value is not among the accepted
 // enum values in the field parameter.
 func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
-	if field_parameter == nil || field_parameter.Enum == nil {
+	if field_parameter == nil || field_parameter.Enum == nil || len(field_parameter.Enum) == 0 {
 		return nil
 	}
 
@@ -474,7 +474,7 @@ func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, f
 //
 // "[index-of-value]" is appended to the parameter name for
 // error reporting purposes.
-func (ed *EndpointsDispatcher) check_parameters(parameter_name string, values []string, field_parameter *endpoints.ApiRequestParamSpec) error {
+func (ed *EndpointsDispatcher) check_parameters(parameter_name string, values []string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	for index, element := range values {
 		parameter_name_index := fmt.Sprintf("%s[%d]", parameter_name, index)
 		err := ed.check_parameter(parameter_name_index, element, field_parameter)
@@ -498,7 +498,7 @@ func (ed *EndpointsDispatcher) check_parameters(parameter_name string, values []
 //   field_parameter: The dictionary containing information specific to the
 //     field in question. This is retrieved from request.parameters in the
 //     method config.
-func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, field_parameter *endpoints.ApiRequestParamSpec) error {
+func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	return ed.check_enum(parameter_name, value, field_parameter)
 }
 
@@ -518,22 +518,26 @@ func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, fie
 // value: The value to be set.
 // params: The dictionary holding all the parameters, where the value is
 // eventually set.
-func (ed *EndpointsDispatcher) add_message_field(field_name string, value interface{}, params JsonObject) {
+func (ed *EndpointsDispatcher) add_message_field(field_name string, value interface{}, params map[string]interface{}) {
 	pos := strings.Index(field_name, ".")
 	if pos == -1 {
 		params[field_name] = value
 		return
 	}
 
-	substr := strings.SplitN(field_name, ".", 1)
+	substr := strings.SplitN(field_name, ".", 2)
 	root, remaining := substr[0], substr[1]
 
-	var sub_params JsonObject
+	var sub_params map[string]interface{}
 	_sub_params, ok := params[root]
 	if ok {
-		sub_params, _ = _sub_params.(JsonObject)
+		sub_params, ok = _sub_params.(map[string]interface{})
+		if !ok {
+			log.Printf("Problem accessing sub-params: %#v", _sub_params)
+		}
 	} else {
-		sub_params = make(JsonObject)
+		sub_params = make(map[string]interface{})
+		params[root] = sub_params
 	}
 	ed.add_message_field(remaining, value, sub_params)
 }
@@ -548,12 +552,12 @@ func (ed *EndpointsDispatcher) add_message_field(field_name string, value interf
 //   destination: A dictionary containing an API payload parsed from the
 //     path and query parameters in a request.
 //   source: A dictionary parsed from the body of the request.
-func (ed *EndpointsDispatcher) update_from_body(destination JsonObject, source JsonObject) {
+func (ed *EndpointsDispatcher) update_from_body(destination map[string]interface{}, source map[string]interface{}) {
 	for key, value := range source {
 		destination_value, ok := destination[key]
 		if ok {
-			val, ok_val := value.(JsonObject)
-			dest_value, ok_dest := destination_value.(JsonObject)
+			val, ok_val := value.(map[string]interface{})
+			dest_value, ok_dest := destination_value.(map[string]interface{})
 			if ok_val && ok_dest {
 				ed.update_from_body(dest_value, val)
 			} else {
@@ -611,7 +615,7 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 	if err != nil {
 		return request, err
 	}
-	body_json := make(JsonObject)
+	body_json := make(map[string]interface{})
 
 	// Handle parameters from the URL path.
 	for key, value := range params {
@@ -625,11 +629,11 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		// For repeated elements, query and path work together
 		for key, value := range request.URL.Query() {
 			if json_val, ok := body_json[key]; ok {
-				val_str, ok2 := json_val.(string)
-				if ok2 {
-					body_json[key] = strings.Join(value, "") + val_str
+				json_arr, ok := json_val.([]string)
+				if ok {
+					body_json[key] = append(value, json_arr...)
 				} else {
-					// fixme: handle type assertion failure
+					panic(fmt.Sprintf("String array expected: %#v", json_val))
 				}
 			} else {
 				body_json[key] = value
@@ -641,7 +645,7 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 	// parameters to nested parameters.  We don't use iteritems since we may
 	// modify body_json within the loop.  For instance, "a.b" is not a valid key
 	// and would be replaced with "a".
-	for key, value := range body_json {
+	for key, _ := range body_json {
 		current_parameter, ok := method_parameters[key]
 		repeated := false
 		if ok {
@@ -650,9 +654,15 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 
 		if !repeated {
 			val := body_json[key]
-			val_arr, ok := val.([]interface{})
+			val_arr, ok := val.([]string)
 			if ok {
-				body_json[key] = val_arr[0]
+				if len(val_arr) > 0 {
+					body_json[key] = val_arr[0]
+				} else {
+					body_json[key] = "" //delete?
+				}
+			} else {
+				panic(fmt.Sprintf("String array expected: %#v", val))
 			}
 		}
 
@@ -661,20 +671,23 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		// we need to call _check_parameter on them before calling
 		// _add_message_field.
 
+		value := body_json[key]
 		val_str, ok := value.(string)
-		err = nil
+		var enumErr *EnumRejectionError = nil
 		if ok {
-			err = ed.check_parameter(key, val_str, current_parameter)
+			enumErr = ed.check_parameter(key, val_str, current_parameter)
 		} else if val_str_arr, ok := value.([]string); ok {
-			err = ed.check_parameters(key, val_str_arr, current_parameter)
+			enumErr = ed.check_parameters(key, val_str_arr, current_parameter)
 		} else {
 			panic(fmt.Sprintf("Param value not a string or string array: %v",
 				value))
 		}
-		if err == nil {
+		if enumErr == nil {
 			// Remove the old key and try to convert to nested message value
 			delete(body_json, key)
 			ed.add_message_field(key, value, body_json)
+		} else {
+			return request, enumErr
 		}
 	}
 
@@ -683,13 +696,14 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 		ed.update_from_body(body_json, request.body_json)
 	}
 
-	request.body_json = body_json
-	body, err := json.Marshal(request.body_json)
+//	request.body_json = body_json
+	body, err := json.Marshal(body_json)
 	if err == nil {
 		request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 	} else {
 		return request, err
 	}
+	json.Unmarshal(body, &request.body_json) // map[string]interface{}, no string or []string
 	return request, nil
 }
 
@@ -708,12 +722,32 @@ func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request *ApiReques
 
 	request_id, ok_id := request.body_json["id"]
 	if ok_id {
-		request.request_id, _ = request_id.(string)
+		request_id_str, ok := request_id.(string)
+		if ok {
+			request.request_id = request_id_str
+		} else {
+			request_id_int, ok := request_id.(int)
+			if ok {
+				request.request_id = fmt.Sprintf("%d", request_id_int)
+			} else {
+				return nil, fmt.Errorf("Problem extracting request ID: %#v", request_id)
+			}
+		}
 	}
 
 	body_json, ok_param := request.body_json["params"]
 	if ok_param {
-		request.body_json, _ = body_json.(JsonObject)
+		body_json_obj, ok := body_json.(map[string]interface{})
+		if ok {
+			request.body_json = body_json_obj
+		} else {
+			body_json_map, ok := body_json.(map[string]interface{})
+			if ok {
+				request.body_json = body_json_map
+			} else {
+				return nil, fmt.Errorf("Problem extracting JSON body from params: %#v", body_json)
+			}
+		}
 	}
 
 	body, err := json.Marshal(request.body_json)
@@ -749,7 +783,7 @@ func (ed *EndpointsDispatcher) check_error_response(response *http.Response) err
 // Returns:
 //   A reformatted version of the response JSON.
 func (ed *EndpointsDispatcher) transform_rest_response(response_body string) (string, error) {
-	var body_json JsonObject
+	var body_json map[string]interface{}
 	err := json.Unmarshal([]byte(response_body), &body_json)
 	if err != nil {
 		return response_body, fmt.Errorf("Problem transforming REST response: %s", err.Error())
@@ -774,7 +808,7 @@ func (ed *EndpointsDispatcher) transform_jsonrpc_response(spi_request *ApiReques
 	if err != nil {
 		return response_body, fmt.Errorf("Problem unmarshalling RPC response: %s", err.Error())
 	}
-	body_json := JsonObject{"result": result}
+	body_json := map[string]interface{}{"result": result}
 	return ed.finish_rpc_response(spi_request.request_id, spi_request.is_batch, body_json), nil
 }
 
@@ -788,13 +822,13 @@ func (ed *EndpointsDispatcher) transform_jsonrpc_response(spi_request *ApiReques
 //
 // Returns:
 //   A string with the updated, JsonRPC-formatted request body.
-func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch bool, body_json JsonObject) string {
+func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch bool, body_json map[string]interface{}) string {
 	if len(request_id) > 0 {
 		body_json["id"] = request_id
 	}
 	var body []byte
 	if is_batch {
-		body, _ = json.MarshalIndent([]JsonObject{body_json}, "", "  ")
+		body, _ = json.MarshalIndent([]map[string]interface{}{body_json}, "", "  ")
 	} else {
 		body, _ = json.MarshalIndent(body_json, "", "  ") // todo: sort keys
 	}
@@ -852,8 +886,8 @@ func send_not_found_response(w http.ResponseWriter, cors_handler /*=None*/ CorsH
 }
 
 func send_error_response(message string, w http.ResponseWriter, cors_handler CorsHandler) string {
-	body_map := JsonObject{
-		"error": JsonObject{
+	body_map := map[string]interface{}{
+		"error": map[string]interface{}{
 			"message": message,
 		},
 	}
@@ -868,7 +902,7 @@ func send_error_response(message string, w http.ResponseWriter, cors_handler Cor
 	return string(body)
 }
 
-func send_rejected_response(rejection_error JsonObject, w http.ResponseWriter, cors_handler /*=None*/ CorsHandler) string {
+func send_rejected_response(rejection_error map[string]interface{}, w http.ResponseWriter, cors_handler /*=None*/ CorsHandler) string {
 	//body = rejection_error.to_json()
 	body, _ := json.Marshal(rejection_error)
 	if cors_handler != nil {

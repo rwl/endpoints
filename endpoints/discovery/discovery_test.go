@@ -40,7 +40,7 @@ func Test_generate_discovery_doc_rest(t *testing.T) {
 	//discovery_api := &DiscoveryApiProxy{}
 	baseUrl := "https://tictactoe.appspot.com/_ah/api/tictactoe/v1/"
 
-	body := JsonObject{"baseUrl": baseUrl}
+	body := map[string]interface{}{"baseUrl": baseUrl}
 	body_json, _ := json.Marshal(body)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, string(body_json))
@@ -59,7 +59,7 @@ func Test_generate_discovery_doc_rest(t *testing.T) {
 	if doc == "" {
 		t.Fail()
 	}
-	var api_config JsonObject
+	var api_config map[string]interface{}
 	err = json.Unmarshal([]byte(doc), api_config)
 	if err != nil {
 		t.Fail()
@@ -71,7 +71,7 @@ func Test_generate_discovery_doc_rest(t *testing.T) {
 
 func Test_generate_discovery_doc_rpc(t *testing.T) {
 	rpcUrl := "https://tictactoe.appspot.com/_ah/api/rpc"
-	body := JsonObject{"rpcUrl": rpcUrl}
+	body := map[string]interface{}{"rpcUrl": rpcUrl}
 	body_json, _ := json.Marshal(body)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, string(body_json))
@@ -90,7 +90,7 @@ func Test_generate_discovery_doc_rpc(t *testing.T) {
 	if doc == "" {
 		t.Fail()
 	}
-	var api_config JsonObject
+	var api_config map[string]interface{}
 	err = json.Unmarshal([]byte(doc), api_config)
 	if err != nil {
 		t.Fail()

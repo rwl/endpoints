@@ -13,6 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+
+func set_up() (*EndpointsDispatcher, *MockDispatcher) {
+	config_manager := NewApiConfigManager()
+	mock_dispatcher := new(MockDispatcher)
+	server := NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
+	return server, mock_dispatcher
+}
+
 // Build an ApiRequest for the given path and body.
 //
 // Args:

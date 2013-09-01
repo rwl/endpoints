@@ -311,9 +311,9 @@ func Test_second_api_no_collision(t *testing.T) {
 		t.Fail()
 	}
 
-	var response_json JsonObject
+	var response_json map[string]interface{}
 	err = json.Unmarshal(content, &response_json)
-	expected := JsonObject{"text": "Second response"}
+	expected := map[string]interface{}{"text": "Second response"}
 	if expected != response_json {
 		t.Fail()
 	}

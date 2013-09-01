@@ -30,11 +30,14 @@ func Test_transform_request(t *testing.T) {
 
 	params := map[string]string{"gid": "X"}
 	new_request := server.transform_request(request, params, method_config)
-	expected_body := JsonObject{"sample": "body", "gid": "X"}
+	expected_body := map[string]interface{}{
+		"sample": "body",
+		"gid": "X",
+	}
 	body, err := ioutil.ReadAll(new_request.Body)
 	assert.NoError(t, err)
-	var body_json interface{}
-	err = json.Unmarshal(body, body_json)
+	var body_json map[string]interface{}
+	err = json.Unmarshal(body, &body_json)
 	assert.NoError(t, err)
 	assert.Equal(t, expected_body, body_json)
 	assert.Equal(t, "GuestbookApi.greetings_get", new_request.URL.Path)
@@ -52,10 +55,10 @@ func Test_transform_json_rpc_request(t *testing.T) {
 
 	new_request, err := server.transform_jsonrpc_request(orig_request)
 	assert.NoError(t, err)
-	expected_body := JsonObject{"sample": "body"}
+	expected_body := map[string]interface{}{"sample": "body"}
 	body, err := ioutil.ReadAll(new_request.Body)
-	var body_json interface{}
-	err = json.Unmarshal(body, body_json)
+	var body_json map[string]interface{}
+	err = json.Unmarshal(body, &body_json)
 	assert.NoError(t, err)
 	assert.Equal(t, expected_body, body_json)
 	assert.Equal(t, "42", new_request.request_id)
@@ -74,8 +77,8 @@ func Test_transform_json_rpc_request(t *testing.T) {
 //   method_params: Optional dictionary specifying the parameter configuration
 //     associated with the method.
 func transform_rest_request(server *EndpointsDispatcher, path_parameters map[string]string,
-	query_parameters string, body_json JsonObject,
-	expected JsonObject, method_params map[string]*endpoints.ApiRequestParamSpec) error {
+	query_parameters string, body_json map[string]interface{},
+	expected map[string]interface{}, method_params map[string]*endpoints.ApiRequestParamSpec) error {
 
 	if method_params == nil {
 		method_params = make(map[string]*endpoints.ApiRequestParamSpec)
@@ -96,10 +99,10 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters map[str
 		return err
 	}
 	if !reflect.DeepEqual(expected, transformed_request.body_json) {
-		return fmt.Errorf("JSON bodies do not match: %v != %v", expected,
+		return fmt.Errorf("JSON bodies do not match: %#v != %#v", expected,
 			transformed_request.body_json)
 	}
-	var tr_body_json interface{}
+	var tr_body_json map[string]interface{}
 	body, err = ioutil.ReadAll(transformed_request.Body)
 	if err != nil {
 		return err
@@ -108,8 +111,8 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters map[str
 	if err != nil {
 		return err
 	}
-	if !reflect.DeepEqual(transformed_request.body_json, tr_body_json) {
-		return fmt.Errorf("Transformed JSON bodies do not match: %v != %v",
+	if !reflect.DeepEqual(tr_body_json, transformed_request.body_json) {
+		return fmt.Errorf("Transformed JSON bodies do not match: %#v != %#v",
 			transformed_request.body_json, tr_body_json)
 	}
 	return nil
@@ -121,8 +124,8 @@ func Test_transform_rest_request_path_only(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"gid": "X"}
 	query_parameters := ""
-	body_object := JsonObject{}
-	expected := JsonObject{"gid": "X"}
+	body_object := map[string]interface{}{}
+	expected := map[string]interface{}{"gid": "X"}
 	err := transform_rest_request(server, path_parameters,
 		query_parameters, body_object, expected, nil)
 	assert.NoError(t, err)
@@ -132,8 +135,8 @@ func Test_transform_rest_request_path_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"gid.val": "X"}
 	query_parameters := ""
-	body_object := JsonObject{}
-	expected := JsonObject{"gid": JsonObject{"val": "X"}}
+	body_object := map[string]interface{}{}
+	expected := map[string]interface{}{"gid": map[string]interface{}{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -142,7 +145,7 @@ func Test_transform_rest_request_path_only_message_field(t *testing.T) {
 func Test_transform_rest_request_path_only_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
 	query_parameters := ""
-	body_object := JsonObject{}
+	body_object := map[string]interface{}{}
 	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
 		"X": &endpoints.ApiEnumParamSpec{BackendVal: "X"},
 	}
@@ -154,14 +157,14 @@ func Test_transform_rest_request_path_only_enum(t *testing.T) {
 
 	// Good enum
 	path_parameters := map[string]string{"gid": "X"}
-	expected := JsonObject{"gid": "X"}
+	expected := map[string]interface{}{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected /*method_params=*/, method_params)
 	assert.NoError(t, err)
 
 	// Bad enum
 	expected_path_parameters := map[string]string{"gid": "Y"}
-	expected_body := JsonObject{"gid": "Y"}
+	expected_body := map[string]interface{}{"gid": "Y"}
 	err = transform_rest_request(server, expected_path_parameters, query_parameters,
 		body_object, expected_body /*method_params=*/, method_params)
 
@@ -179,8 +182,8 @@ func Test_transform_rest_request_query_only(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "foo=bar"
-	body_object := JsonObject{}
-	expected := JsonObject{"foo": "bar"}
+	body_object := map[string]interface{}{}
+	expected := map[string]interface{}{"foo": "bar"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -190,8 +193,8 @@ func Test_transform_rest_request_query_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val=X"
-	body_object := JsonObject{}
-	expected := JsonObject{"gid": JsonObject{"val": "X"}}
+	body_object := map[string]interface{}{}
+	expected := map[string]interface{}{"gid": map[string]interface{}{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)}
@@ -199,9 +202,9 @@ func Test_transform_rest_request_query_only_message_field(t *testing.T) {
 func Test_transform_rest_request_query_only_multiple_values_not_repeated(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
-	query_parameters := "foo=bar,baz" // todo: check query form
-	body_object := JsonObject{}
-	expected := JsonObject{"foo": "bar"}
+	query_parameters := "foo=bar&foo=baz"
+	body_object := map[string]interface{}{}
+	expected := map[string]interface{}{"foo": "bar"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -210,12 +213,12 @@ func Test_transform_rest_request_query_only_multiple_values_not_repeated(t *test
 func Test_transform_rest_request_query_only_multiple_values_repeated(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
-	query_parameters := "foo=bar,baz"
-	body_object := JsonObject{}
+	query_parameters := "foo=bar&foo=baz"
+	body_object := map[string]interface{}{}
 	method_params := map[string]*endpoints.ApiRequestParamSpec{
 		"foo": &endpoints.ApiRequestParamSpec{Repeated: true},
 	}
-	expected := JsonObject{"foo": []string{"bar", "baz"}}
+	expected := map[string]interface{}{"foo": []interface{}{"bar", "baz"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	assert.NoError(t, err)
@@ -224,7 +227,7 @@ func Test_transform_rest_request_query_only_multiple_values_repeated(t *testing.
 func Test_transform_rest_request_query_only_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
-	body_object := JsonObject{}
+	body_object := map[string]interface{}{}
 	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
 		"X": &endpoints.ApiEnumParamSpec{BackendVal: "X"},
 	}
@@ -236,14 +239,14 @@ func Test_transform_rest_request_query_only_enum(t *testing.T) {
 
 	// Good enum
 	query_parameters := "gid=X"
-	expected := JsonObject{"gid": "X"}
+	expected := map[string]interface{}{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	assert.NoError(t, err)
 
 	// Bad enum
 	query_parameters = "gid=Y"
-	expected = JsonObject{"gid": "Y"}
+	expected = map[string]interface{}{"gid": "Y"}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected /*method_params=*/, method_params)
 
@@ -258,7 +261,7 @@ func Test_transform_rest_request_query_only_enum(t *testing.T) {
 func Test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
-	body_object := JsonObject{}
+	body_object := map[string]interface{}{}
 	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
 		"X": &endpoints.ApiEnumParamSpec{BackendVal: "X"},
 		"Y": &endpoints.ApiEnumParamSpec{BackendVal: "Y"},
@@ -271,15 +274,15 @@ func Test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 	}
 
 	// Good enum
-	query_parameters := "gid=X,Y"
-	expected := JsonObject{"gid": []string{"X", "Y"}}
+	query_parameters := "gid=X&gid=Y"
+	expected := map[string]interface{}{"gid": []interface{}{"X", "Y"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	assert.NoError(t, err)
 
 	// Bad enum
-	query_parameters = "gid=X,Y,Z"
-	expected = JsonObject{"gid": []string{"X", "Y", "Z"}}
+	query_parameters = "gid=X&gid=Y&gid=Z"
+	expected = map[string]interface{}{"gid": []interface{}{"X", "Y", "Z"}}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 
@@ -297,8 +300,8 @@ func Test_transform_rest_request_body_only(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
-	body_object := JsonObject{"sample": "body"}
-	expected := JsonObject{"sample": "body"}
+	body_object := map[string]interface{}{"sample": "body"}
+	expected := map[string]interface{}{"sample": "body"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -308,14 +311,14 @@ func Test_transform_rest_request_body_only_any_old_value(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
-	body_object := JsonObject{
-		"sample": JsonObject{
-			"body": []string{"can", "be", "anything"},
+	body_object := map[string]interface{}{
+		"sample": map[string]interface{}{
+			"body": []interface{}{"can", "be", "anything"},
 		},
 	}
-	expected := JsonObject{
-		"sample": JsonObject{
-			"body": []string{"can", "be", "anything"},
+	expected := map[string]interface{}{
+		"sample": map[string]interface{}{
+			"body": []interface{}{"can", "be", "anything"},
 		},
 	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
@@ -327,8 +330,8 @@ func Test_transform_rest_request_body_only_message_field(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
-	body_object := JsonObject{"gid": JsonObject{"val": "X"}}
-	expected := JsonObject{"gid": JsonObject{"val": "X"}}
+	body_object := map[string]interface{}{"gid": map[string]interface{}{"val": "X"}}
+	expected := map[string]interface{}{"gid": map[string]interface{}{"val": "X"}}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -348,15 +351,15 @@ func Test_transform_rest_request_body_only_enum(t *testing.T) {
 	}
 
 	// Good enum
-	body_object := JsonObject{"gid": "X"}
-	expected := JsonObject{"gid": "X"}
+	body_object := map[string]interface{}{"gid": "X"}
+	expected := map[string]interface{}{"gid": "X"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	assert.NoError(t, err)
 
 	// Bad enum
-	body_object = JsonObject{"gid": "Y"}
-	expected = JsonObject{"gid": "Y"}
+	body_object = map[string]interface{}{"gid": "Y"}
+	expected = map[string]interface{}{"gid": "Y"}
 	err = transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, method_params)
 	assert.NoError(t, err)
@@ -368,8 +371,8 @@ func Test_transform_rest_request_path_query_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"
-	body_object := JsonObject{}
-	expected := JsonObject{"a": "b", "c": "d"}
+	body_object := map[string]interface{}{}
+	expected := map[string]interface{}{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -379,8 +382,8 @@ func Test_transform_rest_request_path_query_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "a=d"
-	body_object := JsonObject{}
-	expected := JsonObject{"a": "d"}
+	body_object := map[string]interface{}{}
+	expected := map[string]interface{}{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -389,9 +392,9 @@ func Test_transform_rest_request_path_query_collision(t *testing.T) {
 func Test_transform_rest_request_path_query_collision_in_repeated_param(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
-	query_parameters := "a=d,c"
-	body_object := JsonObject{}
-	expected := JsonObject{"a": []string{"d", "c", "b"}}
+	query_parameters := "a=d&a=c"
+	body_object := map[string]interface{}{}
+	expected := map[string]interface{}{"a": []interface{}{"d", "c", "b"}}
 	method_params := map[string]*endpoints.ApiRequestParamSpec{
 		"a": &endpoints.ApiRequestParamSpec{Repeated: true},
 	}
@@ -407,8 +410,8 @@ func Test_transform_rest_request_path_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
-	body_object := JsonObject{"c": "d"}
-	expected := JsonObject{"a": "b", "c": "d"}
+	body_object := map[string]interface{}{"c": "d"}
+	expected := map[string]interface{}{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -418,8 +421,8 @@ func Test_transform_rest_request_path_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
-	body_object := JsonObject{"a": "d"}
-	expected := JsonObject{"a": "d"}
+	body_object := map[string]interface{}{"a": "d"}
+	expected := map[string]interface{}{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -429,8 +432,8 @@ func Test_transform_rest_request_path_body_collision_in_repeated_param(t *testin
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
-	body_object := JsonObject{"a": []string{"d"}}
-	expected := JsonObject{"a": []string{"d"}}
+	body_object := map[string]interface{}{"a": []interface{}{"d"}}
+	expected := map[string]interface{}{"a": []interface{}{"d"}}
 	method_params := map[string]*endpoints.ApiRequestParamSpec{
 		"a": &endpoints.ApiRequestParamSpec{Repeated: true},
 	}
@@ -443,8 +446,17 @@ func Test_transform_rest_request_path_body_message_field_cooperative(t *testing.
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"gid.val1": "X"}
 	query_parameters := ""
-	body_object := JsonObject{"gid": JsonObject{"val2": "Y"}}
-	expected := JsonObject{"gid": JsonObject{"val1": "X", "val2": "Y"}}
+	body_object := map[string]interface{}{
+		"gid": map[string]interface{}{
+			"val2": "Y",
+		},
+	}
+	expected := map[string]interface{}{
+		"gid": map[string]interface{}{
+			"val1": "X",
+			"val2": "Y",
+		},
+	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -454,8 +466,16 @@ func Test_transform_rest_request_path_body_message_field_collision(t *testing.T)
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"gid.val": "X"}
 	query_parameters := ""
-	body_object := JsonObject{"gid": JsonObject{"val": "Y"}}
-	expected := JsonObject{"gid": JsonObject{"val": "Y"}}
+	body_object := map[string]interface{}{
+		"gid": map[string]interface{}{
+			"val": "Y",
+		},
+	}
+	expected := map[string]interface{}{
+		"gid": map[string]interface{}{
+			"val": "Y",
+		},
+	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -467,8 +487,8 @@ func Test_transform_rest_request_query_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
-	body_object := JsonObject{"c": "d"}
-	expected := JsonObject{"a": "b", "c": "d"}
+	body_object := map[string]interface{}{"c": "d"}
+	expected := map[string]interface{}{"a": "b", "c": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -478,8 +498,8 @@ func Test_transform_rest_request_query_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
-	body_object := JsonObject{"a": "d"}
-	expected := JsonObject{"a": "d"}
+	body_object := map[string]interface{}{"a": "d"}
+	expected := map[string]interface{}{"a": "d"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -489,8 +509,8 @@ func Test_transform_rest_request_query_body_collision_in_repeated_param(t *testi
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
-	body_object := JsonObject{"a": []string{"d"}}
-	expected := JsonObject{"a": []string{"d"}}
+	body_object := map[string]interface{}{"a": []interface{}{"d"}}
+	expected := map[string]interface{}{"a": []interface{}{"d"}}
 	method_params := map[string]*endpoints.ApiRequestParamSpec{
 		"a": &endpoints.ApiRequestParamSpec{Repeated: true},
 	}
@@ -503,8 +523,16 @@ func Test_transform_rest_request_query_body_message_field_cooperative(t *testing
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val1=X"
-	body_object := JsonObject{"gid": JsonObject{"val2": "Y"}}
-	expected := JsonObject{"gid": JsonObject{"val1": "X", "val2": "Y"}}
+	body_object := map[string]interface{}{
+		"gid": map[string]interface{}{
+			"val2": "Y",
+		},
+	}
+	expected := map[string]interface{}{
+		"gid": map[string]interface{}{
+			"val1": "X", "val2": "Y",
+		},
+	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -514,8 +542,16 @@ func Test_transform_rest_request_query_body_message_field_collision(t *testing.T
 	server := setUpTransformRequestTests()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val=X"
-	body_object := JsonObject{"gid": JsonObject{"val": "Y"}}
-	expected := JsonObject{"gid": JsonObject{"val": "Y"}}
+	body_object := map[string]interface{}{
+		"gid": map[string]interface{}{
+			"val": "Y",
+		},
+	}
+	expected := map[string]interface{}{
+		"gid": map[string]interface{}{
+			"val": "Y",
+		},
+	}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -527,8 +563,8 @@ func Test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"
-	body_object := JsonObject{"e": "f"}
-	expected := JsonObject{"a": "b", "c": "d", "e": "f"}
+	body_object := map[string]interface{}{"e": "f"}
+	expected := map[string]interface{}{"a": "b", "c": "d", "e": "f"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -538,8 +574,8 @@ func Test_transform_rest_request_path_query_body_collision(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "a=d"
-	body_object := JsonObject{"a": "f"}
-	expected := JsonObject{"a": "f"}
+	body_object := map[string]interface{}{"a": "f"}
+	expected := map[string]interface{}{"a": "f"}
 	err := transform_rest_request(server, path_parameters, query_parameters,
 		body_object, expected, nil)
 	assert.NoError(t, err)
@@ -549,8 +585,8 @@ func Test_transform_rest_request_unknown_parameters(t *testing.T) {
 	server := setUpTransformRequestTests()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"
-	body_object := JsonObject{"e": "f"}
-	expected := JsonObject{"a": "b", "c": "d", "e": "f"}
+	body_object := map[string]interface{}{"e": "f"}
+	expected := map[string]interface{}{"a": "b", "c": "d", "e": "f"}
 	method_params := map[string]*endpoints.ApiRequestParamSpec{
 		"X": &endpoints.ApiRequestParamSpec{},
 		"Y": &endpoints.ApiRequestParamSpec{},

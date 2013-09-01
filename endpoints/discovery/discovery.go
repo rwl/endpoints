@@ -85,7 +85,7 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config *endpoints.Ap
 	//if err != nil {
 	//	return "", err
 	//}
-	request_dict := JsonObject{"config": api_config}
+	request_dict := map[string]interface{}{"config": api_config}
 	request_body, err := json.Marshal(request_dict)
 	if err != nil {
 		return "", err
@@ -101,7 +101,7 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config *endpoints.Ap
 // Returns:
 // The API directory as JSON string.
 func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []string) (string, error) {
-	request_dict := JsonObject{"configs": api_configs}
+	request_dict := map[string]interface{}{"configs": api_configs}
 	request_body, err := json.Marshal(request_dict)
 	if err != nil {
 		return "", err

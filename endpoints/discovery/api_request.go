@@ -15,7 +15,15 @@ import (
 
 const _API_PREFIX = "/_ah/api/"
 
-type JsonObject map[string]interface{}
+//type map[string]interface{} map[string]interface{}
+//
+//func Newmap[string]interface{}(m map[string]interface{}) map[string]interface{} {
+//	jo := make(map[string]interface{})
+//	for k, v := range m {
+//		jo[k] = v
+//	}
+//	return jo
+//}
 
 // Simple data object representing an API request.
 type ApiRequest struct {
@@ -23,7 +31,7 @@ type ApiRequest struct {
 
 	//relative_url string
 	is_batch   bool
-	body_json  JsonObject
+	body_json  map[string]interface{}
 	request_id string
 }
 
@@ -50,8 +58,8 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 	}
 
 	ar.is_batch = false
-	var body_json JsonObject
-	var body_json_array []JsonObject
+	var body_json map[string]interface{}
+	var body_json_array []map[string]interface{}
 	if len(body) > 0 {
 		err := json.Unmarshal(body, &body_json)
 		if err != nil {
@@ -62,7 +70,7 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 			ar.is_batch = true
 		}
 	} else {
-		body_json = make(JsonObject)
+		body_json = make(map[string]interface{})
 	}
 
 	ar.request_id = "" //nil
@@ -82,7 +90,7 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 		}
 		log.Print("Converting batch request to single request.")
 		ar.body_json = body_json_array[0]
-		//ar.body_json, ok = body_json.(JsonObject)
+		//ar.body_json, ok = body_json.(map[string]interface{})
 		//if !ok {
 		//	return nil, fmt.Errorf("JSON request body must be a map: %s", body_json)
 		//}
@@ -104,7 +112,7 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 
 		ar.body_json = body_json
 		ar.Body = ioutil.NopCloser(bytes.NewBuffer(body)) // reset buffer
-		//ar.body_json, ok = body_json.(JsonObject)
+		//ar.body_json, ok = body_json.(map[string]interface{})
 		//if !ok {
 		//	return nil, fmt.Errorf("JSON request body must be a map: %s", body_json)
 		//}

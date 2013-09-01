@@ -10,7 +10,7 @@ import (
 )
 
 func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
-	api_config_dict := JsonObject{"items": []string{api_config_json}}
+	api_config_dict := map[string]interface{}{"items": []string{api_config_json}}
 	api_config_manager := NewApiConfigManager()
 	api_config, _ := json.Marshal(api_config_dict)
 	api_config_manager.parse_api_config_response(string(api_config))
@@ -36,7 +36,7 @@ func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
 
 func Test_generate_discovery_doc_rest_service(t *testing.T) {
 	_, api_request, discovery := common_setup()
-	body, _ := json.Marshal(JsonObject{
+	body, _ := json.Marshal(map[string]interface{}{
 		"baseUrl": "https://tictactoe.appspot.com/_ah/api/tictactoe/v1/",
 	})
 
@@ -64,7 +64,7 @@ func Test_generate_discovery_doc_rest_service(t *testing.T) {
 
 func Test_generate_discovery_doc_rpc_service(t *testing.T) {
 	_, api_request, discovery := common_setup()
-	body, _ := json.Marshal(JsonObject{
+	body, _ := json.Marshal(map[string]interface{}{
 		"rpcUrl": "https://tictactoe.appspot.com/_ah/api/rpc",
 	})
 
@@ -102,7 +102,7 @@ func Test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
 
 func Test_generate_directory(t *testing.T) {
 	_, api_request, discovery := common_setup()
-	body, _ := json.Marshal(JsonObject{"kind": "discovery#directoryItem"})
+	body, _ := json.Marshal(map[string]interface{}{"kind": "discovery#directoryItem"})
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, string(body))

@@ -36,7 +36,7 @@ func Test_parse_api_config(t *testing.T) {
 			"guestbook_api.foo.bar": fake_method,
 		},
 	})
-	items, _ := json.Marshal(JsonObject{
+	items, _ := json.Marshal(map[string]interface{}{
 		"items": []string{string(config)},
 	})
 	err := config_manager.parse_api_config_response(string(items))
@@ -74,7 +74,7 @@ func Test_parse_api_config_order_length(t *testing.T) {
 		Methods: methods,
 	})
 	assert.NoError(t, err)
-	items, err := json.Marshal(JsonObject{
+	items, err := json.Marshal(map[string]interface{}{
 		"items": []string{string(config)},
 	})
 	assert.NoError(t, err)
@@ -201,7 +201,7 @@ func Test_parse_api_config_invalid_api_config(t *testing.T) {
 	})
 	// Invalid Json.
 	config2 := "{"
-	items, _ := json.Marshal(JsonObject{
+	items, _ := json.Marshal(map[string]interface{}{
 		"items": []string{string(config), string(config2)},
 	})
 	config_manager.parse_api_config_response(string(items))
@@ -223,7 +223,7 @@ func Test_parse_api_config_convert_https(t *testing.T) {
 	descriptor.Adapter.Type = "lily"
 
 	config, _ := json.Marshal(descriptor)
-	items, _ := json.Marshal(JsonObject{
+	items, _ := json.Marshal(map[string]interface{}{
 		"items": []string{string(config)},
 	})
 	config_manager.parse_api_config_response(string(items))
