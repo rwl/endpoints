@@ -13,13 +13,13 @@ import (
 	"testing"
 )
 
-func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDescriptor) {
+func prepare_dispatch(t *testing.T, config *endpoints.ApiDescriptor) *httptest.Server {
 	// The dispatch call will make a call to get_api_configs, making a
 	// dispatcher request. Set up that request.
-	req, _ := http.NewRequest("POST",
+	/*req, _ := http.NewRequest("POST",
 		_SERVER_SOURCE_IP+"/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")*/
 
 	config_bytes, err := json.Marshal(config)
 	if err != nil {
@@ -28,7 +28,7 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 	response_body, _ := json.Marshal(map[string]interface{}{
 		"items": []string{string(config_bytes)},
 	})
-	header := make(http.Header)
+	/*header := make(http.Header)
 	header.Set("Content-Type", "application/json")
 	header.Set("Content-Length", string(len(response_body)))
 	resp := &http.Response{
@@ -36,9 +36,25 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 		StatusCode: 200,
 		Status:     "200 OK",
 		Header:     header,
-	}
+	}*/
 
-	mock_dispatcher.On("Do", req).Return(resp, nil)
+	//mock_dispatcher.On("Do", req).Return(resp, nil)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, r.Method, "POST")
+		//assert.Equal(t, r.RemoteAddr, _SERVER_SOURCE_IP)
+		assert.Equal(t, r.URL.Path, "/_ah/spi/BackendService.getApiConfigs")
+		body, _ := ioutil.ReadAll(r.Body)
+		assert.Equal(t, string(body), "{}")
+		assert.Equal(t, r.Header.Get("Content-Type"), "application/json")
+
+		w.Header().Set("Content-Type", "application/json")
+		//w.Header().Set("Content-Length", string(len(response_body)))
+		fmt.Fprintln(w, string(response_body))
+	}))
+	//defer ts.Close()
+	_SERVER_SOURCE_IP = ts.URL
+	return ts
 }
 
 // Assert that dispatching a request to the SPI works.
@@ -56,8 +72,9 @@ func prepare_dispatch(mock_dispatcher *MockDispatcher, config *endpoints.ApiDesc
 //     empty response.
 func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spi_path string,
 	expected_spi_body_json map[string]interface{}) {
-	server, dispatcher := newMockEndpointsDispatcher()
-	prepare_dispatch(dispatcher, config)
+	server := newMockEndpointsDispatcher()
+	ts := prepare_dispatch(t, config)
+	defer ts.Close()
 
 	w := httptest.NewRecorder()
 
@@ -75,13 +92,13 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 	spi_body, err := json.Marshal(spi_body_json)
 	assert.NoError(t, err)
 
-	spi_request, err := http.NewRequest(
+	/*spi_request, err := http.NewRequest(
 		"POST",
 		request.RemoteAddr+spi_path,
 		ioutil.NopCloser(bytes.NewBuffer(spi_body)),
 	)
 	assert.NoError(t, err)
-	spi_request.Header.Set("Content-Type", "application/json")
+	spi_request.Header.Set("Content-Type", "application/json")*/
 
 	//spi_response := dispatcher.ResponseTuple("200 OK", [], "Test")
 	spi_response := &http.Response{
@@ -93,12 +110,23 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 	//mock_dispatcher.add_request(
 	//	"POST", spi_path, spi_headers, JsonMatches(spi_body_json),
 	//	request.source_ip).AndReturn(spi_response)
-	dispatcher.On("Do", spi_request).Return(spi_response, nil)
+	//dispatcher.On("Do", spi_request).Return(spi_response, nil)
+	ts2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, r.Method, "POST")
+		assert.Equal(t, r.URL.Path, spi_path)
+		body, _ := ioutil.ReadAll(r.Body)
+		assert.Equal(t, string(body), string(spi_body))
+		assert.Equal(t, r.Header.Get("Content-Type"), "application/json")
+
+		fmt.Fprint(w, "Test")
+	}))
+	defer ts2.Close()
+	_SPI_ROOT_FORMAT = ts2.URL + _SPI_ROOT_FORMAT
 
 	server.On(
 		"handle_spi_response",
-		mock.AnythingOfType("*ApiRequest"),
-		mock.AnythingOfType("*ApiRequest"),
+		mock.Anything,//OfType("*ApiRequest"),
+		mock.Anything,//OfType("*ApiRequest"),
 		spi_response,
 		w,
 	).Return("Test", nil)
@@ -117,7 +145,7 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 }
 
 func Test_dispatch_invalid_path(t *testing.T) {
-	server, dispatcher := set_up()
+	server := NewEndpointsDispatcher()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -130,14 +158,15 @@ func Test_dispatch_invalid_path(t *testing.T) {
 		},
 	}
 	request := build_request("/_ah/api/foo", "", nil)
-	prepare_dispatch(dispatcher, config)
+	ts := prepare_dispatch(t, config)
+	defer ts.Close()
 
 	w := httptest.NewRecorder()
 
 	//mox.ReplayAll()
 	server.dispatch(w, request)
 	//mox.VerifyAll()
-	dispatcher.Mock.AssertExpectations(t)
+//	dispatcher.Mock.AssertExpectations(t)
 
 	header := make(http.Header)
 	header.Set("Content-Type", "text/plain; charset=utf-8")
@@ -146,7 +175,7 @@ func Test_dispatch_invalid_path(t *testing.T) {
 }
 
 func Test_dispatch_invalid_enum(t *testing.T) {
-	server, dispatcher := set_up()
+	server := NewEndpointsDispatcher()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -174,11 +203,13 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
-	prepare_dispatch(dispatcher, config)
+	ts := prepare_dispatch(t, config)
+	defer ts.Close()
+
 	//mox.ReplayAll()
 	server.dispatch(w, request)
 	//mox.VerifyAll()
-	dispatcher.Mock.AssertExpectations(t)
+//	dispatcher.Mock.AssertExpectations(t)
 
 	//t.Logf("Config %s", server.config_manager.configs)
 
@@ -206,7 +237,7 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 
 // Check the error response if the SPI returns an error.
 func Test_dispatch_spi_error(t *testing.T) {
-	server, dispatcher := newMockEndpointsDispatcherSPI()
+	server := newMockEndpointsDispatcherSPI()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -219,7 +250,8 @@ func Test_dispatch_spi_error(t *testing.T) {
 		},
 	}
 	request := build_request("/_ah/api/foo", "", nil)
-	prepare_dispatch(dispatcher, config)
+	ts := prepare_dispatch(t, config)
+	defer ts.Close()
 
 	w := httptest.NewRecorder()
 
@@ -271,7 +303,7 @@ func Test_dispatch_spi_error(t *testing.T) {
 
 // Test than an RPC call that returns an error is handled properly.
 func Test_dispatch_rpc_error(t *testing.T) {
-	server, dispatcher := newMockEndpointsDispatcherSPI()
+	server := newMockEndpointsDispatcherSPI()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -288,7 +320,8 @@ func Test_dispatch_rpc_error(t *testing.T) {
 		`{"method": "foo.bar", "apiVersion": "X", "id": "gapiRpc"}`,
 		nil,
 	)
-	prepare_dispatch(dispatcher, config)
+	ts := prepare_dispatch(t, config)
+	defer ts.Close()
 
 	w := httptest.NewRecorder()
 
@@ -308,9 +341,9 @@ func Test_dispatch_rpc_error(t *testing.T) {
 	//  "error_message": "Test error"}`))
 	server.On(
 		"call_spi",
-		request,
 		mock.Anything,
-	).Return(NewBackendError(response))
+		request,
+	).Return("", NewBackendError(response))
 	//server.call_spi(request, mox.IgnoreArg()).AndRaise(NewBackendError(response))
 
 	//mox.ReplayAll()
@@ -321,14 +354,14 @@ func Test_dispatch_rpc_error(t *testing.T) {
 	expected_response := map[string]interface{}{
 		"error": map[string]interface{}{
 			"code":    404,
-			"message": "Test error",
-			"data": []map[string]interface{}{
+			"data": []interface{}{
 				map[string]interface{}{
 					"domain":  "global",
-					"reason":  "notFound",
 					"message": "Test error",
+					"reason":  "notFound",
 				},
 			},
+			"message": "Test error",
 		},
 		"id": "gapiRpc",
 	}
@@ -377,7 +410,7 @@ func Test_dispatch_rest(t *testing.T) {
 }
 
 func Test_explorer_redirect(t *testing.T) {
-	server, _ := set_up()
+	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
 	request := build_request("/_ah/api/explorer", "", nil)
 	server.dispatch(w, request)
@@ -453,7 +486,7 @@ func Test_explorer_redirect(t *testing.T) {
 }*/
 
 func Test_handle_non_json_spi_response(t *testing.T) {
-	server, _ := set_up()
+	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
 	orig_request := build_request("/_ah/api/fake/path", "", nil)
 	spi_request, err := orig_request.copy()
@@ -506,7 +539,7 @@ func Test_lily_uses_python_method_name(t *testing.T) {
 
 // Verify headers transformed, JsonRpc response transformed, written.
 func Test_handle_spi_response_json_rpc(t *testing.T) {
-	server, _ := set_up()
+	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
 	orig_request := build_request(
 		"/_ah/api/rpc",
@@ -544,7 +577,7 @@ func Test_handle_spi_response_json_rpc(t *testing.T) {
 
 // Verify that batch requests have an appropriate batch response.
 func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
-	server, _ := set_up()
+	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
 	orig_request := build_request(
 		"/_ah/api/rpc",
@@ -582,7 +615,7 @@ func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 }
 
 func Test_handle_spi_response_rest(t *testing.T) {
-	server, _ := set_up()
+	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
 	orig_request := build_request("/_ah/api/test", "{}", nil)
 	spi_request, err := orig_request.copy()
@@ -606,7 +639,7 @@ func Test_handle_spi_response_rest(t *testing.T) {
 
 // Verify the response is reformatted correctly.
 func Test_transform_rest_response(t *testing.T) {
-	server, _ := set_up()
+	server := NewEndpointsDispatcher()
 	orig_response := `{"sample": "test", "value1": {"value2": 2}}`
 	expected_response := `{
   "sample": "test",
@@ -621,7 +654,7 @@ func Test_transform_rest_response(t *testing.T) {
 
 // Verify request_id inserted into the body, and body into body.result.
 func Test_transform_json_rpc_response_batch(t *testing.T) {
-	server, _ := set_up()
+	server := NewEndpointsDispatcher()
 	orig_request := build_request(
 		"/_ah/api/rpc",
 		`[{"params": {"sample": "body"}, "id": "42"}]`,
@@ -646,7 +679,7 @@ func Test_transform_json_rpc_response_batch(t *testing.T) {
 }
 
 func Test_lookup_rpc_method_no_body(t *testing.T) {
-	server, _ := set_up()
+	server := NewEndpointsDispatcher()
 	orig_request := build_request("/_ah/api/rpc", "", nil)
 	assert.NotNil(t, server.lookup_rpc_method(orig_request))
 }

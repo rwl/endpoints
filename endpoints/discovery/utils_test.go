@@ -6,19 +6,14 @@ import (
 	"bytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/crhym3/go-endpoints/endpoints"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"fmt"
 )
-
-func set_up() (*EndpointsDispatcher, *MockDispatcher) {
-	config_manager := NewApiConfigManager()
-	mock_dispatcher := new(MockDispatcher)
-	server := NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
-	return server, mock_dispatcher
-}
 
 // Build an ApiRequest for the given path and body.
 //
@@ -86,19 +81,10 @@ func assert_http_match_recorder(t *testing.T, recorder *httptest.ResponseRecorde
 	assert.Equal(t, recorder.Header(), expected_headers)
 
 	// Convert the body to a string.
-	body, _ := ioutil.ReadAll(recorder.Body)
+	//body := recorder.Body.Bytes()
 //	fmt.Printf("EXPECTED:\n%s", expected_body)
-//	fmt.Printf("ACTUAL:\n%s", body)
-	assert.Equal(t, expected_body, string(body))
-}
-
-type MockDispatcher struct {
-	mock.Mock
-}
-
-func (md *MockDispatcher) Do(request *http.Request) (*http.Response, error) {
-	args := md.Mock.Called(request)
-	return args.Get(0).(*http.Response), args.Error(1)
+//	fmt.Printf("ACTUAL:\n%s", recorder.Body.String())
+	assert.Equal(t, expected_body, recorder.Body.String())
 }
 
 type MockEndpointsDispatcher struct {
@@ -106,11 +92,48 @@ type MockEndpointsDispatcher struct {
 	*EndpointsDispatcher
 }
 
-func newMockEndpointsDispatcher() (*MockEndpointsDispatcher, *MockDispatcher) {
-	server, dispatcher := set_up()
+func newMockEndpointsDispatcher() (*MockEndpointsDispatcher) {
 	return &MockEndpointsDispatcher{
-		EndpointsDispatcher: server,
-	}, dispatcher
+		EndpointsDispatcher: NewEndpointsDispatcher(),
+	}
+}
+
+// fixme: mock handle_spi_response without duplicating dispatch
+func (ed *MockEndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
+	api_config_response, _ := ed.get_api_configs()
+	ed.handle_get_api_configs_response(api_config_response)
+
+	body, _ := ed.call_spi(w, ar)
+	return body
+}
+
+// fixme: mock handle_spi_response without duplicating call_spi
+func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
+	var method_config *endpoints.ApiMethod
+	var params map[string]string
+	if orig_request.is_rpc() {
+		method_config = ed.lookup_rpc_method(orig_request)
+		params = nil
+	} else {
+		method_config, params = ed.lookup_rest_method(orig_request)
+	}
+
+	spi_request, _ := ed.transform_request(orig_request, params, method_config)
+
+	discovery := NewDiscoveryService(ed.config_manager)
+	discovery_response, ok := discovery.handle_discovery_request(spi_request.URL.Path,
+		spi_request, w)
+	if ok {
+		return discovery_response, nil
+	}
+
+	url := fmt.Sprintf(_SPI_ROOT_FORMAT, spi_request.URL.Path)
+	req, _ := http.NewRequest("POST", url, spi_request.Body)
+	req.Header.Add("Content-Type", "application/json")
+	req.RemoteAddr = spi_request.RemoteAddr
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	return ed.handle_spi_response(orig_request, spi_request, resp, w)
 }
 
 func (ed *MockEndpointsDispatcher) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
@@ -123,13 +146,13 @@ type MockEndpointsDispatcherSPI struct {
 	*EndpointsDispatcher
 }
 
-func newMockEndpointsDispatcherSPI() (*MockEndpointsDispatcherSPI, *MockDispatcher) {
-	server, dispatcher := set_up()
+func newMockEndpointsDispatcherSPI() (*MockEndpointsDispatcherSPI) {
 	return &MockEndpointsDispatcherSPI{
-		EndpointsDispatcher: server,
-	}, dispatcher
+		EndpointsDispatcher: NewEndpointsDispatcher(),
+	}
 }
 
+// fixme: mock call_spi without duplicating dispatch
 func (ed *MockEndpointsDispatcherSPI) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	// Check if this matches any of our special handlers.
 	dispatched_response, err := ed.dispatch_non_api_requests(w, ar.Request)
@@ -161,6 +184,13 @@ func (ed *MockEndpointsDispatcherSPI) dispatch(w http.ResponseWriter, ar *ApiReq
 	}
 	return body
 }
+/*{
+	api_config_response, _ := ed.get_api_configs()
+	ed.handle_get_api_configs_response(api_config_response)
+
+	body, _ := ed.call_spi(w, ar)
+	return body
+}*/
 
 func (ed *MockEndpointsDispatcherSPI) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
 	args := ed.Mock.Called(w, orig_request)

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
 var api_config_map endpoints.ApiDescriptor
@@ -53,20 +54,13 @@ func Test_generate_discovery_doc_rest(t *testing.T) {
 	doc, err := generate_discovery_doc(&api_config_map, "rest")
 	//self.mox.VerifyAll()
 
-	if err != nil {
-		t.Fail()
-	}
-	if doc == "" {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.NotEmpty(t, doc)
+
 	var api_config map[string]interface{}
-	err = json.Unmarshal([]byte(doc), api_config)
-	if err != nil {
-		t.Fail()
-	}
-	if api_config["baseUrl"] != baseUrl {
-		t.Fail()
-	}
+	err = json.Unmarshal([]byte(doc), &api_config)
+	assert.NoError(t, err)
+	assert.Equal(t, api_config["baseUrl"], baseUrl)
 }
 
 func Test_generate_discovery_doc_rpc(t *testing.T) {
@@ -84,20 +78,13 @@ func Test_generate_discovery_doc_rpc(t *testing.T) {
 	doc, err := generate_discovery_doc(&api_config_map, "rpc")
 	//self.mox.VerifyAll()
 
-	if err != nil {
-		t.Fail()
-	}
-	if doc == "" {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.NotEmpty(t, doc)
+
 	var api_config map[string]interface{}
-	err = json.Unmarshal([]byte(doc), api_config)
-	if err != nil {
-		t.Fail()
-	}
-	if api_config["rpcUrl"] != rpcUrl {
-		t.Fail()
-	}
+	err = json.Unmarshal([]byte(doc), &api_config)
+	assert.NoError(t, err)
+	assert.Equal(t, api_config["rpcUrl"], rpcUrl)
 }
 
 func Test_generate_discovery_doc_invalid_format(t *testing.T) {
@@ -110,9 +97,7 @@ func Test_generate_discovery_doc_invalid_format(t *testing.T) {
 	//_DISCOVERY_API_PATH_PREFIX = ""
 
 	_, err := generate_discovery_doc(&api_config_map, "blah")
-	if err == nil {
-		t.Fail()
-	}
+	assert.Error(t, err)
 }
 
 func Test_generate_discovery_doc_bad_api_config(t *testing.T) {
@@ -129,12 +114,8 @@ func Test_generate_discovery_doc_bad_api_config(t *testing.T) {
 	doc, err := generate_discovery_doc(bad, "rpc")
 	//self.mox.VerifyAll()
 
-	if err == nil {
-		t.Fail()
-	}
-	if doc != "" {
-		t.Fail()
-	}
+	assert.Error(t, err)
+	assert.Empty(t, doc, "")
 }
 
 func Test_get_static_file_existing(t *testing.T) {
@@ -150,13 +131,7 @@ func Test_get_static_file_existing(t *testing.T) {
 	response, response_body, err := get_static_file("/_ah/api/static/proxy.html")
 	//self.mox.VerifyAll()
 
-	if err != nil {
-		t.Fail()
-	}
-	if response.StatusCode != 200 {
-		t.Fail()
-	}
-	if body != response_body {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, response.StatusCode, 200)
+	assert.Equal(t, body, response_body)
 }

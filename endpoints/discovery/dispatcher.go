@@ -15,23 +15,18 @@ import (
 	"strings"
 )
 
-// Pattern for paths handled by this module.
-const API_SERVING_PATTERN = "_ah/api/.*"
+var (
+	API_SERVING_PATTERN = "_ah/api/.*" // Pattern for paths handled by this package.
 
-const _SPI_ROOT_FORMAT = "/_ah/spi/%s"
-const _SERVER_SOURCE_IP = "0.2.0.3"
-
-const _API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
+	_SPI_ROOT_FORMAT = "/_ah/spi/%s"
+	_SERVER_SOURCE_IP = "0.2.0.3"
+	_API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
+)
 
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsDispatcher struct {
-	dispatcher     Dispatcher        // A Dispatcher instance that can be used to make HTTP requests.
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
 	dispatchers    []dispatchPair
-}
-
-type Dispatcher interface {
-	Do(*http.Request) (*http.Response, error)
 }
 
 type dispatchPair struct {
@@ -39,14 +34,12 @@ type dispatchPair struct {
 	dispatch_func func(http.ResponseWriter, *http.Request) string
 }
 
-func NewEndpointsDispatcher(dispatcher Dispatcher) *EndpointsDispatcher {
-	return NewEndpointsDispatcherConfig(dispatcher, NewApiConfigManager())
+func NewEndpointsDispatcher() *EndpointsDispatcher {
+	return NewEndpointsDispatcherConfig(NewApiConfigManager())
 }
 
-func NewEndpointsDispatcherConfig(dispatcher Dispatcher,
-	config_manager *ApiConfigManager) *EndpointsDispatcher {
+func NewEndpointsDispatcherConfig(config_manager *ApiConfigManager) *EndpointsDispatcher {
 	d := &EndpointsDispatcher{
-		dispatcher,
 		config_manager,
 		make([]dispatchPair, 0),
 	}
@@ -183,7 +176,8 @@ func (ed *EndpointsDispatcher) get_api_configs() (*http.Response, error) {
 		return nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	resp, err := ed.dispatcher.Do(req)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +284,8 @@ func (ed *EndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *Api
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.RemoteAddr = spi_request.RemoteAddr
-	resp, err := ed.dispatcher.Do(req)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
