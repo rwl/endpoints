@@ -339,6 +339,11 @@ func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *Ap
 
 	cors_handler := newCheckCorsHeaders(orig_request.Request)
 	cors_handler.UpdateHeaders(w.Header())
+	for k, vals := range response.Header {
+		w.Header()[k] = vals
+	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+	w.WriteHeader(response.StatusCode)
 	fmt.Fprint(w, body)
 	//return send_response(response.status, response.headers, body, w, /*cors_handler=*/cors_handler)
 	return body, nil
@@ -849,7 +854,6 @@ func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch b
 // Returns:
 //   A string containing the response body.
 func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_request *ApiRequest, err RequestError) string {
-	w.Header().Set("Content-Type", "application/json")
 	var status_code int
 	var body string
 	if orig_request.is_rpc() {
@@ -872,9 +876,10 @@ func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_
 
 	newCheckCorsHeaders(orig_request.Request).UpdateHeaders(w.Header())
 	//http.Error(w, body, status_code)
-//	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
 	w.WriteHeader(status_code)
-	fmt.Fprintln(w, body)
+	fmt.Fprint(w, body)
 	//	return send_response(response_status, body, w, cors_handler)
 	return body
 }
@@ -886,9 +891,11 @@ func send_not_found_response(w http.ResponseWriter, cors_handler /*=None*/ CorsH
 		cors_handler.UpdateHeaders(w.Header())
 	}
 	body := "Not Found"
-	w.Header().Add("Content-Type", "text/plain")
-	//w.Header().Add("Content-Length", fmt.Sprintf("%d", len(body)))
-	http.Error(w, body, http.StatusNotFound)
+	w.Header().Set("Content-Type", "text/plain")  // ; charset=utf-8
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+	w.WriteHeader(http.StatusNotFound)
+	fmt.Fprint(w, body)
+//	http.Error(w, body, http.StatusNotFound)
 	//return send_wsgi_response("404", h, , w, /*cors_handler=*/cors_handler)
 	return body
 }
@@ -899,27 +906,33 @@ func send_error_response(message string, w http.ResponseWriter, cors_handler Cor
 			"message": message,
 		},
 	}
-	body, _ := json.Marshal(body_map)
+	body_bytes, _ := json.Marshal(body_map)
+	body := string(body_bytes)
 	//header := make(http.Header)
 	if cors_handler != nil {
 		cors_handler.UpdateHeaders(w.Header())
 	}
-	w.Header().Add("Content-Type", "application/json")
-	http.Error(w, string(body), http.StatusInternalServerError)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+	w.WriteHeader(http.StatusInternalServerError)
+	fmt.Fprint(w, body)
 	//return send_response("500", header, string(body), w, /*cors_handler=*/cors_handler)
-	return string(body)
+	return body
 }
 
 func send_rejected_response(rejection_error map[string]interface{}, w http.ResponseWriter, cors_handler /*=None*/ CorsHandler) string {
 	//body = rejection_error.to_json()
-	body, _ := json.Marshal(rejection_error)
+	body_bytes, _ := json.Marshal(rejection_error)
+	body := string(body_bytes)
 	if cors_handler != nil {
 		cors_handler.UpdateHeaders(w.Header())
 	}
-	w.Header().Add("Content-Type", "application/json")
-	http.Error(w, string(body), http.StatusBadRequest)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprint(w, body)
 	//return send_response("400", header, body, w, /*cors_handler=*/cors_handler)
-	return string(body)
+	return body
 }
 
 func send_redirect_response(redirect_location string, w http.ResponseWriter, r *http.Request, cors_handler /*=None*/ CorsHandler) string {

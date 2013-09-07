@@ -149,7 +149,16 @@ func (ar *ApiRequest) copy() (*ApiRequest, error) {
 	ar.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 	body_copy := ioutil.NopCloser(bytes.NewBuffer(body))
 
-	url_copy, err := url.Parse(ar.URL.String())
+	//url_copy, err := url.Parse(ar.URL.String())
+	url_copy := &url.URL{
+		Scheme: ar.URL.Scheme,
+		Opaque: ar.URL.Opaque,
+		User: ar.URL.User,
+		Host: ar.URL.Host,
+		Path: ar.URL.Path,
+		RawQuery: ar.URL.RawQuery,
+		Fragment: ar.URL.Fragment,
+	}
 	if err != nil {
 		return nil, err
 	}
