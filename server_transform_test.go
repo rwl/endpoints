@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/crhym3/go-endpoints/endpoints"
+	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
 	"testing"
 	"github.com/stretchr/testify/assert"

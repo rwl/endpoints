@@ -3,7 +3,7 @@ package endpoint
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/crhym3/go-endpoints/endpoints"
+	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

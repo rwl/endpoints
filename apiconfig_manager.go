@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/crhym3/go-endpoints/endpoints"
+	"github.com/rwl/go-endpoints/endpoints"
 	"log"
 	"reflect"
 	"regexp"

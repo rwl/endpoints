@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/crhym3/go-endpoints/endpoints"
+	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
 	"log"
 	"net/http"
