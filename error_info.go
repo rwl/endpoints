@@ -1,5 +1,5 @@
 // Mapping of error codes.
-package discovery
+package endpoints
 
 // Provides functionality to convert HTTP error codes from the SPI to
 // match the errors that will be returned by the server.

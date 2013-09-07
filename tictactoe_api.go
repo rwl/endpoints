@@ -1,4 +1,4 @@
-package discovery
+package endpoints
 
 const api_config_json = `
 {

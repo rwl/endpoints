@@ -1,6 +1,6 @@
 // Copyright 2007 Google Inc.
 
-package discovery
+package endpoints
 
 import (
 	"bytes"

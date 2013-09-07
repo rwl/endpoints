@@ -1,6 +1,6 @@
 // Regression tests for Endpoints server.
 
-package discovery
+package endpoints
 
 /*import (
 	"encoding/json"

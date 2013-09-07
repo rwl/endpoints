@@ -1,7 +1,7 @@
 // Proxy that dispatches Discovery requests to the prod Discovery service.
 // Copyright 2007 Google Inc.
 
-package discovery
+package endpoints
 
 import (
 	"encoding/json"

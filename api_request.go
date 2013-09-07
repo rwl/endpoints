@@ -1,5 +1,5 @@
 // Cloud Endpoints API request-related data and functions.
-package discovery
+package endpoints
 
 import (
 	"bytes"
