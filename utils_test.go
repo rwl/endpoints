@@ -1,6 +1,6 @@
 // Test utilities.
 
-package endpoints
+package endpoint
 
 import (
 	"bytes"

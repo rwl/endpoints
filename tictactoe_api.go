@@ -1,4 +1,4 @@
-package endpoints
+package endpoint
 
 const api_config_json = `
 {
