@@ -29,7 +29,7 @@ const _API_PREFIX = "/_ah/api/"
 type ApiRequest struct {
 	*http.Request
 
-	//relative_url string
+	relative_url string
 	is_batch   bool
 	body_json  map[string]interface{}
 	request_id string
@@ -39,6 +39,7 @@ func newApiRequest(r *http.Request) (*ApiRequest, error) {
 	ar := &ApiRequest{
 		Request:  r,
 		is_batch: false,
+		relative_url: r.URL.Path,
 	}
 
 	if !strings.HasPrefix(ar.URL.Path, _API_PREFIX) {
@@ -184,6 +185,7 @@ func (ar *ApiRequest) copy() (*ApiRequest, error) {
 		is_batch:   ar.is_batch,
 		body_json:  ar.body_json,
 		request_id: ar.request_id,
+		relative_url: ar.relative_url,
 	}, nil
 }
 

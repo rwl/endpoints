@@ -31,7 +31,7 @@ type EndpointsDispatcher struct {
 
 type dispatchPair struct {
 	path_regex    *regexp.Regexp
-	dispatch_func func(http.ResponseWriter, *http.Request) string
+	dispatch_func func(http.ResponseWriter, *ApiRequest) string
 }
 
 func NewEndpointsDispatcher() *EndpointsDispatcher {
@@ -55,7 +55,7 @@ func NewEndpointsDispatcherConfig(config_manager *ApiConfigManager) *EndpointsDi
 // dispatch_function: The function to call for these requests.  The function
 // should take (request, start_response) as arguments and
 // return the contents of the response body.
-func (ed *EndpointsDispatcher) add_dispatcher(path_regex string, dispatch_function func(http.ResponseWriter, *http.Request) string) {
+func (ed *EndpointsDispatcher) add_dispatcher(path_regex string, dispatch_function func(http.ResponseWriter, *ApiRequest) string) {
 	regex, _ := regexp.Compile(path_regex)
 	ed.dispatchers = append(ed.dispatchers, dispatchPair{regex, dispatch_function})
 }
@@ -66,7 +66,7 @@ func (ed *EndpointsDispatcher) Handle(w http.ResponseWriter, ar *ApiRequest) {
 
 func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	// Check if this matches any of our special handlers.
-	dispatched_response, err := ed.dispatch_non_api_requests(w, ar.Request)
+	dispatched_response, err := ed.dispatch_non_api_requests(w, ar)
 	if err == nil {
 		return dispatched_response
 	}
@@ -108,10 +108,10 @@ func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) s
 // Returns:
 // None if the request doesn't match one of the reserved URLs this
 // handles.  Otherwise, returns the response body.
-func (ed *EndpointsDispatcher) dispatch_non_api_requests(w http.ResponseWriter, r *http.Request) (string, error) {
+func (ed *EndpointsDispatcher) dispatch_non_api_requests(w http.ResponseWriter, ar *ApiRequest) (string, error) {
 	for _, d := range ed.dispatchers {
-		if d.path_regex.MatchString(r.URL.RequestURI()) {
-			return d.dispatch_func(w, r), nil
+		if d.path_regex.MatchString(ar.relative_url) {
+			return d.dispatch_func(w, ar), nil
 		}
 	}
 	return "", errors.New("Doesn't match one of the reserved URL")
@@ -127,10 +127,10 @@ func (ed *EndpointsDispatcher) dispatch_non_api_requests(w http.ResponseWriter, 
 //
 // Returns:
 // A string containing the response body (which is empty, in this case).
-func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter, request *http.Request) string {
+func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter, request *ApiRequest) string {
 	base_url := fmt.Sprintf("http://%s/_ah/api", request.URL.Host)
 	redirect_url := _API_EXPLORER_URL + base_url
-	return send_redirect_response(redirect_url, w, request, nil)
+	return send_redirect_response(redirect_url, w, request.Request, nil)
 }
 
 // Handler for requests to _ah/api/static/.*.
@@ -143,8 +143,8 @@ func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter
 //
 // Returns:
 // A string containing the response body.
-func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, request *http.Request) string {
-	response, body, err := get_static_file(request.URL.RequestURI())
+func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, request *ApiRequest) string {
+	response, body, err := get_static_file(request.relative_url)
 	//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
@@ -156,7 +156,7 @@ func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, 
 		fmt.Fprintf(w, body)
 	} else {
 		log.Printf("Discovery API proxy failed on %s with %d. Details: %s",
-			request.URL.RequestURI(), response.StatusCode, body)
+			request.relative_url, response.StatusCode, body)
 		http.Error(w, body, response.StatusCode)
 		//return send_response(status_string, response.getheaders(), body, start_response)
 	}
@@ -733,6 +733,8 @@ func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request *ApiReques
 				return nil, fmt.Errorf("Problem extracting request ID: %#v", request_id)
 			}
 		}
+	} else {
+		request.request_id = ""
 	}
 
 	body_json, ok_param := request.body_json["params"]
@@ -748,6 +750,8 @@ func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request *ApiReques
 				return nil, fmt.Errorf("Problem extracting JSON body from params: %#v", body_json)
 			}
 		}
+	} else {
+		request.body_json = make(map[string]interface{})
 	}
 
 	body, err := json.Marshal(request.body_json)

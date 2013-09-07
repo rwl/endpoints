@@ -26,7 +26,7 @@ import (
 //   An ApiRequest object built based on the incoming parameters.
 func build_request(url, body string, http_headers http.Header) *ApiRequest {
 	//unused_scheme, unused_netloc, path, query, unused_fragment := urlparse.urlsplit(path)
-	req, err := http.NewRequest("GET", url, //fmt.Sprintf("http://localhost%s", url),
+	req, err := http.NewRequest("GET", /*url, */fmt.Sprintf("http://localhost:42%s", url),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
 	if err != nil {
 		log.Fatal(err.Error())
@@ -155,7 +155,7 @@ func newMockEndpointsDispatcherSPI() (*MockEndpointsDispatcherSPI) {
 // fixme: mock call_spi without duplicating dispatch
 func (ed *MockEndpointsDispatcherSPI) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	// Check if this matches any of our special handlers.
-	dispatched_response, err := ed.dispatch_non_api_requests(w, ar.Request)
+	dispatched_response, err := ed.dispatch_non_api_requests(w, ar)
 	if err == nil {
 		return dispatched_response
 	}
