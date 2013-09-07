@@ -4,9 +4,6 @@ go:
   - 1.1
 
 install:
+  - go get github.com/stretchr/stew/objects
   - go get github.com/stretchr/testify
   - go get github.com/rwl/go-endpoints/endpoints
-
-script:
-  go test -i ./...
-  go test -v ./...
