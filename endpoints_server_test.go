@@ -72,7 +72,7 @@ func prepare_dispatch(t *testing.T, config *endpoints.ApiDescriptor) *httptest.S
 //     empty response.
 func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spi_path string,
 	expected_spi_body_json map[string]interface{}) {
-	server := newMockEndpointsDispatcher()
+	server := newMockEndpointsServer()
 	ts := prepare_dispatch(t, config)
 	defer ts.Close()
 
@@ -150,7 +150,7 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 }
 
 func Test_dispatch_invalid_path(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -180,7 +180,7 @@ func Test_dispatch_invalid_path(t *testing.T) {
 }
 
 func Test_dispatch_invalid_enum(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -242,7 +242,7 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 
 // Check the error response if the SPI returns an error.
 func Test_dispatch_spi_error(t *testing.T) {
-	server := newMockEndpointsDispatcherSPI()
+	server := newMockEndpointsServerSPI()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -307,7 +307,7 @@ func Test_dispatch_spi_error(t *testing.T) {
 
 // Test than an RPC call that returns an error is handled properly.
 func Test_dispatch_rpc_error(t *testing.T) {
-	server := newMockEndpointsDispatcherSPI()
+	server := newMockEndpointsServerSPI()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -414,7 +414,7 @@ func Test_dispatch_rest(t *testing.T) {
 }
 
 func Test_explorer_redirect(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	w := httptest.NewRecorder()
 	request := build_request("/_ah/api/explorer", "", nil)
 	//server.dispatch(w, request)
@@ -437,7 +437,7 @@ func Test_explorer_redirect(t *testing.T) {
 //
 //	// Set up mocks for the call to DiscoveryApiProxy.get_static_file.
 //	discovery_api := &MockDiscoveryApiProxy{}
-//	server := NewEndpointsDispatcherConfig(
+//	server := NewEndpointsServerConfig(
 //		&http.Client{},
 //		NewApiConfigManager(),
 //		discovery_api,
@@ -496,7 +496,7 @@ func Test_explorer_redirect(t *testing.T) {
 }*/
 
 func Test_handle_non_json_spi_response(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	w := httptest.NewRecorder()
 	orig_request := build_api_request("/_ah/api/fake/path", "", nil)
 	spi_request, err := orig_request.copy()
@@ -549,7 +549,7 @@ func Test_lily_uses_python_method_name(t *testing.T) {
 
 // Verify headers transformed, JsonRpc response transformed, written.
 func Test_handle_spi_response_json_rpc(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	w := httptest.NewRecorder()
 	orig_request := build_api_request(
 		"/_ah/api/rpc",
@@ -586,7 +586,7 @@ func Test_handle_spi_response_json_rpc(t *testing.T) {
 
 // Verify that batch requests have an appropriate batch response.
 func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	w := httptest.NewRecorder()
 	orig_request := build_api_request(
 		"/_ah/api/rpc",
@@ -625,7 +625,7 @@ func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 }
 
 func Test_handle_spi_response_rest(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	w := httptest.NewRecorder()
 	orig_request := build_api_request("/_ah/api/test", "{}", nil)
 	spi_request, err := orig_request.copy()
@@ -649,7 +649,7 @@ func Test_handle_spi_response_rest(t *testing.T) {
 
 // Verify the response is reformatted correctly.
 func Test_transform_rest_response(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	orig_response := `{"sample": "test", "value1": {"value2": 2}}`
 	expected_response := `{
   "sample": "test",
@@ -664,7 +664,7 @@ func Test_transform_rest_response(t *testing.T) {
 
 // Verify request_id inserted into the body, and body into body.result.
 func Test_transform_json_rpc_response_batch(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	orig_request := build_api_request(
 		"/_ah/api/rpc",
 		`[{"params": {"sample": "body"}, "id": "42"}]`,
@@ -689,7 +689,7 @@ func Test_transform_json_rpc_response_batch(t *testing.T) {
 }
 
 func Test_lookup_rpc_method_no_body(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	orig_request := build_api_request("/_ah/api/rpc", "", nil)
 	assert.Nil(t, server.lookup_rpc_method(orig_request))
 }

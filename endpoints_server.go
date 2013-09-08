@@ -23,19 +23,19 @@ var (
 )
 
 // Dispatcher that handles requests to the built-in apiserver handlers.
-type EndpointsDispatcher struct {
+type EndpointsServer struct {
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
 }
 
-func NewEndpointsDispatcher() *EndpointsDispatcher {
-	return NewEndpointsDispatcherConfig(NewApiConfigManager())
+func NewEndpointsServer() *EndpointsServer {
+	return NewEndpointsServerConfig(NewApiConfigManager())
 }
 
-func NewEndpointsDispatcherConfig(config_manager *ApiConfigManager) *EndpointsDispatcher {
-	return &EndpointsDispatcher{config_manager}
+func NewEndpointsServerConfig(config_manager *ApiConfigManager) *EndpointsServer {
+	return &EndpointsServer{config_manager}
 }
 
-func (ed *EndpointsDispatcher) HandleHttp(mux *http.ServeMux) {
+func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 	if mux == nil {
 		mux = http.DefaultServeMux
 	}
@@ -44,8 +44,8 @@ func (ed *EndpointsDispatcher) HandleHttp(mux *http.ServeMux) {
 	mux.Handle("/_ah/api"/*"^/_ah/api/.*$"*/, ed)
 }
 
-// EndpointsDispatcher implements the http.Handler interface.
-func (ed *EndpointsDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// EndpointsServer implements the http.Handler interface.
+func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ar, err := newApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -53,7 +53,7 @@ func (ed *EndpointsDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	ed.dispatch(w, ar)
 }
 
-func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
+func (ed *EndpointsServer) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
 	api_config_response, err := ed.get_api_configs() // fixme: cache configs
@@ -89,13 +89,13 @@ func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) s
 //
 // Returns:
 // A string containing the response body (which is empty, in this case).
-func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter, request *ApiRequest) string {
+func (ed *EndpointsServer) handle_api_explorer_request(w http.ResponseWriter, request *ApiRequest) string {
 	base_url := fmt.Sprintf("http://%s/_ah/api", request.URL.Host)
 	redirect_url := _API_EXPLORER_URL + base_url
 	return send_redirect_response(redirect_url, w, request.Request, nil)
 }
 
-func (ed *EndpointsDispatcher) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
+func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
 	ar, err := newApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -113,7 +113,7 @@ func (ed *EndpointsDispatcher) HandleApiExplorerRequest(w http.ResponseWriter, r
 //
 // Returns:
 // A string containing the response body.
-func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, request *ApiRequest) string {
+func (ed *EndpointsServer) handle_api_static_request(w http.ResponseWriter, request *ApiRequest) string {
 	response, body, err := get_static_file(request.relative_url)
 	//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
@@ -133,7 +133,7 @@ func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, 
 	return body
 }
 
-func (ed *EndpointsDispatcher) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
+func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
 	ar, err := newApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -146,7 +146,7 @@ func (ed *EndpointsDispatcher) HandleApiStaticRequest(w http.ResponseWriter, r *
 // Returns:
 // A ResponseTuple containing the response information from the HTTP
 // request.
-func (ed *EndpointsDispatcher) get_api_configs() (*http.Response, error) {
+func (ed *EndpointsServer) get_api_configs() (*http.Response, error) {
 	req, err := http.NewRequest("POST",
 		_SERVER_SOURCE_IP+"/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
@@ -198,7 +198,7 @@ func verify_response(response *http.Response, status_code int, content_type stri
 //
 // Returns:
 //   True on success, False on failure
-func (ed *EndpointsDispatcher) handle_get_api_configs_response(api_config_response *http.Response) error {
+func (ed *EndpointsServer) handle_get_api_configs_response(api_config_response *http.Response) error {
 	err := verify_response(api_config_response, 200, "application/json")
 	if err == nil {
 		body, err := ioutil.ReadAll(api_config_response.Body)
@@ -225,7 +225,7 @@ func (ed *EndpointsDispatcher) handle_get_api_configs_response(api_config_respon
 //
 // Returns:
 // A string containing the response body.
-func (ed *EndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
+func (ed *EndpointsServer) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
 	var method_config *endpoints.ApiMethod
 	var params map[string]string
 	if orig_request.is_rpc() {
@@ -283,7 +283,7 @@ func (ed *EndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *Api
 //
 // Returns:
 // A string containing the response body.
-func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+func (ed *EndpointsServer) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
 	resp_body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", err
@@ -338,7 +338,7 @@ func (ed *EndpointsDispatcher) handle_spi_response(orig_request, spi_request *Ap
 //
 // Returns:
 // A string containing the body of the error response.
-func (ed *EndpointsDispatcher) fail_request(w http.ResponseWriter, orig_request *http.Request, message string) string {
+func (ed *EndpointsServer) fail_request(w http.ResponseWriter, orig_request *http.Request, message string) string {
 	cors_handler := newCheckCorsHeaders(orig_request)
 	return send_error_response(message, w, cors_handler)
 }
@@ -351,7 +351,7 @@ func (ed *EndpointsDispatcher) fail_request(w http.ResponseWriter, orig_request 
 // Returns:
 // A tuple of (method descriptor, parameters), or (None, None) if no method
 // was found for the current request.
-func (ed *EndpointsDispatcher) lookup_rest_method(orig_request *ApiRequest) (*endpoints.ApiMethod, map[string]string) {
+func (ed *EndpointsServer) lookup_rest_method(orig_request *ApiRequest) (*endpoints.ApiMethod, map[string]string) {
 	method_name, method, params := ed.config_manager.lookup_rest_method(orig_request.URL.Path, orig_request.Method)
 	orig_request.Method = method_name
 	return method, params
@@ -365,7 +365,7 @@ func (ed *EndpointsDispatcher) lookup_rest_method(orig_request *ApiRequest) (*en
 // Returns:
 // The RPC method descriptor that was found for the current request, or None
 // if none was found.
-func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request *ApiRequest) *endpoints.ApiMethod {
+func (ed *EndpointsServer) lookup_rpc_method(orig_request *ApiRequest) *endpoints.ApiMethod {
 	if orig_request.body_json == nil {
 		return nil
 	}
@@ -399,7 +399,7 @@ func (ed *EndpointsDispatcher) lookup_rpc_method(orig_request *ApiRequest) *endp
 // An ApiRequest that"s a copy of the current request, modified so it can
 // be sent to the SPI.  The path is updated and parts of the body or other
 // properties may also be changed.
-func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, params map[string]string, method_config *endpoints.ApiMethod) (*ApiRequest, error) {
+func (ed *EndpointsServer) transform_request(orig_request *ApiRequest, params map[string]string, method_config *endpoints.ApiMethod) (*ApiRequest, error) {
 	var request *ApiRequest
 	var err error
 	if orig_request.is_rpc() {
@@ -433,7 +433,7 @@ func (ed *EndpointsDispatcher) transform_request(orig_request *ApiRequest, param
 // Raises:
 // EnumRejectionError: If the given value is not among the accepted
 // enum values in the field parameter.
-func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+func (ed *EndpointsServer) check_enum(parameter_name string, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	if field_parameter == nil || field_parameter.Enum == nil || len(field_parameter.Enum) == 0 {
 		return nil
 	}
@@ -457,7 +457,7 @@ func (ed *EndpointsDispatcher) check_enum(parameter_name string, value string, f
 //
 // "[index-of-value]" is appended to the parameter name for
 // error reporting purposes.
-func (ed *EndpointsDispatcher) check_parameters(parameter_name string, values []string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+func (ed *EndpointsServer) check_parameters(parameter_name string, values []string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	for index, element := range values {
 		parameter_name_index := fmt.Sprintf("%s[%d]", parameter_name, index)
 		err := ed.check_parameter(parameter_name_index, element, field_parameter)
@@ -481,7 +481,7 @@ func (ed *EndpointsDispatcher) check_parameters(parameter_name string, values []
 //   field_parameter: The dictionary containing information specific to the
 //     field in question. This is retrieved from request.parameters in the
 //     method config.
-func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+func (ed *EndpointsServer) check_parameter(parameter_name, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	return ed.check_enum(parameter_name, value, field_parameter)
 }
 
@@ -501,7 +501,7 @@ func (ed *EndpointsDispatcher) check_parameter(parameter_name, value string, fie
 // value: The value to be set.
 // params: The dictionary holding all the parameters, where the value is
 // eventually set.
-func (ed *EndpointsDispatcher) add_message_field(field_name string, value interface{}, params map[string]interface{}) {
+func (ed *EndpointsServer) add_message_field(field_name string, value interface{}, params map[string]interface{}) {
 	pos := strings.Index(field_name, ".")
 	if pos == -1 {
 		params[field_name] = value
@@ -535,7 +535,7 @@ func (ed *EndpointsDispatcher) add_message_field(field_name string, value interf
 //   destination: A dictionary containing an API payload parsed from the
 //     path and query parameters in a request.
 //   source: A dictionary parsed from the body of the request.
-func (ed *EndpointsDispatcher) update_from_body(destination map[string]interface{}, source map[string]interface{}) {
+func (ed *EndpointsServer) update_from_body(destination map[string]interface{}, source map[string]interface{}) {
 	for key, value := range source {
 		destination_value, ok := destination[key]
 		if ok {
@@ -590,7 +590,7 @@ func (ed *EndpointsDispatcher) update_from_body(destination map[string]interface
 // Returns:
 //   A copy of the current request that's been modified so it can be sent
 //   to the SPI.  The body is updated to include parameters from the URL.
-func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
+func (ed *EndpointsServer) transform_rest_request(orig_request *ApiRequest,
 	params map[string]string,
 	method_parameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
 
@@ -697,7 +697,7 @@ func (ed *EndpointsDispatcher) transform_rest_request(orig_request *ApiRequest,
 //
 // Returns:
 //   A new request with the request_id updated and params moved to the body.
-func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request *ApiRequest) (*ApiRequest, error) {
+func (ed *EndpointsServer) transform_jsonrpc_request(orig_request *ApiRequest) (*ApiRequest, error) {
 	request, err := orig_request.copy()
 	if err != nil {
 		return request, err
@@ -752,7 +752,7 @@ func (ed *EndpointsDispatcher) transform_jsonrpc_request(orig_request *ApiReques
 //
 // Returns:
 //   BackendError if the response is an error.
-func (ed *EndpointsDispatcher) check_error_response(response *http.Response) error {
+func (ed *EndpointsServer) check_error_response(response *http.Response) error {
 	if response.StatusCode >= 300 {
 		return NewBackendError(response)
 	}
@@ -769,7 +769,7 @@ func (ed *EndpointsDispatcher) check_error_response(response *http.Response) err
 //
 // Returns:
 //   A reformatted version of the response JSON.
-func (ed *EndpointsDispatcher) transform_rest_response(response_body string) (string, error) {
+func (ed *EndpointsServer) transform_rest_response(response_body string) (string, error) {
 	var body_json map[string]interface{}
 	err := json.Unmarshal([]byte(response_body), &body_json)
 	if err != nil {
@@ -789,7 +789,7 @@ func (ed *EndpointsDispatcher) transform_rest_response(response_body string) (st
 //
 // Returns:
 //   A string with the updated, JsonRPC-formatted request body.
-func (ed *EndpointsDispatcher) transform_jsonrpc_response(spi_request *ApiRequest, response_body string) (string, error) {
+func (ed *EndpointsServer) transform_jsonrpc_response(spi_request *ApiRequest, response_body string) (string, error) {
 	var result interface{}
 	err := json.Unmarshal([]byte(response_body), &result)
 	if err != nil {
@@ -809,7 +809,7 @@ func (ed *EndpointsDispatcher) transform_jsonrpc_response(spi_request *ApiReques
 //
 // Returns:
 //   A string with the updated, JsonRPC-formatted request body.
-func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch bool, body_json map[string]interface{}) string {
+func (ed *EndpointsServer) finish_rpc_response(request_id string, is_batch bool, body_json map[string]interface{}) string {
 	if len(request_id) > 0 {
 		body_json["id"] = request_id
 	}
@@ -831,7 +831,7 @@ func (ed *EndpointsDispatcher) finish_rpc_response(request_id string, is_batch b
 //
 // Returns:
 //   A string containing the response body.
-func (ed *EndpointsDispatcher) handle_request_error(w http.ResponseWriter, orig_request *ApiRequest, err RequestError) string {
+func (ed *EndpointsServer) handle_request_error(w http.ResponseWriter, orig_request *ApiRequest, err RequestError) string {
 	var status_code int
 	var body string
 	if orig_request.is_rpc() {

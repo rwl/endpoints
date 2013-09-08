@@ -73,7 +73,7 @@ func check_cors(t *testing.T, request_headers http.Header, expect_response bool,
 		}
 	}
 
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	w := httptest.NewRecorder()
 
 	response, err := server.handle_spi_response(orig_request, spi_request,

@@ -91,19 +91,19 @@ func assert_http_match_recorder(t *testing.T, recorder *httptest.ResponseRecorde
 	assert.Equal(t, expected_body, recorder.Body.String())
 }
 
-type MockEndpointsDispatcher struct {
+type MockEndpointsServer struct {
 	mock.Mock
-	*EndpointsDispatcher
+	*EndpointsServer
 }
 
-func newMockEndpointsDispatcher() (*MockEndpointsDispatcher) {
-	return &MockEndpointsDispatcher{
-		EndpointsDispatcher: NewEndpointsDispatcher(),
+func newMockEndpointsServer() (*MockEndpointsServer) {
+	return &MockEndpointsServer{
+		EndpointsServer: NewEndpointsServer(),
 	}
 }
 
 // fixme: mock handle_spi_response without duplicating dispatch
-func (ed *MockEndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
+func (ed *MockEndpointsServer) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	api_config_response, _ := ed.get_api_configs()
 	ed.handle_get_api_configs_response(api_config_response)
 
@@ -112,7 +112,7 @@ func (ed *MockEndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiReques
 }
 
 // fixme: mock handle_spi_response without duplicating call_spi
-func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
+func (ed *MockEndpointsServer) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
 	var method_config *endpoints.ApiMethod
 	var params map[string]string
 	if orig_request.is_rpc() {
@@ -140,24 +140,24 @@ func (ed *MockEndpointsDispatcher) call_spi(w http.ResponseWriter, orig_request 
 	return ed.handle_spi_response(orig_request, spi_request, resp, w)
 }
 
-func (ed *MockEndpointsDispatcher) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+func (ed *MockEndpointsServer) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
 	args := ed.Mock.Called(orig_request, spi_request, response, w)
 	return args.String(0), args.Error(1)
 }
 
-type MockEndpointsDispatcherSPI struct {
+type MockEndpointsServerSPI struct {
 	mock.Mock
-	*EndpointsDispatcher
+	*EndpointsServer
 }
 
-func newMockEndpointsDispatcherSPI() (*MockEndpointsDispatcherSPI) {
-	return &MockEndpointsDispatcherSPI{
-		EndpointsDispatcher: NewEndpointsDispatcher(),
+func newMockEndpointsServerSPI() (*MockEndpointsServerSPI) {
+	return &MockEndpointsServerSPI{
+		EndpointsServer: NewEndpointsServer(),
 	}
 }
 
 // fixme: mock call_spi without duplicating dispatch
-func (ed *MockEndpointsDispatcherSPI) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
+func (ed *MockEndpointsServerSPI) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	// Check if this matches any of our special handlers.
 	/*dispatched_response, err := ed.dispatch_non_api_requests(w, ar)
 	if err == nil {
@@ -196,7 +196,7 @@ func (ed *MockEndpointsDispatcherSPI) dispatch(w http.ResponseWriter, ar *ApiReq
 	return body
 }*/
 
-func (ed *MockEndpointsDispatcherSPI) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
+func (ed *MockEndpointsServerSPI) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
 	args := ed.Mock.Called(w, orig_request)
 	return args.String(0), args.Error(1)
 }

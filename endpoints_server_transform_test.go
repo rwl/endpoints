@@ -13,15 +13,15 @@ import (
 
 /* Tests that only hit the request transformation functions.*/
 
-/*func setUpTransformRequestTests() *EndpointsDispatcher {
+/*func setUpTransformRequestTests() *EndpointsServer {
 	config_manager := NewApiConfigManager()
 	mock_dispatcher := &MockDispatcher{}
-	return NewEndpointsDispatcherConfig(mock_dispatcher, config_manager)
+	return NewEndpointsServerConfig(mock_dispatcher, config_manager)
 }*/
 
 // Verify path is method name after a request is transformed.
 func Test_transform_request(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 
 	request := build_api_request("/_ah/api/test/{gid}", `{"sample": "body"}`, nil)
 	method_config := &endpoints.ApiMethod{
@@ -46,7 +46,7 @@ func Test_transform_request(t *testing.T) {
 
 // Verify request_id is extracted and body is scoped to body.params.
 func Test_transform_json_rpc_request(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 
 	orig_request := build_api_request(
 		"/_ah/api/rpc",
@@ -77,7 +77,7 @@ func Test_transform_json_rpc_request(t *testing.T) {
 //   expected: A dict with the expected JSON body after being transformed.
 //   method_params: Optional dictionary specifying the parameter configuration
 //     associated with the method.
-func transform_rest_request(server *EndpointsDispatcher, path_parameters map[string]string,
+func transform_rest_request(server *EndpointsServer, path_parameters map[string]string,
 	query_parameters string, body_json map[string]interface{},
 	expected map[string]interface{}, method_params map[string]*endpoints.ApiRequestParamSpec) error {
 
@@ -122,7 +122,7 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters map[str
 /* Path only. */
 
 func Test_transform_rest_request_path_only(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"gid": "X"}
 	query_parameters := ""
 	body_object := map[string]interface{}{}
@@ -133,7 +133,7 @@ func Test_transform_rest_request_path_only(t *testing.T) {
 }
 
 func Test_transform_rest_request_path_only_message_field(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"gid.val": "X"}
 	query_parameters := ""
 	body_object := map[string]interface{}{}
@@ -144,7 +144,7 @@ func Test_transform_rest_request_path_only_message_field(t *testing.T) {
 }
 
 func Test_transform_rest_request_path_only_enum(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	query_parameters := ""
 	body_object := map[string]interface{}{}
 	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
@@ -180,7 +180,7 @@ func Test_transform_rest_request_path_only_enum(t *testing.T) {
 /* Query only. */
 
 func Test_transform_rest_request_query_only(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "foo=bar"
 	body_object := map[string]interface{}{}
@@ -191,7 +191,7 @@ func Test_transform_rest_request_query_only(t *testing.T) {
 }
 
 func Test_transform_rest_request_query_only_message_field(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val=X"
 	body_object := map[string]interface{}{}
@@ -201,7 +201,7 @@ func Test_transform_rest_request_query_only_message_field(t *testing.T) {
 	assert.NoError(t, err)}
 
 func Test_transform_rest_request_query_only_multiple_values_not_repeated(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "foo=bar&foo=baz"
 	body_object := map[string]interface{}{}
@@ -212,7 +212,7 @@ func Test_transform_rest_request_query_only_multiple_values_not_repeated(t *test
 }
 
 func Test_transform_rest_request_query_only_multiple_values_repeated(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "foo=bar&foo=baz"
 	body_object := map[string]interface{}{}
@@ -226,7 +226,7 @@ func Test_transform_rest_request_query_only_multiple_values_repeated(t *testing.
 }
 
 func Test_transform_rest_request_query_only_enum(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	body_object := map[string]interface{}{}
 	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
@@ -260,7 +260,7 @@ func Test_transform_rest_request_query_only_enum(t *testing.T) {
 }
 
 func Test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	body_object := map[string]interface{}{}
 	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
@@ -298,7 +298,7 @@ func Test_transform_rest_request_query_only_repeated_enum(t *testing.T) {
 /* Body only. */
 
 func Test_transform_rest_request_body_only(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
 	body_object := map[string]interface{}{"sample": "body"}
@@ -309,7 +309,7 @@ func Test_transform_rest_request_body_only(t *testing.T) {
 }
 
 func Test_transform_rest_request_body_only_any_old_value(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
 	body_object := map[string]interface{}{
@@ -328,7 +328,7 @@ func Test_transform_rest_request_body_only_any_old_value(t *testing.T) {
 }
 
 func Test_transform_rest_request_body_only_message_field(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
 	body_object := map[string]interface{}{"gid": map[string]interface{}{"val": "X"}}
@@ -339,7 +339,7 @@ func Test_transform_rest_request_body_only_message_field(t *testing.T) {
 }
 
 func Test_transform_rest_request_body_only_enum(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := ""
 	enum_descriptor := map[string]*endpoints.ApiEnumParamSpec{
@@ -369,7 +369,7 @@ func Test_transform_rest_request_body_only_enum(t *testing.T) {
 /* Path and query only */
 
 func Test_transform_rest_request_path_query_no_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"
 	body_object := map[string]interface{}{}
@@ -380,7 +380,7 @@ func Test_transform_rest_request_path_query_no_collision(t *testing.T) {
 }
 
 func Test_transform_rest_request_path_query_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "a=d"
 	body_object := map[string]interface{}{}
@@ -391,7 +391,7 @@ func Test_transform_rest_request_path_query_collision(t *testing.T) {
 }
 
 func Test_transform_rest_request_path_query_collision_in_repeated_param(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "a=d&a=c"
 	body_object := map[string]interface{}{}
@@ -408,7 +408,7 @@ func Test_transform_rest_request_path_query_collision_in_repeated_param(t *testi
 /* Path and body only. */
 
 func Test_transform_rest_request_path_body_no_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
 	body_object := map[string]interface{}{"c": "d"}
@@ -419,7 +419,7 @@ func Test_transform_rest_request_path_body_no_collision(t *testing.T) {
 }
 
 func Test_transform_rest_request_path_body_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
 	body_object := map[string]interface{}{"a": "d"}
@@ -430,7 +430,7 @@ func Test_transform_rest_request_path_body_collision(t *testing.T) {
 }
 
 func Test_transform_rest_request_path_body_collision_in_repeated_param(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := ""
 	body_object := map[string]interface{}{"a": []interface{}{"d"}}
@@ -444,7 +444,7 @@ func Test_transform_rest_request_path_body_collision_in_repeated_param(t *testin
 }
 
 func Test_transform_rest_request_path_body_message_field_cooperative(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"gid.val1": "X"}
 	query_parameters := ""
 	body_object := map[string]interface{}{
@@ -464,7 +464,7 @@ func Test_transform_rest_request_path_body_message_field_cooperative(t *testing.
 }
 
 func Test_transform_rest_request_path_body_message_field_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"gid.val": "X"}
 	query_parameters := ""
 	body_object := map[string]interface{}{
@@ -485,7 +485,7 @@ func Test_transform_rest_request_path_body_message_field_collision(t *testing.T)
 /* Query and body only */
 
 func Test_transform_rest_request_query_body_no_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
 	body_object := map[string]interface{}{"c": "d"}
@@ -496,7 +496,7 @@ func Test_transform_rest_request_query_body_no_collision(t *testing.T) {
 }
 
 func Test_transform_rest_request_query_body_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
 	body_object := map[string]interface{}{"a": "d"}
@@ -507,7 +507,7 @@ func Test_transform_rest_request_query_body_collision(t *testing.T) {
 }
 
 func Test_transform_rest_request_query_body_collision_in_repeated_param(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "a=b"
 	body_object := map[string]interface{}{"a": []interface{}{"d"}}
@@ -521,7 +521,7 @@ func Test_transform_rest_request_query_body_collision_in_repeated_param(t *testi
 }
 
 func Test_transform_rest_request_query_body_message_field_cooperative(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val1=X"
 	body_object := map[string]interface{}{
@@ -540,7 +540,7 @@ func Test_transform_rest_request_query_body_message_field_cooperative(t *testing
 }
 
 func Test_transform_rest_request_query_body_message_field_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := make(map[string]string)
 	query_parameters := "gid.val=X"
 	body_object := map[string]interface{}{
@@ -561,7 +561,7 @@ func Test_transform_rest_request_query_body_message_field_collision(t *testing.T
 /* Path, body and query. */
 
 func Test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"
 	body_object := map[string]interface{}{"e": "f"}
@@ -572,7 +572,7 @@ func Test_transform_rest_request_path_query_body_no_collision(t *testing.T) {
 }
 
 func Test_transform_rest_request_path_query_body_collision(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "a=d"
 	body_object := map[string]interface{}{"a": "f"}
@@ -583,7 +583,7 @@ func Test_transform_rest_request_path_query_body_collision(t *testing.T) {
 }
 
 func Test_transform_rest_request_unknown_parameters(t *testing.T) {
-	server := NewEndpointsDispatcher()
+	server := NewEndpointsServer()
 	path_parameters := map[string]string{"a": "b"}
 	query_parameters := "c=d"
 	body_object := map[string]interface{}{"e": "f"}
