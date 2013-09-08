@@ -23,7 +23,7 @@ import (
 func Test_transform_request(t *testing.T) {
 	server := NewEndpointsDispatcher()
 
-	request := build_request("/_ah/api/test/{gid}", `{"sample": "body"}`, nil)
+	request := build_api_request("/_ah/api/test/{gid}", `{"sample": "body"}`, nil)
 	method_config := &endpoints.ApiMethod{
 		RosyMethod: "GuestbookApi.greetings_get",
 	}
@@ -48,7 +48,7 @@ func Test_transform_request(t *testing.T) {
 func Test_transform_json_rpc_request(t *testing.T) {
 	server := NewEndpointsDispatcher()
 
-	orig_request := build_request(
+	orig_request := build_api_request(
 		"/_ah/api/rpc",
 		`{"params": {"sample": "body"}, "id": "42"}`,
 		nil,
@@ -85,7 +85,7 @@ func transform_rest_request(server *EndpointsDispatcher, path_parameters map[str
 		method_params = make(map[string]*endpoints.ApiRequestParamSpec)
 	}
 
-	test_request := build_request("/_ah/api/test", "", nil)
+	test_request := build_api_request("/_ah/api/test", "", nil)
 	test_request.body_json = body_json
 	body, err := json.Marshal(body_json)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 )
 
 func Test_parse_no_body(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar=baz", "", nil)
+	request := build_api_request("/_ah/api/foo?bar=baz", "", nil)
 	assert.Equal(t, "foo", request.URL.Path)
 	assert.Equal(t, "bar=baz", request.URL.RawQuery)
 	query := url.Values{"bar": []string{"baz"}}
@@ -27,7 +27,7 @@ func Test_parse_no_body(t *testing.T) {
 }
 
 func Test_parse_with_body(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
+	request := build_api_request("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
 	assert.Equal(t, "foo", request.URL.Path)
 	assert.Equal(t, "bar=baz", request.URL.RawQuery)
 	params := url.Values{"bar": []string{"baz"}}
@@ -44,7 +44,7 @@ func Test_parse_with_body(t *testing.T) {
 }
 
 func Test_parse_empty_values(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar", "", nil)
+	request := build_api_request("/_ah/api/foo?bar", "", nil)
 	assert.Equal(t, "foo", request.URL.Path)
 	assert.Equal(t, "bar", request.URL.RawQuery)
 	params := url.Values{"bar": []string{""}}
@@ -60,7 +60,7 @@ func Test_parse_empty_values(t *testing.T) {
 }
 
 func Test_parse_multiple_values(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar=baz&foo=bar&bar=foo", "", nil)
+	request := build_api_request("/_ah/api/foo?bar=baz&foo=bar&bar=foo", "", nil)
 	assert.Equal(t, "foo", request.URL.Path)
 	assert.Equal(t, "bar=baz&foo=bar&bar=foo", request.URL.RawQuery)
 	params := url.Values{
@@ -79,28 +79,28 @@ func Test_parse_multiple_values(t *testing.T) {
 }
 
 func Test_is_rpc(t *testing.T) {
-	request := build_request("/_ah/api/rpc", "", nil)
+	request := build_api_request("/_ah/api/rpc", "", nil)
 	assert.Equal(t, "rpc", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
 	assert.True(t, request.is_rpc())
 }
 
 func Test_is_not_rpc(t *testing.T) {
-	request := build_request("/_ah/api/guestbook/v1/greetings/7", "", nil)
+	request := build_api_request("/_ah/api/guestbook/v1/greetings/7", "", nil)
 	assert.Equal(t, "guestbook/v1/greetings/7", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
 	assert.False(t, request.is_rpc())
 }
 
 func Test_is_not_rpc_prefix(t *testing.T) {
-	request := build_request("/_ah/api/rpcthing", "", nil)
+	request := build_api_request("/_ah/api/rpcthing", "", nil)
 	assert.Equal(t, "rpcthing", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
 	assert.False(t, request.is_rpc())
 }
 
 func Test_batch(t *testing.T) {
-	request := build_request("/_ah/api/rpc",
+	request := build_api_request("/_ah/api/rpc",
 		`[{"method": "foo", "apiVersion": "v1"}]`, nil)
 	assert.True(t, request.is_batch)
 	/*if isinstance(request.body_json, list) {
@@ -110,7 +110,7 @@ func Test_batch(t *testing.T) {
 
 // Verify that additional items are dropped if the batch size is > 1.
 func Test_batch_too_large(t *testing.T) {
-	request := build_request("/_ah/api/rpc",
+	request := build_api_request("/_ah/api/rpc",
 		`[{"method": "foo", "apiVersion": "v1"},
 		  {"method": "bar", "apiversion": "v1"}]`, nil)
 	assert.True(t, request.is_batch)
@@ -137,7 +137,7 @@ func Test_batch_too_large(t *testing.T) {
 }*/
 
 func Test_copy(t *testing.T) {
-	request := build_request("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
+	request := build_api_request("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
 	copied, err := request.copy()
 	assert.NoError(t, err)
 	assert.Equal(t, request.Header, copied.Header)

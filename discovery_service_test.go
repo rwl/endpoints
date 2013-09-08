@@ -15,7 +15,7 @@ func common_setup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
 	api_config, _ := json.Marshal(api_config_dict)
 	api_config_manager.parse_api_config_response(string(api_config))
 
-	api_request := build_request("/_ah/api/foo",
+	api_request := build_api_request("/_ah/api/foo",
 		`{"api": "tictactoe", "version": "v1"}`, nil)
 
 	discovery := NewDiscoveryService(api_config_manager)
@@ -92,7 +92,7 @@ func Test_generate_discovery_doc_rpc_service(t *testing.T) {
 
 func Test_generate_discovery_doc_rest_unknown_api(t *testing.T) {
 	_, _, discovery_api := common_setup()
-	request := build_request("/_ah/api/foo",
+	request := build_api_request("/_ah/api/foo",
 		`{"api": "blah", "version": "v1"}`, nil)
 	w := httptest.NewRecorder()
 	//discovery_api = NewDiscoveryService(api_config_manager)

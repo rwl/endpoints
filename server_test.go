@@ -162,7 +162,7 @@ func Test_dispatch_invalid_path(t *testing.T) {
 			},
 		},
 	}
-	request := build_request("/_ah/api/foo", "", nil)
+	request := build_api_request("/_ah/api/foo", "", nil)
 	ts := prepare_dispatch(t, config)
 	defer ts.Close()
 
@@ -207,7 +207,7 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 
-	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
+	request := build_api_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
 	ts := prepare_dispatch(t, config)
 	defer ts.Close()
 
@@ -254,7 +254,7 @@ func Test_dispatch_spi_error(t *testing.T) {
 			},
 		},
 	}
-	request := build_request("/_ah/api/foo", "", nil)
+	request := build_api_request("/_ah/api/foo", "", nil)
 	ts := prepare_dispatch(t, config)
 	defer ts.Close()
 
@@ -319,7 +319,7 @@ func Test_dispatch_rpc_error(t *testing.T) {
 			},
 		},
 	}
-	request := build_request(
+	request := build_api_request(
 		"/_ah/api/rpc",
 		`{"method": "foo.bar", "apiVersion": "X", "id": "gapiRpc"}`,
 		nil,
@@ -388,7 +388,7 @@ func Test_dispatch_json_rpc(t *testing.T) {
 			},
 		},
 	}
-	request := build_request(
+	request := build_api_request(
 		"/_ah/api/rpc",
 		`{"method": "foo.bar", "apiVersion": "X"}`,
 		nil,
@@ -408,7 +408,7 @@ func Test_dispatch_rest(t *testing.T) {
 			},
 		},
 	}
-	request := build_request("/_ah/api/myapi/v1/foo/testId", "", nil)
+	request := build_api_request("/_ah/api/myapi/v1/foo/testId", "", nil)
 	assert_dispatch_to_spi(t, request, config, "/_ah/spi/baz.bim",
 		map[string]interface{}{"id": "testId"})
 }
@@ -417,7 +417,9 @@ func Test_explorer_redirect(t *testing.T) {
 	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
 	request := build_request("/_ah/api/explorer", "", nil)
-	server.dispatch(w, request)
+	//server.dispatch(w, request)
+	server.HandleHttp(nil)
+	http.DefaultServeMux.ServeHTTP(w, request)
 	header := make(http.Header)
 	//	header.Set("Content-Length", "0")
 	location := "https://developers.google.com/apis-explorer/?base=http://localhost:42/_ah/api"
@@ -454,7 +456,7 @@ func Test_explorer_redirect(t *testing.T) {
 //	).Return(mock.Anything/*static_response*/, test_body, nil)
 //
 //	// Make sure the dispatch works as expected.
-//	request := build_request(relative_url, "", nil)
+//	request := build_api_request(relative_url, "", nil)
 ////	mox.ReplayAll()
 //	response := server.dispatch(request, w)
 ////	mox.VerifyAll()
@@ -481,7 +483,7 @@ func Test_explorer_redirect(t *testing.T) {
 	get_static_file(relative_url).AndReturn(static_response, test_body)
 
 	// Make sure the dispatch works as expected.
-	request = build_request(relative_url, "", nil)
+	request = build_api_request(relative_url, "", nil)
 	mox.ReplayAll()
 	response = server.dispatch(request, self.start_response)
 	mox.VerifyAll()
@@ -496,7 +498,7 @@ func Test_explorer_redirect(t *testing.T) {
 func Test_handle_non_json_spi_response(t *testing.T) {
 	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
-	orig_request := build_request("/_ah/api/fake/path", "", nil)
+	orig_request := build_api_request("/_ah/api/fake/path", "", nil)
 	spi_request, err := orig_request.copy()
 	assert.NoError(t, err)
 	header := make(http.Header)
@@ -537,7 +539,7 @@ func Test_lily_uses_python_method_name(t *testing.T) {
 			},
 		},
 	}
-	request := build_request(
+	request := build_api_request(
 		"/_ah/api/rpc",
 		`{"method": "author.greeting.info.get", "apiVersion": "X"}`,
 		nil,
@@ -549,7 +551,7 @@ func Test_lily_uses_python_method_name(t *testing.T) {
 func Test_handle_spi_response_json_rpc(t *testing.T) {
 	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
-	orig_request := build_request(
+	orig_request := build_api_request(
 		"/_ah/api/rpc",
 		`{"method": "foo.bar", "apiVersion": "X"}`,
 		nil,
@@ -586,7 +588,7 @@ func Test_handle_spi_response_json_rpc(t *testing.T) {
 func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
-	orig_request := build_request(
+	orig_request := build_api_request(
 		"/_ah/api/rpc",
 		`[{"method": "foo.bar", "apiVersion": "X"}]`,
 		nil,
@@ -625,7 +627,7 @@ func Test_handle_spi_response_batch_json_rpc(t *testing.T) {
 func Test_handle_spi_response_rest(t *testing.T) {
 	server := NewEndpointsDispatcher()
 	w := httptest.NewRecorder()
-	orig_request := build_request("/_ah/api/test", "{}", nil)
+	orig_request := build_api_request("/_ah/api/test", "{}", nil)
 	spi_request, err := orig_request.copy()
 	assert.NoError(t, err)
 	body, _ := json.MarshalIndent(map[string]interface{}{"some": "response"}, "", "  ")
@@ -663,7 +665,7 @@ func Test_transform_rest_response(t *testing.T) {
 // Verify request_id inserted into the body, and body into body.result.
 func Test_transform_json_rpc_response_batch(t *testing.T) {
 	server := NewEndpointsDispatcher()
-	orig_request := build_request(
+	orig_request := build_api_request(
 		"/_ah/api/rpc",
 		`[{"params": {"sample": "body"}, "id": "42"}]`,
 		nil,
@@ -688,7 +690,7 @@ func Test_transform_json_rpc_response_batch(t *testing.T) {
 
 func Test_lookup_rpc_method_no_body(t *testing.T) {
 	server := NewEndpointsDispatcher()
-	orig_request := build_request("/_ah/api/rpc", "", nil)
+	orig_request := build_api_request("/_ah/api/rpc", "", nil)
 	assert.Nil(t, server.lookup_rpc_method(orig_request))
 }
 
@@ -697,7 +699,7 @@ func Test_lookup_rpc_method_no_body(t *testing.T) {
 	server.config_manager.lookup_rpc_method("foo", "v1").AndReturn("bar")
 
 	mox.ReplayAll()
-	orig_request := build_request(
+	orig_request := build_api_request(
 		"/_ah/api/rpc",
 		`{"method": "foo", "apiVersion": "v1"}`,
 		nil,

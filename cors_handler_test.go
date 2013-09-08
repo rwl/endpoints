@@ -60,7 +60,7 @@ func Test_handle_non_json_spi_response_cors(t *testing.T) {
 // Returns:
 //   A string containing the body of the response that would be sent.
 func check_cors(t *testing.T, request_headers http.Header, expect_response bool, expected_origin, expected_allow_headers string, server_response *http.Response) string {
-	orig_request := build_request("/_ah/api/fake/path", "", request_headers)
+	orig_request := build_api_request("/_ah/api/fake/path", "", request_headers)
 	spi_request, err := orig_request.copy()
 	assert.NoError(t, err)
 

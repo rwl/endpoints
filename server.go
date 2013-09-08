@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"regexp"
 	"strings"
 )
 
@@ -26,12 +25,6 @@ var (
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsDispatcher struct {
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
-	dispatchers    []dispatchPair
-}
-
-type dispatchPair struct {
-	path_regex    *regexp.Regexp
-	dispatch_func func(http.ResponseWriter, *ApiRequest) string
 }
 
 func NewEndpointsDispatcher() *EndpointsDispatcher {
@@ -39,41 +32,31 @@ func NewEndpointsDispatcher() *EndpointsDispatcher {
 }
 
 func NewEndpointsDispatcherConfig(config_manager *ApiConfigManager) *EndpointsDispatcher {
-	d := &EndpointsDispatcher{
-		config_manager,
-		make([]dispatchPair, 0),
+	return &EndpointsDispatcher{config_manager}
+}
+
+func (ed *EndpointsDispatcher) HandleHttp(mux *http.ServeMux) {
+	if mux == nil {
+		mux = http.DefaultServeMux
 	}
-	d.add_dispatcher("/_ah/api/explorer/?$", d.handle_api_explorer_request)
-	d.add_dispatcher("/_ah/api/static/.*$", d.handle_api_static_request)
-	return d
+	mux.HandleFunc("/_ah/api/explorer"/*"^/_ah/api/explorer/?$"*/, ed.HandleApiExplorerRequest)
+	mux.HandleFunc("/_ah/api/static"/*"^/_ah/api/static/.*$"*/, ed.HandleApiStaticRequest)
+	mux.Handle("/_ah/api"/*"^/_ah/api/.*$"*/, ed)
 }
 
-// Add a request path and dispatch handler.
-
-// Args:
-// path_regex: A string regex, the path to match against incoming requests.
-// dispatch_function: The function to call for these requests.  The function
-// should take (request, start_response) as arguments and
-// return the contents of the response body.
-func (ed *EndpointsDispatcher) add_dispatcher(path_regex string, dispatch_function func(http.ResponseWriter, *ApiRequest) string) {
-	regex, _ := regexp.Compile(path_regex)
-	ed.dispatchers = append(ed.dispatchers, dispatchPair{regex, dispatch_function})
-}
-
-func (ed *EndpointsDispatcher) Handle(w http.ResponseWriter, ar *ApiRequest) {
+// EndpointsDispatcher implements the http.Handler interface.
+func (ed *EndpointsDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ar, err := newApiRequest(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 	ed.dispatch(w, ar)
 }
 
 func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
-	// Check if this matches any of our special handlers.
-	dispatched_response, err := ed.dispatch_non_api_requests(w, ar)
-	if err == nil {
-		return dispatched_response
-	}
-
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
-	api_config_response, err := ed.get_api_configs()
+	api_config_response, err := ed.get_api_configs() // fixme: cache configs
 	if err != nil {
 		return ed.fail_request(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
 	}
@@ -96,27 +79,6 @@ func (ed *EndpointsDispatcher) dispatch(w http.ResponseWriter, ar *ApiRequest) s
 	return body
 }
 
-// Dispatch this request if this is a request to a reserved URL.
-//
-// If the request matches one of our reserved URLs, this calls
-// start_response and returns the response body.
-//
-// Args:
-// request: An ApiRequest, the request from the user.
-// start_response:
-//
-// Returns:
-// None if the request doesn't match one of the reserved URLs this
-// handles.  Otherwise, returns the response body.
-func (ed *EndpointsDispatcher) dispatch_non_api_requests(w http.ResponseWriter, ar *ApiRequest) (string, error) {
-	for _, d := range ed.dispatchers {
-		if d.path_regex.MatchString(ar.relative_url) {
-			return d.dispatch_func(w, ar), nil
-		}
-	}
-	return "", errors.New("Doesn't match one of the reserved URL")
-}
-
 // Handler for requests to _ah/api/explorer.
 //
 // This calls start_response and returns the response body.
@@ -131,6 +93,14 @@ func (ed *EndpointsDispatcher) handle_api_explorer_request(w http.ResponseWriter
 	base_url := fmt.Sprintf("http://%s/_ah/api", request.URL.Host)
 	redirect_url := _API_EXPLORER_URL + base_url
 	return send_redirect_response(redirect_url, w, request.Request, nil)
+}
+
+func (ed *EndpointsDispatcher) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
+	ar, err := newApiRequest(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	ed.handle_api_explorer_request(w, ar)
 }
 
 // Handler for requests to _ah/api/static/.*.
@@ -161,6 +131,14 @@ func (ed *EndpointsDispatcher) handle_api_static_request(w http.ResponseWriter, 
 		//return send_response(status_string, response.getheaders(), body, start_response)
 	}
 	return body
+}
+
+func (ed *EndpointsDispatcher) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
+	ar, err := newApiRequest(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	ed.handle_api_static_request(w, ar)
 }
 
 // Makes a call to the BackendService.getApiConfigs endpoint.
@@ -210,7 +188,7 @@ func verify_response(response *http.Response, status_code int, content_type stri
 	if ct == content_type {
 		return nil
 	}
-	return fmt.Errorf("Incorrect response Content-Type: %s != %s", ct != content_type)
+	return fmt.Errorf("Incorrect response Content-Type: %s != %s", ct, content_type)
 }
 
 // Parses the result of GetApiConfigs and stores its information.

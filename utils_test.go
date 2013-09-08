@@ -24,7 +24,17 @@ import (
 //
 // Returns:
 //   An ApiRequest object built based on the incoming parameters.
-func build_request(url, body string, http_headers http.Header) *ApiRequest {
+func build_api_request(url, body string, http_headers http.Header) *ApiRequest {
+	req := build_request(url, body, http_headers)
+	api_request, err := newApiRequest(req)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	return api_request
+}
+
+func build_request(url, body string, http_headers http.Header) *http.Request {
 	//unused_scheme, unused_netloc, path, query, unused_fragment := urlparse.urlsplit(path)
 	req, err := http.NewRequest("GET", /*url, */fmt.Sprintf("http://localhost:42%s", url),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
@@ -38,13 +48,7 @@ func build_request(url, body string, http_headers http.Header) *ApiRequest {
 			req.Header.Set(key, value[0])
 		}
 	}
-
-	api_request, err := newApiRequest(req)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	return api_request
+	return req
 }
 
 // Test that the headers and body match.
@@ -155,10 +159,10 @@ func newMockEndpointsDispatcherSPI() (*MockEndpointsDispatcherSPI) {
 // fixme: mock call_spi without duplicating dispatch
 func (ed *MockEndpointsDispatcherSPI) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	// Check if this matches any of our special handlers.
-	dispatched_response, err := ed.dispatch_non_api_requests(w, ar)
+	/*dispatched_response, err := ed.dispatch_non_api_requests(w, ar)
 	if err == nil {
 		return dispatched_response
-	}
+	}*/
 
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
