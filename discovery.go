@@ -45,12 +45,15 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (
 	full_path := _DISCOVERY_API_PATH_PREFIX + path
 	client := &http.Client{}
 
-	req, err := http.NewRequest("POST", _DISCOVERY_PROXY_HOST+full_path, nil)
+	req, err := http.NewRequest("POST", "https://"+_DISCOVERY_PROXY_HOST+full_path, nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
 
 	defer resp.Body.Close()
 	resp_body, err := ioutil.ReadAll(resp.Body)
@@ -120,7 +123,7 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []stri
 // proxy host.
 // response_body: A string containing the response body.
 func /*(dp *DiscoveryApiProxy)*/ get_static_file(path string) (*http.Response, string, error) {
-	resp, err := http.Get(_STATIC_PROXY_HOST + path)
+	resp, err := http.Get("https://"+_STATIC_PROXY_HOST + path)
 	if err != nil {
 		return nil, "", err
 	}

@@ -40,7 +40,7 @@ func prepare_dispatch(t *testing.T, config *endpoints.ApiDescriptor) *httptest.S
 
 	//mock_dispatcher.On("Do", req).Return(resp, nil)
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, r.Method, "POST")
 		//assert.Equal(t, r.RemoteAddr, _SERVER_SOURCE_IP)
 		assert.Equal(t, r.URL.Path, "/_ah/spi/BackendService.getApiConfigs")
@@ -51,7 +51,11 @@ func prepare_dispatch(t *testing.T, config *endpoints.ApiDescriptor) *httptest.S
 		w.Header().Set("Content-Type", "application/json")
 		//w.Header().Set("Content-Length", string(len(response_body)))
 		fmt.Fprintln(w, string(response_body))
-	}))
+	})
+	ts := httptest.NewServer(hf)
+	//ts := httptest.NewServer(nil)
+	//http.DefaultServeMux.HandleFunc("/_ah/spi/BackendService.getApiConfigs", hf)
+
 	//defer ts.Close()
 	_SERVER_SOURCE_IP = ts.URL
 	return ts
@@ -162,14 +166,15 @@ func Test_dispatch_invalid_path(t *testing.T) {
 			},
 		},
 	}
-	request := build_api_request("/_ah/api/foo", "", nil)
+	request := build_request("/_ah/api/foo", "", nil)
 	ts := prepare_dispatch(t, config)
 	defer ts.Close()
 
 	w := httptest.NewRecorder()
 
 	//mox.ReplayAll()
-	server.dispatch(w, request)
+	server.HandleHttp(nil)
+	http.DefaultServeMux.ServeHTTP(w, request)
 	//mox.VerifyAll()
 	//	dispatcher.Mock.AssertExpectations(t)
 
@@ -207,14 +212,13 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 
-	request := build_api_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
+	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
 	ts := prepare_dispatch(t, config)
 	defer ts.Close()
 
-	//mox.ReplayAll()
-	server.dispatch(w, request)
-	//mox.VerifyAll()
-	//	dispatcher.Mock.AssertExpectations(t)
+	//server.HandleHttp(nil)
+	//http.DefaultServeMux.ServeHTTP(w, request)
+	server.ServeHTTP(w, request)
 
 	//t.Logf("Config %s", server.config_manager.configs)
 
@@ -418,8 +422,9 @@ func Test_explorer_redirect(t *testing.T) {
 	w := httptest.NewRecorder()
 	request := build_request("/_ah/api/explorer", "", nil)
 	//server.dispatch(w, request)
-	server.HandleHttp(nil)
-	http.DefaultServeMux.ServeHTTP(w, request)
+	//server.HandleHttp(nil)
+	//http.DefaultServeMux.ServeHTTP(w, request)
+	server.HandleApiExplorerRequest(w, request)
 	header := make(http.Header)
 	//	header.Set("Content-Length", "0")
 	location := "https://developers.google.com/apis-explorer/?base=http://localhost:42/_ah/api"

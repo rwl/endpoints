@@ -18,9 +18,15 @@ var (
 	API_SERVING_PATTERN = "_ah/api/.*" // Pattern for paths handled by this package.
 
 	_SPI_ROOT_FORMAT = "/_ah/spi/%s"
-	_SERVER_SOURCE_IP = "0.2.0.3"
+	_SERVER_SOURCE_IP = "http://localhost:8080"//"0.2.0.3"
 	_API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
 )
+
+var DefaultServer *EndpointsServer = NewEndpointsServer()
+
+func HandleHttp() {
+	DefaultServer.HandleHttp(nil)
+}
 
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsServer struct {
@@ -39,44 +45,45 @@ func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 	if mux == nil {
 		mux = http.DefaultServeMux
 	}
-	mux.HandleFunc("/_ah/api/explorer"/*"^/_ah/api/explorer/?$"*/, ed.HandleApiExplorerRequest)
-	mux.HandleFunc("/_ah/api/static"/*"^/_ah/api/static/.*$"*/, ed.HandleApiStaticRequest)
-	mux.Handle("/_ah/api"/*"^/_ah/api/.*$"*/, ed)
+	r := NewRouter()
+	r.HandleFunc("^/_ah/api/explorer/?$", ed.HandleApiExplorerRequest)
+	r.HandleFunc("^/_ah/api/static/.*$", ed.HandleApiStaticRequest)
+	r.HandleFunc("^/_ah/api/.*$", ed.ServeHTTP)
+	mux.Handle("/", r)
 }
 
 // EndpointsServer implements the http.Handler interface.
 func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ar, err := newApiRequest(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
-	ed.dispatch(w, ar)
-}
 
-func (ed *EndpointsServer) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
 	api_config_response, err := ed.get_api_configs() // fixme: cache configs
 	if err != nil {
-		return ed.fail_request(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
+		ed.fail_request(w, ar.Request, "BackendService.getApiConfigs error: "+err.Error())
+		return
 	}
 	err = ed.handle_get_api_configs_response(api_config_response)
 	if err != nil {
-		return ed.fail_request(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
+		ed.fail_request(w, ar.Request, "BackendService.getApiConfigs handling error: "+err.Error())
+		return
 	}
 
 	// Call the service.
-	body, err := ed.call_spi(w, ar)
+	_, err = ed.call_spi(w, ar)
 	if err != nil {
 		req_err, ok := err.(RequestError)
 		if ok {
-			return ed.handle_request_error(w, ar, req_err)
+			ed.handle_request_error(w, ar, req_err)
+			return
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return body
+			return
 		}
 	}
-	return body
 }
 
 // Handler for requests to _ah/api/explorer.
@@ -89,18 +96,10 @@ func (ed *EndpointsServer) dispatch(w http.ResponseWriter, ar *ApiRequest) strin
 //
 // Returns:
 // A string containing the response body (which is empty, in this case).
-func (ed *EndpointsServer) handle_api_explorer_request(w http.ResponseWriter, request *ApiRequest) string {
-	base_url := fmt.Sprintf("http://%s/_ah/api", request.URL.Host)
-	redirect_url := _API_EXPLORER_URL + base_url
-	return send_redirect_response(redirect_url, w, request.Request, nil)
-}
-
 func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
-	ar, err := newApiRequest(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-	ed.handle_api_explorer_request(w, ar)
+	base_url := fmt.Sprintf("http://%s/_ah/api", r.URL.Host)
+	redirect_url := _API_EXPLORER_URL + base_url
+	send_redirect_response(redirect_url, w, r, nil)
 }
 
 // Handler for requests to _ah/api/static/.*.
@@ -113,7 +112,12 @@ func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *ht
 //
 // Returns:
 // A string containing the response body.
-func (ed *EndpointsServer) handle_api_static_request(w http.ResponseWriter, request *ApiRequest) string {
+func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
+	request, err := newApiRequest(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
 	response, body, err := get_static_file(request.relative_url)
 	//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
@@ -130,15 +134,6 @@ func (ed *EndpointsServer) handle_api_static_request(w http.ResponseWriter, requ
 		http.Error(w, body, response.StatusCode)
 		//return send_response(status_string, response.getheaders(), body, start_response)
 	}
-	return body
-}
-
-func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
-	ar, err := newApiRequest(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-	ed.handle_api_static_request(w, ar)
 }
 
 // Makes a call to the BackendService.getApiConfigs endpoint.

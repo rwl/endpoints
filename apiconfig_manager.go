@@ -535,6 +535,7 @@ func (m *ApiConfigManager) save_rest_method(method_name, api_name, version strin
 		// fixme: handle error
 		return
 	}
+	log.Printf("Registering rest method: %s %s %s %s", api_name, version, method_name, path_pattern)
 	m.rest_methods = append(m.rest_methods,
 		&restMethod{
 			compiled_pattern,
