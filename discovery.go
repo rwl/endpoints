@@ -42,10 +42,10 @@ func NewDiscoveryApiProxy() *DiscoveryApiProxy {
 // Returns:
 // HTTP response body or None if it failed.
 func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (string, error) {
-	full_path := _DISCOVERY_API_PATH_PREFIX + path
+	full_path := _DISCOVERY_PROXY_HOST+_DISCOVERY_API_PATH_PREFIX+path
 	client := &http.Client{}
 
-	req, err := http.NewRequest("POST", _DISCOVERY_PROXY_HOST+full_path, nil)
+	req, err := http.NewRequest("POST", full_path, nil)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (
 
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("Discovery API proxy failed on %s with %d.\r\nRequest: %s\r\nResponse: %s",
-			full_path, resp.Status, body, response_body)
+			full_path, resp.StatusCode, body, response_body)
 	}
 	return response_body, nil
 }

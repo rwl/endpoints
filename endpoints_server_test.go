@@ -57,7 +57,7 @@ func prepare_dispatch(t *testing.T, config *endpoints.ApiDescriptor) *httptest.S
 	//http.DefaultServeMux.HandleFunc("/_ah/spi/BackendService.getApiConfigs", hf)
 
 	//defer ts.Close()
-	_SERVER_SOURCE_IP = ts.URL
+	//_SERVER_SOURCE_IP = ts.URL
 	return ts
 }
 
@@ -78,6 +78,7 @@ func assert_dispatch_to_spi(t *testing.T, request *ApiRequest, config *endpoints
 	expected_spi_body_json map[string]interface{}) {
 	server := newMockEndpointsServer()
 	ts := prepare_dispatch(t, config)
+	server.URL = ts.URL
 	defer ts.Close()
 
 	w := httptest.NewRecorder()
@@ -168,6 +169,7 @@ func Test_dispatch_invalid_path(t *testing.T) {
 	}
 	request := build_request("/_ah/api/foo", "", nil)
 	ts := prepare_dispatch(t, config)
+	server.URL = ts.URL
 	defer ts.Close()
 
 	w := httptest.NewRecorder()
@@ -214,6 +216,7 @@ func Test_dispatch_invalid_enum(t *testing.T) {
 
 	request := build_request("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
 	ts := prepare_dispatch(t, config)
+	server.URL = ts.URL
 	defer ts.Close()
 
 	//server.HandleHttp(nil)
@@ -260,6 +263,7 @@ func Test_dispatch_spi_error(t *testing.T) {
 	}
 	request := build_api_request("/_ah/api/foo", "", nil)
 	ts := prepare_dispatch(t, config)
+	server.URL = ts.URL
 	defer ts.Close()
 
 	w := httptest.NewRecorder()
@@ -329,6 +333,7 @@ func Test_dispatch_rpc_error(t *testing.T) {
 		nil,
 	)
 	ts := prepare_dispatch(t, config)
+	server.URL = ts.URL
 	defer ts.Close()
 
 	w := httptest.NewRecorder()

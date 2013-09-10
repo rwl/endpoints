@@ -18,7 +18,7 @@ var (
 	API_SERVING_PATTERN = "_ah/api/.*" // Pattern for paths handled by this package.
 
 	_SPI_ROOT_FORMAT = "/_ah/spi/%s"
-	_SERVER_SOURCE_IP = "http://localhost:8080"//"0.2.0.3"
+	//_SERVER_SOURCE_IP = "http://localhost:8080"//"0.2.0.3"
 	_API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
 )
 
@@ -31,14 +31,15 @@ func HandleHttp() {
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsServer struct {
 	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
+	URL string
 }
 
 func NewEndpointsServer() *EndpointsServer {
-	return NewEndpointsServerConfig(NewApiConfigManager())
+	return NewEndpointsServerConfig(NewApiConfigManager(), "http://localhost:8080")
 }
 
-func NewEndpointsServerConfig(config_manager *ApiConfigManager) *EndpointsServer {
-	return &EndpointsServer{config_manager}
+func NewEndpointsServerConfig(config_manager *ApiConfigManager, url string) *EndpointsServer {
+	return &EndpointsServer{config_manager, url}
 }
 
 func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
@@ -143,7 +144,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 // request.
 func (ed *EndpointsServer) get_api_configs() (*http.Response, error) {
 	req, err := http.NewRequest("POST",
-		_SERVER_SOURCE_IP+"/_ah/spi/BackendService.getApiConfigs",
+		ed.URL+"/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	if err != nil {
 		return nil, err

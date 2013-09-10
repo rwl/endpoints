@@ -94,7 +94,7 @@ func (ds *DiscoveryService) get_rpc_or_rest(api_format ApiFormat, request *ApiRe
 	}
 	doc, err := generate_discovery_doc(api_config, api_format)
 	if err != nil {
-		error_msg := fmt.Sprintf("Failed to convert .api to discovery doc for version %s of api %s", version, api)
+		error_msg := fmt.Sprintf(`Failed to convert .api to discovery doc for version "%s" of api "%s": %s`, version, api, err.Error())
 		log.Print(error_msg)
 		return send_error_response(error_msg, w, nil)
 	}
