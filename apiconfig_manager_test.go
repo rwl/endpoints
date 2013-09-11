@@ -8,23 +8,23 @@ import (
 	"testing"
 )
 
-func Test_parse_api_config_empty_response(t *testing.T) {
-	config_manager := NewApiConfigManager()
-	config_manager.parse_api_config_response("")
-	actual_method := config_manager.lookup_rpc_method("guestbook_api.get", "v1")
-	assert.Nil(t, actual_method)
+func TestParseApiConfigEmptyResponse(t *testing.T) {
+	configManager := NewApiConfigManager()
+	configManager.parseApiConfigResponse("")
+	actualMethod := configManager.lookupRpcMethod("guestbook_api.get", "v1")
+	assert.Nil(t, actualMethod)
 }
 
-func Test_parse_api_config_invalid_response(t *testing.T) {
-	config_manager := NewApiConfigManager()
-	config_manager.parse_api_config_response(`{"name": "foo"}`)
-	actual_method := config_manager.lookup_rpc_method("guestbook_api.get", "v1")
-	assert.Nil(t, actual_method)
+func TestParseApiConfigInvalidResponse(t *testing.T) {
+	configManager := NewApiConfigManager()
+	configManager.parseApiConfigResponse(`{"name": "foo"}`)
+	actualMethod := configManager.lookupRpcMethod("guestbook_api.get", "v1")
+	assert.Nil(t, actualMethod)
 }
 
-func Test_parse_api_config(t *testing.T) {
-	config_manager := NewApiConfigManager()
-	fake_method := &endpoints.ApiMethod{
+func TestParseApiConfig(t *testing.T) {
+	configManager := NewApiConfigManager()
+	fakeMethod := &endpoints.ApiMethod{
 		HttpMethod: "GET",
 		Path:       "greetings/{gid}",
 		RosyMethod: "baz.bim",
@@ -33,40 +33,41 @@ func Test_parse_api_config(t *testing.T) {
 		Name:    "guestbook_api",
 		Version: "X",
 		Methods: map[string]*endpoints.ApiMethod{
-			"guestbook_api.foo.bar": fake_method,
+			"guestbook_api.foo.bar": fakeMethod,
 		},
 	})
 	items, _ := json.Marshal(map[string]interface{}{
 		"items": []string{string(config)},
 	})
-	err := config_manager.parse_api_config_response(string(items))
+	err := configManager.parseApiConfigResponse(string(items))
 	assert.NoError(t, err)
-	actual_method := config_manager.lookup_rpc_method("guestbook_api.foo.bar", "X")
-	assert.Equal(t, fake_method, actual_method)
+	actualMethod := configManager.lookupRpcMethod("guestbook_api.foo.bar", "X")
+	assert.Equal(t, fakeMethod, actualMethod)
 }
 
-type method_info struct {
-	method_name string
-	path        string
-	method      string
-}
-
-func Test_parse_api_config_order_length(t *testing.T) {
+func TestParseApiConfigOrderLength(t *testing.T) {
 	config_manager := NewApiConfigManager()
-	test_method_info := []method_info{
-		method_info{"guestbook_api.foo.bar", "greetings/{gid}", "baz.bim"},
-		method_info{"guestbook_api.list", "greetings", "greetings.list"},
-		method_info{"guestbook_api.f3", "greetings/{gid}/sender/property/blah", "greetings.f3"},
-		method_info{"guestbook_api.shortgreet", "greet", "greetings.short_greeting"},
-	}
-	methods := make(map[string]*endpoints.ApiMethod)
-	for _, mi := range test_method_info {
-		method := &endpoints.ApiMethod{
+	methods := map[string]*endpoints.ApiMethod {
+		"guestbook_api.foo.bar": &endpoints.ApiMethod{
 			HttpMethod: "GET",
-			Path:       mi.path,
-			RosyMethod: mi.method,
-		}
-		methods[mi.method_name] = method
+			Path:       "greetings/{gid}",
+			RosyMethod: "baz.bim",
+		},
+		"guestbook_api.list": &endpoints.ApiMethod{
+			HttpMethod: "GET",
+			Path:       "greetings",
+			RosyMethod: "greetings.list",
+		},
+		"guestbook_api.f3": &endpoints.ApiMethod{
+			HttpMethod: "GET",
+			Path:       "greetings/{gid}/sender/property/blah",
+			RosyMethod: "greetings.f3",
+		},
+		"guestbook_api.shortgreet": &endpoints.ApiMethod{
+			HttpMethod: "GET",
+			Path:       "greet",
+			RosyMethod: "greetings.short_greeting",
+		},
 	}
 	config, err := json.Marshal(&endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
@@ -78,116 +79,206 @@ func Test_parse_api_config_order_length(t *testing.T) {
 		"items": []string{string(config)},
 	})
 	assert.NoError(t, err)
-	err = config_manager.parse_api_config_response(string(items))
+	err = configManager.parseApiConfigResponse(string(items))
 	assert.NoError(t, err)
 	// Make sure all methods appear in the result.
-	for _, mi := range test_method_info {
-		assert.NotNil(t, config_manager.lookup_rpc_method(mi.method_name, "X"))
+	for methodName, _ := range methods {
+		assert.NotNil(t, configManager.lookupRpcMethod(methodName, "X"))
 	}
 
 	var mn string
 	// Make sure paths and partial paths return the right methods.
-	mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings", "GET")
+	mn, _, _ = configManager.lookupRestMethod("guestbook_api/X/greetings", "GET")
 	assert.Equal(t, mn, "guestbook_api.list")
 
-	mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings/1", "GET")
+	mn, _, _ = configManager.lookupRestMethod("guestbook_api/X/greetings/1", "GET")
 	assert.Equal(t, mn, "guestbook_api.foo.bar")
 
-	mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greetings/2/sender/property/blah", "GET")
+	mn, _, _ = configManager.lookupRestMethod("guestbook_api/X/greetings/2/sender/property/blah", "GET")
 	assert.Equal(t, mn, "guestbook_api.f3")
 
-	mn, _, _ = config_manager.lookup_rest_method("guestbook_api/X/greet", "GET")
+	mn, _, _ = configManager.lookupRestMethod("guestbook_api/X/greet", "GET")
 	assert.Equal(t, mn, "guestbook_api.shortgreet")
 }
 
-func Test_get_sorted_methods1(t *testing.T) {
-	test_method_info := []method_info{
-		method_info{"name1", "greetings", "POST"},
-		method_info{"name2", "greetings", "GET"},
-		method_info{"name3", "short/but/many/constants", "GET"},
-		method_info{"name4", "greetings", ""},
-		method_info{"name5", "greetings/{gid}", "GET"},
-		method_info{"name6", "greetings/{gid}", "PUT"},
-		method_info{"name7", "a/b/{var}/{var2}", "GET"},
+func TestSortMethods1(t *testing.T) {
+	methods := map[string]*endpoints.ApiMethod {
+		"name1" : &endpoints.ApiMethod{
+			HttpMethod: "greetings",
+			Path:       "POST",
+		},
+		"name2" : &endpoints.ApiMethod{
+			HttpMethod: "greetings",
+			Path:       "GET",
+		},
+		"name3" : &endpoints.ApiMethod{
+			HttpMethod: "short/but/many/constants",
+			Path:       "GET",
+		},
+		"name4" : &endpoints.ApiMethod{
+			HttpMethod: "greetings",
+			Path:       "",
+		},
+		"name5" : &endpoints.ApiMethod{
+			HttpMethod: "greetings/{gid}",
+			Path:       "GET",
+		},
+		"name6" : &endpoints.ApiMethod{
+			HttpMethod: "greetings/{gid}",
+			Path:       "PUT",
+		},
+		"name7" : &endpoints.ApiMethod{
+			HttpMethod: "a/b/{var}/{var2}",
+			Path:       "GET",
+		},
 	}
-	methods := make(map[string]*endpoints.ApiMethod)
-	for _, mi := range test_method_info {
-		method := &endpoints.ApiMethod{
-			HttpMethod: mi.method,
-			Path:       mi.path,
-		}
-		methods[mi.method_name] = method
-	}
-	sorted_methods := get_sorted_methods(methods)
+	sortedMethods := sortMethods(methods)
 
-	expected_data := []method_info{
-		method_info{"name3", "short/but/many/constants", "GET"},
-		method_info{"name7", "a/b/{var}/{var2}", "GET"},
-		method_info{"name4", "greetings", ""},
-		method_info{"name2", "greetings", "GET"},
-		method_info{"name1", "greetings", "POST"},
-		method_info{"name5", "greetings/{gid}", "GET"},
-		method_info{"name6", "greetings/{gid}", "PUT"},
-	}
-	expected_methods := make([]*methodInfo, len(expected_data))
-	for i, mi := range expected_data {
-		expected_methods[i] = &methodInfo{
-			mi.method_name,
+	expected_methods := []*methodInfo{
+		&methodInfo{
+			"name3",
 			&endpoints.ApiMethod{
-				HttpMethod: mi.method,
-				Path:       mi.path,
+				HttpMethod: "GET",
+				Path:       "short/but/many/constants",
 			},
-		}
+		},
+		&methodInfo{
+			"name7",
+			&endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path:       "a/b/{var}/{var2}",
+			},
+		},
+		&methodInfo{
+			"name4",
+			&endpoints.ApiMethod{
+				HttpMethod: "",
+				Path:       "greetings",
+			},
+		},
+		&methodInfo{
+			"name2",
+			&endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path:       "greetings",
+			},
+		},
+		&methodInfo{
+			"name1",
+			&endpoints.ApiMethod{
+				HttpMethod: "POST",
+				Path:       "greetings",
+			},
+		},
+		&methodInfo{
+			"name5",
+			&endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path:       "greetings/{gid}",
+			},
+		},
+		&methodInfo{
+			"name6",
+			&endpoints.ApiMethod{
+				HttpMethod: "PUT",
+				Path:       "greetings/{gid}",
+			},
+		},
 	}
-	assert.Equal(t, expected_methods, sorted_methods)
+	assert.Equal(t, expectedMethods, sortedMethods)
 }
 
-func Test_get_sorted_methods2(t *testing.T) {
-	test_method_info := []method_info{
-		method_info{"name1", "abcdefghi", "GET"},
-		method_info{"name2", "foo", "GET"},
-		method_info{"name3", "greetings", "GET"},
-		method_info{"name4", "bar", "POST"},
-		method_info{"name5", "baz", "GET"},
-		method_info{"name6", "baz", "PUT"},
-		method_info{"name7", "baz", "DELETE"},
+func TestSortMethods2(t *testing.T) {
+	methods := map[string]*endpoints.ApiMethod {
+		"name1": &endpoints.ApiMethod{
+			HttpMethod: "GET",
+			Path:       "abcdefghi",
+		},
+		"name2": &endpoints.ApiMethod{
+			HttpMethod: "GET",
+			Path:       "foo",
+		},
+		"name3": &endpoints.ApiMethod{
+			HttpMethod: "GET",
+			Path:       "greetings",
+		},
+		"name4": &endpoints.ApiMethod{
+			HttpMethod: "POST",
+			Path:       "bar",
+		},
+		"name5": &endpoints.ApiMethod{
+			HttpMethod: "GET",
+			Path:       "baz",
+		},
+		"name6": &endpoints.ApiMethod{
+			HttpMethod: "PUT",
+			Path:       "baz",
+		},
+		"name7": &endpoints.ApiMethod{
+			HttpMethod: "DELETE",
+			Path:       "baz",
+		},
 	}
-	methods := make(map[string]*endpoints.ApiMethod)
-	for _, mi := range test_method_info {
-		method := &endpoints.ApiMethod{
-			HttpMethod: mi.method,
-			Path:       mi.path,
-		}
-		methods[mi.method_name] = method
-	}
-	sorted_methods := get_sorted_methods(methods)
+	sortedMethods := sortMethods(methods)
 
 	// Single-part paths should be sorted by path name, http_method.
-	expected_data := []method_info{
-		method_info{"name1", "abcdefghi", "GET"},
-		method_info{"name4", "bar", "POST"},
-		method_info{"name7", "baz", "DELETE"},
-		method_info{"name5", "baz", "GET"},
-		method_info{"name6", "baz", "PUT"},
-		method_info{"name2", "foo", "GET"},
-		method_info{"name3", "greetings", "GET"},
-	}
-	expected_methods := make([]*methodInfo, len(expected_data))
-	for i, mi := range expected_data {
-		expected_methods[i] = &methodInfo{
-			mi.method_name,
+	expected_methods := []*methodInfo {
+		&methodInfo{
+			"name1",
 			&endpoints.ApiMethod{
-				HttpMethod: mi.method,
-				Path:       mi.path,
+				HttpMethod: "GET",
+				Path:       "abcdefghi",
 			},
-		}
+		},
+		&methodInfo{
+			"name4",
+			&endpoints.ApiMethod{
+				HttpMethod: "POST",
+				Path:       "bar",
+			},
+		},
+		&methodInfo{
+			"name7",
+			&endpoints.ApiMethod{
+				HttpMethod: "DELETE",
+				Path:       "baz",
+			},
+		},
+		&methodInfo{
+			"name5",
+			&endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path:       "baz",
+			},
+		},
+		&methodInfo{
+			"name6",
+			&endpoints.ApiMethod{
+				HttpMethod: "PUT",
+				Path:       "baz",
+			},
+		},
+		&methodInfo{
+			"name2",
+			&endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path:       "foo",
+			},
+		},
+		&methodInfo{
+			"name3",
+			&endpoints.ApiMethod{
+				HttpMethod: "GET",
+				Path:       "greetings",
+			},
+		},
 	}
-	assert.Equal(t, expected_methods, sorted_methods)
+	assert.Equal(t, expectedMethods, sortedMethods)
 }
 
-func Test_parse_api_config_invalid_api_config(t *testing.T) {
-	config_manager := NewApiConfigManager()
-	fake_method := &endpoints.ApiMethod{
+func TestParseApiConfigInvalidApiConfig(t *testing.T) {
+	configManager := NewApiConfigManager()
+	fakeMethod := &endpoints.ApiMethod{
 		HttpMethod: "GET",
 		Path:       "greetings/{gid}",
 		RosyMethod: "baz.bim",
@@ -196,7 +287,7 @@ func Test_parse_api_config_invalid_api_config(t *testing.T) {
 		Name:    "guestbook_api",
 		Version: "X",
 		Methods: map[string]*endpoints.ApiMethod{
-			"guestbook_api.foo.bar": fake_method,
+			"guestbook_api.foo.bar": fakeMethod,
 		},
 	})
 	// Invalid Json.
@@ -204,14 +295,14 @@ func Test_parse_api_config_invalid_api_config(t *testing.T) {
 	items, _ := json.Marshal(map[string]interface{}{
 		"items": []string{string(config), string(config2)},
 	})
-	config_manager.parse_api_config_response(string(items))
-	actual_method := config_manager.lookup_rpc_method("guestbook_api.foo.bar", "X")
-	assert.Equal(t, fake_method, actual_method)
+	configManager.parseApiConfigResponse(string(items))
+	actualMethod := configManager.lookupRpcMethod("guestbook_api.foo.bar", "X")
+	assert.Equal(t, fakeMethod, actualMethod)
 }
 
 // Test that the parsed API config has switched HTTPS to HTTP.
-func Test_parse_api_config_convert_https(t *testing.T) {
-	config_manager := NewApiConfigManager()
+func TestParseApiConfigConvertHttps(t *testing.T) {
+	configManager := NewApiConfigManager()
 
 	descriptor := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
@@ -226,15 +317,15 @@ func Test_parse_api_config_convert_https(t *testing.T) {
 	items, _ := json.Marshal(map[string]interface{}{
 		"items": []string{string(config)},
 	})
-	config_manager.parse_api_config_response(string(items))
+	configManager.parseApiConfigResponse(string(items))
 
 	key := lookupKey{"guestbook_api", "X"}
-	assert.Equal(t, "http://localhost/_ah/spi", config_manager.configs[key].Adapter.Bns)
-	assert.Equal(t, "http://localhost/_ah/api", config_manager.configs[key].Root)
+	assert.Equal(t, "http://localhost/_ah/spi", configManager.configs[key].Adapter.Bns)
+	assert.Equal(t, "http://localhost/_ah/api", configManager.configs[key].Root)
 }
 
 // Test that the _convert_https_to_http function works.
-func Test_convert_https_to_http(t *testing.T) {
+func TestConvertHttpsToHttp(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "X",
@@ -244,14 +335,14 @@ func Test_convert_https_to_http(t *testing.T) {
 	config.Adapter.Bns = "https://tictactoe.appspot.com/_ah/spi"
 	config.Adapter.Type = "lily"
 
-	convert_https_to_http(config)
+	convertHttpsToHttp(config)
 
 	assert.Equal(t, "http://tictactoe.appspot.com/_ah/spi", config.Adapter.Bns)
 	assert.Equal(t, "http://tictactoe.appspot.com/_ah/api", config.Root)
 }
 
 // Verify that we don"t change non-HTTPS URLs.
-func Test_dont_convert_non_https_to_http(t *testing.T) {
+func TestDontConvertNonHttpsToHttp(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "X",
@@ -261,83 +352,83 @@ func Test_dont_convert_non_https_to_http(t *testing.T) {
 	config.Adapter.Bns = "http://https.appspot.com/_ah/spi"
 	config.Adapter.Type = "lily"
 
-	convert_https_to_http(config)
+	convertHttpsToHttp(config)
 
 	assert.Equal(t, "http://https.appspot.com/_ah/spi", config.Adapter.Bns)
 	assert.Equal(t, "ios://https.appspot.com/_ah/api", config.Root)
 }
 
-func Test_save_lookup_rpc_method(t *testing.T) {
-	config_manager := NewApiConfigManager()
+func TestSaveLookupRpcMethod(t *testing.T) {
+	configManager := NewApiConfigManager()
 	// First attempt, guestbook.get does not exist
-	actual_method := config_manager.lookup_rpc_method("guestbook_api.get", "v1")
-	assert.Nil(t, actual_method)
+	actualMethod := configManager.lookupRpcMethod("guestbook_api.get", "v1")
+	assert.Nil(t, actualMethod)
 
 	// Now we manually save it, and should find it
-	fake_method := &endpoints.ApiMethod{}
-	config_manager.save_rpc_method("guestbook_api.get", "v1", fake_method)
-	actual_method = config_manager.lookup_rpc_method("guestbook_api.get", "v1")
-	assert.Equal(t, fake_method, actual_method)
+	fakeMethod := &endpoints.ApiMethod{}
+	configManager.saveRpcMethod("guestbook_api.get", "v1", fakeMethod)
+	actualMethod = configManager.lookupRpcMethod("guestbook_api.get", "v1")
+	assert.Equal(t, fakeMethod, actualMethod)
 }
 
-func Test_save_lookup_rest_method(t *testing.T) {
-	config_manager := NewApiConfigManager()
+func TestSaveLookupRestMethod(t *testing.T) {
+	configManager := NewApiConfigManager()
 	// First attempt, guestbook.get does not exist
-	method_name, api_method, params := config_manager.lookup_rest_method("guestbook_api/v1/greetings/i", "GET")
-	assert.Empty(t, method_name)
-	assert.Nil(t, api_method)
+	methodName, apiMethod, params := configManager.lookupRestMethod("guestbook_api/v1/greetings/i", "GET")
+	assert.Empty(t, methodName)
+	assert.Nil(t, apiMethod)
 	assert.Nil(t, params)
 
 	// Now we manually save it, and should find it
-	fake_method := &endpoints.ApiMethod{
+	fakeMethod := &endpoints.ApiMethod{
 		HttpMethod: "GET",
 		Path:       "greetings/{id}",
 	}
-	config_manager.save_rest_method("guestbook_api.get", "guestbook_api", "v1", fake_method)
-	method_name, api_method, params = config_manager.lookup_rest_method("guestbook_api/v1/greetings/i", "GET")
-	assert.Equal(t, "guestbook_api.get", method_name)
-	assert.Equal(t, fake_method, api_method)
+	configManager.saveRestMethod("guestbook_api.get", "guestbook_api", "v1", fakeMethod)
+	methodName, apiMethod, params = configManager.lookupRestMethod("guestbook_api/v1/greetings/i", "GET")
+	assert.Equal(t, "guestbook_api.get", methodName)
+	assert.Equal(t, fakeMethod, apiMethod)
 	assert.Equal(t, map[string]string{"id": "i"}, params)
 }
 
-func Test_trailing_slash_optional(t *testing.T) {
-	config_manager := NewApiConfigManager()
+func TestTrailingSlashOptional(t *testing.T) {
+	configManager := NewApiConfigManager()
 	// Create a typical get resource URL.
-	fake_method := &endpoints.ApiMethod{
+	fakeMethod := &endpoints.ApiMethod{
 		HttpMethod: "GET",
 		Path:       "trailingslash",
 	}
-	config_manager.save_rest_method("guestbook_api.trailingslash", "guestbook_api", "v1", fake_method)
+	configManager.saveRestMethod("guestbook_api.trailingslash", "guestbook_api", "v1", fakeMethod)
 
 	// Make sure we get this method when we query without a slash.
-	method_name, method_spec, params := config_manager.lookup_rest_method("guestbook_api/v1/trailingslash", "GET")
-	assert.Equal(t, "guestbook_api.trailingslash", method_name)
-	assert.Equal(t, fake_method, method_spec)
+	methodName, methodSpec, params := configManager.lookupRestMethod("guestbook_api/v1/trailingslash", "GET")
+	assert.Equal(t, "guestbook_api.trailingslash", methodName)
+	assert.Equal(t, fakeMethod, methodSpec)
 	assert.Equal(t, params, make(map[string]string))
 
 	// Make sure we get this method when we query with a slash.
-	method_name, method_spec, params = config_manager.lookup_rest_method("guestbook_api/v1/trailingslash/", "GET")
-	assert.Equal(t, "guestbook_api.trailingslash", method_name)
-	assert.Equal(t, fake_method, method_spec)
+	methodName, methodSpec, params = configManager.lookupRestMethod("guestbook_api/v1/trailingslash/", "GET")
+	assert.Equal(t, "guestbook_api.trailingslash", methodName)
+	assert.Equal(t, fakeMethod, methodSpec)
 	assert.Equal(t, params, make(map[string]string))
 }
 
 /* Parameterized path tests. */
 
-func Test_invalid_variable_name_leading_digit(t *testing.T) {
-	matched := _PATH_VARIABLE_PATTERN.MatchString("1abc")
+func TestInvalidVariableNameLeadingDigit(t *testing.T) {
+	matched := PathVariablePattern.MatchString("1abc")
 	assert.False(t, matched)
 }
 
 // Ensure users can not add variables starting with !
 // This is used for reserved variables (e.g. !name and !version)
-func Test_invalid_var_name_leading_exclamation(t *testing.T) {
-	matched := _PATH_VARIABLE_PATTERN.MatchString("!abc")
+func TestInvalidVarNameLeadingExclamation(t *testing.T) {
+	matched := PathVariablePattern.MatchString("!abc")
 	assert.False(t, matched)
 }
 
-func Test_valid_variable_name(t *testing.T) {
-	assert.Equal(t, _PATH_VARIABLE_PATTERN.FindString("AbC1"), "AbC1")
+func TestValidVariableName(t *testing.T) {
+	assert.Equal(t, PathVariablePattern.FindString("AbC1"), "AbC1")
 }
 
 // Assert that the given path does not match param_path pattern.
@@ -348,27 +439,27 @@ func Test_valid_variable_name(t *testing.T) {
 //   path: A string, the inbound request path.
 //   param_path: A string, the parameterized path pattern to match against
 //     this path.
-func assert_no_match(t *testing.T, path, param_path string) {
-	re, err := compile_path_pattern(param_path)
+func assertNoMatch(t *testing.T, path, paramPath string) {
+	re, err := compilePathPattern(paramPath)
 	assert.NoError(t, err)
 	params := re.MatchString(path)
 	assert.False(t, params)
 }
 
-func Test_prefix_no_match(t *testing.T) {
-	assert_no_match(t, "/xyz/123", "/abc/{x}")
+func TestPrefixNoMatch(t *testing.T) {
+	assertNoMatch(t, "/xyz/123", "/abc/{x}")
 }
 
-func Test_suffix_no_match(t *testing.T) {
-	assert_no_match(t, "/abc/123", "/abc/{x}/456")
+func TestSuffixNoMatch(t *testing.T) {
+	assertNoMatch(t, "/abc/123", "/abc/{x}/456")
 }
 
-func Test_suffix_no_match_with_more_variables(t *testing.T) {
-	assert_no_match(t, "/abc/456/123/789", "/abc/{x}/123/{y}/xyz")
+func TestSuffixNoMatchWithMoreVariables(t *testing.T) {
+	assertNoMatch(t, "/abc/456/123/789", "/abc/{x}/123/{y}/xyz")
 }
 
-func Test_no_match_collection_with_item(t *testing.T) {
-	assert_no_match(t, "/api/v1/resources/123", "/{name}/{version}/resources")
+func TestNoMatchCollectionWithItem(t *testing.T) {
+	assertNoMatch(t, "/api/v1/resources/123", "/{name}/{version}/resources")
 }
 
 // Assert that the given path does match param_path pattern.
@@ -384,31 +475,31 @@ func Test_no_match_collection_with_item(t *testing.T) {
 //
 // Returns:
 //   Dict mapping path variable name to path variable value.
-func assert_match(t *testing.T, path, param_path string, param_count int) map[string]string {
-	re, err := compile_path_pattern(param_path)
+func assertMatch(t *testing.T, path, paramPath string, paramCount int) map[string]string {
+	re, err := compilePathPattern(paramPath)
 	ok := assert.NoError(t, err)
 	if ok {
 		match := re.MatchString(path)
 		assert.True(t, match) // Will be None if path was not matched.
 		names := re.SubexpNames()
 		submatch := re.FindStringSubmatch(path)
-		params, err := get_path_params(names, submatch)
+		params, err := pathParams(names, submatch)
 		assert.NoError(t, err)
-		assert.Equal(t, param_count, len(params))
+		assert.Equal(t, paramCount, len(params))
 		return params
 	}
 	return make(map[string]string)
 }
 
-func Test_one_variable_match(t *testing.T) {
+func TestOneVariableMatch(t *testing.T) {
 	params := assert_match(t, "/abc/123", "/abc/{x}", 1)
 	x, ok := params["x"]
 	assert.True(t, ok)
 	assert.Equal(t, "123", x)
 }
 
-func Test_two_variable_match(t *testing.T) {
-	params := assert_match(t, "/abc/456/123/789", "/abc/{x}/123/{y}", 2)
+func TestTwoVariableMatch(t *testing.T) {
+	params := assertMatch(t, "/abc/456/123/789", "/abc/{x}/123/{y}", 2)
 	x, ok := params["x"]
 	assert.True(t, ok)
 	assert.Equal(t, x, "456")
@@ -417,15 +508,15 @@ func Test_two_variable_match(t *testing.T) {
 	assert.Equal(t, y, "789")
 }
 
-func Test_message_variable_match(t *testing.T) {
-	params := assert_match(t, "/abc/123", "/abc/{x.y}", 1)
+func TestMessageVariableMatch(t *testing.T) {
+	params := assertMatch(t, "/abc/123", "/abc/{x.y}", 1)
 	xy, ok := params["x.y"]
 	assert.True(t, ok)
 	assert.Equal(t, xy, "123")
 }
 
-func Test_message_and_simple_variable_match(t *testing.T) {
-	params := assert_match(t, "/abc/123/456", "/abc/{x.y.z}/{t}", 2)
+func TestMessageAndSimpleVariableMatch(t *testing.T) {
+	params := assertMatch(t, "/abc/123/456", "/abc/{x.y.z}/{t}", 2)
 	xyz, ok := params["x.y.z"]
 	assert.True(t, ok)
 	assert.Equal(t, xyz, "123")
@@ -440,18 +531,18 @@ func Test_message_and_simple_variable_match(t *testing.T) {
 //
 // Args:
 //   value: A string containing a variable value to check for validity.
-func assert_invalid_value(t *testing.T, value string) {
-	param_path := "/abc/{x}"
+func assertInvalidValue(t *testing.T, value string) {
+	paramPath := "/abc/{x}"
 	path := fmt.Sprintf("/abc/%s", value)
-	re, err := compile_path_pattern(param_path)
+	re, err := compilePathPattern(paramPath)
 	assert.NoError(t, err)
 	params := re.MatchString(path)
 	assert.False(t, params)
 }
 
-func Test_invalid_values(t *testing.T) {
+func TestInvalidValues(t *testing.T) {
 	reserved := []string{":", "?", "#", "[", "]", "{", "}"}
 	for _, r := range reserved {
-		assert_invalid_value(t, fmt.Sprintf("123%s", r))
+		assertInvalidValue(t, fmt.Sprintf("123%s", r))
 	}
 }

@@ -8,28 +8,28 @@ import (
 	"net/http"
 )
 
-const _GET_REST_API = "apisdev.getRest"
-const _GET_RPC_API = "apisdev.getRpc"
-const _LIST_API = "apisdev.list"
+const GET_REST_API = "apisdev.getRest"
+const GET_RPC_API = "apisdev.getRpc"
+const LIST_API = "apisdev.list"
 
-var DISCOVERY_API_CONFIG = &endpoints.ApiDescriptor{
+var DiscoveryApiConfig = &endpoints.ApiDescriptor{
 	Name:    "discovery",
 	Version: "v1",
 	Methods: map[string]*endpoints.ApiMethod{
 		"discovery.apis.getRest": &endpoints.ApiMethod{
 			Path:       "apis/{api}/{version}/rest",
 			HttpMethod: "GET",
-			RosyMethod: _GET_REST_API,
+			RosyMethod: GET_REST_API,
 		},
 		"discovery.apis.getRpc": &endpoints.ApiMethod{
 			Path:       "apis/{api}/{version}/rpc",
 			HttpMethod: "GET",
-			RosyMethod: _GET_RPC_API,
+			RosyMethod: GET_RPC_API,
 		},
 		"discovery.apis.list": &endpoints.ApiMethod{
 			Path:       "apis",
 			HttpMethod: "GET",
-			RosyMethod: _LIST_API,
+			RosyMethod: LIST_API,
 		},
 	},
 }
@@ -46,7 +46,7 @@ var DISCOVERY_API_CONFIG = &endpoints.ApiDescriptor{
 // discovery service to generate the discovery docs/directory from an .api
 // file/set of .api files.
 type DiscoveryService struct {
-	config_manager *ApiConfigManager
+	configManager *ApiConfigManager
 }
 
 func NewDiscoveryService(config_manager *ApiConfigManager) *DiscoveryService {
@@ -63,11 +63,10 @@ func NewDiscoveryService(config_manager *ApiConfigManager) *DiscoveryService {
 //
 // Returns:
 //   A string, the response body.
-func send_success_response(response string, w http.ResponseWriter) string {
+func sendSuccessResponse(response string, w http.ResponseWriter) string {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(response)))
 	fmt.Fprintf(w, response)
-	//	return send_response('200', headers, response, start_response)
 	return response
 }
 
@@ -83,22 +82,24 @@ func send_success_response(response string, w http.ResponseWriter) string {
 //
 // Returns:
 //   A string, the response body.
-func (ds *DiscoveryService) get_rpc_or_rest(api_format ApiFormat, request *ApiRequest, w http.ResponseWriter) string {
-	api, ok := request.body_json["api"]
-	version := request.body_json["version"]
-	lookup_key := lookupKey{api.(string), version.(string)}
-	api_config, ok := ds.config_manager.configs[lookup_key]
+func (ds *DiscoveryService) getRpcOrRest(apiFormat ApiFormat, request *ApiRequest, w http.ResponseWriter) string {
+	api, ok := request.BodyJson["api"]
+	version, _ := request.BodyJson["version"]
+	apiStr, _ := api.(string)
+	versionStr, _ := version.(string)
+	lookupKey := lookupKey{apiStr, versionStr}
+	apiConfig, ok := ds.configManager.configs[lookupKey]
 	if !ok {
 		log.Printf("No discovery doc for version %s of api %s", version, api)
-		return send_not_found_response(w, nil)
+		return sendNotFoundResponse(w, nil)
 	}
-	doc, err := generate_discovery_doc(api_config, api_format)
+	doc, err := generateDiscoveryDoc(apiConfig, apiFormat)
 	if err != nil {
-		error_msg := fmt.Sprintf(`Failed to convert .api to discovery doc for version "%s" of api "%s": %s`, version, api, err.Error())
-		log.Print(error_msg)
-		return send_error_response(error_msg, w, nil)
+		errorMsg := fmt.Sprintf(`Failed to convert .api to discovery doc for version "%s" of api "%s": %s`, version, api, err.Error())
+		log.Print(errorMsg)
+		return sendErrorResponse(errorMsg, w, nil)
 	}
-	return send_success_response(doc, w)
+	return sendSuccessResponse(doc, w)
 }
 
 // Sends HTTP response containing the API directory.
@@ -111,25 +112,25 @@ func (ds *DiscoveryService) get_rpc_or_rest(api_format ApiFormat, request *ApiRe
 // Returns:
 //   A string containing the response body.
 func (ds *DiscoveryService) list(w http.ResponseWriter) string {
-	api_configs := make([]string, 0)
-	for _, api_config := range ds.config_manager.configs {
-		if api_config != DISCOVERY_API_CONFIG {
-			ac, err := json.Marshal(api_config)
+	apiConfigs := make([]string, 0)
+	for _, apiConfig := range ds.configManager.configs {
+		if apiConfig != DiscoveryApiConfig {
+			ac, err := json.Marshal(apiConfig)
 			if err != nil {
-				log.Printf("Failed to marshal API config: %v", api_config)
-				return send_not_found_response(w, nil)
+				log.Printf("Failed to marshal API config: %v", apiConfig)
+				return sendNotFoundResponse(w, nil)
 			}
-			api_configs = append(api_configs, string(ac))
+			apiConfigs = append(apiConfigs, string(ac))
 		}
 	}
-	directory, err := generate_discovery_directory(api_configs)
+	directory, err := generateDiscoveryDirectory(apiConfigs)
 	if err != nil {
 		log.Printf("Failed to get API directory: %s", err.Error())
 		// By returning a 404, code explorer still works if you select the
 		// API in the URL
-		return send_not_found_response(w, nil)
+		return sendNotFoundResponse(w, nil)
 	}
-	return send_success_response(directory, w)
+	return sendSuccessResponse(directory, w)
 }
 
 // Returns the result of a discovery service request.
@@ -159,13 +160,13 @@ func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 //	}
 //	return handled
 //}
-func (ds *DiscoveryService) handle_discovery_request(path string, request *ApiRequest, w http.ResponseWriter) (string, bool) {
+func (ds *DiscoveryService) handleDiscoveryRequest(path string, request *ApiRequest, w http.ResponseWriter) (string, bool) {
 	switch path {
-	case _GET_REST_API:
-		return ds.get_rpc_or_rest(REST, request, w), true
-	case _GET_RPC_API:
-		return ds.get_rpc_or_rest(RPC, request, w), true
-	case _LIST_API:
+	case GET_REST_API:
+		return ds.getRpcOrRest(REST, request, w), true
+	case GET_RPC_API:
+		return ds.getRpcOrRest(RPC, request, w), true
+	case LIST_API:
 		return ds.list(w), true
 	}
 	return "", false

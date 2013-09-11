@@ -14,12 +14,12 @@ import (
 	"strings"
 )
 
-var (
-	API_SERVING_PATTERN = "_ah/api/.*" // Pattern for paths handled by this package.
+const DEFAULT_URL = "http://localhost:8080"
 
-	_SPI_ROOT_FORMAT = "/_ah/spi/%s"
-	//_SERVER_SOURCE_IP = "http://localhost:8080"//"0.2.0.3"
-	_API_EXPLORER_URL = "https://developers.google.com/apis-explorer/?base="
+var (
+	ApiServingPattern = "_ah/api/.*" // Pattern for paths handled by this package.
+	SpiRootFormat = "/_ah/spi/%s"
+	ApiExplorerUrl = "https://developers.google.com/apis-explorer/?base="
 )
 
 var DefaultServer *EndpointsServer = NewEndpointsServer()
@@ -35,11 +35,11 @@ type EndpointsServer struct {
 }
 
 func NewEndpointsServer() *EndpointsServer {
-	return NewEndpointsServerConfig(NewApiConfigManager(), "http://localhost:8080")
+	return NewEndpointsServerConfig(NewApiConfigManager(), DEFAULT_URL)
 }
 
-func NewEndpointsServerConfig(config_manager *ApiConfigManager, url string) *EndpointsServer {
-	return &EndpointsServer{config_manager, url}
+func NewEndpointsServerConfig(configManager *ApiConfigManager, url string) *EndpointsServer {
+	return &EndpointsServer{configManager, url}
 }
 
 func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
@@ -62,23 +62,23 @@ func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
-	api_config_response, err := ed.get_api_configs() // fixme: cache configs
+	apiConfigResponse, err := ed.getApiConfigs()
 	if err != nil {
-		ed.fail_request(w, ar.Request, "BackendService.getApiConfigs error: "+err.Error())
+		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs error: "+err.Error())
 		return
 	}
-	err = ed.handle_get_api_configs_response(api_config_response)
+	err = ed.handleApiConfigResponse(apiConfigResponse)
 	if err != nil {
-		ed.fail_request(w, ar.Request, "BackendService.getApiConfigs handling error: "+err.Error())
+		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs handling error: "+err.Error())
 		return
 	}
 
 	// Call the service.
-	_, err = ed.call_spi(w, ar)
+	_, err = ed.callSpi(w, ar)
 	if err != nil {
-		req_err, ok := err.(RequestError)
+		reqErr, ok := err.(RequestError)
 		if ok {
-			ed.handle_request_error(w, ar, req_err)
+			ed.handleRequestError(w, ar, reqErr)
 			return
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -98,9 +98,9 @@ func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Returns:
 // A string containing the response body (which is empty, in this case).
 func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
-	base_url := fmt.Sprintf("http://%s/_ah/api", r.URL.Host)
-	redirect_url := _API_EXPLORER_URL + base_url
-	send_redirect_response(redirect_url, w, r, nil)
+	baseUrl := fmt.Sprintf("http://%s/_ah/api", r.URL.Host)
+	redirectUrl := ApiExplorerUrl + base_url
+	sendRedirectResponse(redirectUrl, w, r, nil)
 }
 
 // Handler for requests to _ah/api/static/.*.
@@ -119,7 +119,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	response, body, err := get_static_file(request.relative_url)
+	response, body, err := getStaticFile(request.RelativeUrl)
 	//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
@@ -131,9 +131,8 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 		fmt.Fprintf(w, body)
 	} else {
 		log.Printf("Discovery API proxy failed on %s with %d. Details: %s",
-			request.relative_url, response.StatusCode, body)
+			request.RelativeUrl, response.StatusCode, body)
 		http.Error(w, body, response.StatusCode)
-		//return send_response(status_string, response.getheaders(), body, start_response)
 	}
 }
 
@@ -142,7 +141,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 // Returns:
 // A ResponseTuple containing the response information from the HTTP
 // request.
-func (ed *EndpointsServer) get_api_configs() (*http.Response, error) {
+func (ed *EndpointsServer) getApiConfigs() (*http.Response, error) {
 	req, err := http.NewRequest("POST",
 		ed.URL+"/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
@@ -169,22 +168,21 @@ func (ed *EndpointsServer) get_api_configs() (*http.Response, error) {
 //
 // Returns:
 // True if both status_code and content_type match, else False.
-func verify_response(response *http.Response, status_code int, content_type string) error {
-	//	status = int(response.StatusCode.split(" ", 1)[0])
-	if response.StatusCode != status_code {
-		return fmt.Errorf("HTTP status code does not match the response status code: %d != %d", status_code, response.StatusCode)
+func verifyResponse(response *http.Response, statusCode int, contentType string) error {
+	if response.StatusCode != statusCode {
+		return fmt.Errorf("HTTP status code does not match the response status code: %d != %d", statusCode, response.StatusCode)
 	}
-	if len(content_type) == 0 {
+	if len(contentType) == 0 {
 		return nil
 	}
 	ct := response.Header.Get("Content-Type")
 	if len(ct) == 0 {
 		return errors.New("Response does not specify a Content-Type")
 	}
-	if ct == content_type {
+	if ct == contentType {
 		return nil
 	}
-	return fmt.Errorf("Incorrect response Content-Type: %s != %s", ct, content_type)
+	return fmt.Errorf("Incorrect response Content-Type: %s != %s", ct, contentType)
 }
 
 // Parses the result of GetApiConfigs and stores its information.
@@ -194,15 +192,15 @@ func verify_response(response *http.Response, status_code int, content_type stri
 //
 // Returns:
 //   True on success, False on failure
-func (ed *EndpointsServer) handle_get_api_configs_response(api_config_response *http.Response) error {
-	err := verify_response(api_config_response, 200, "application/json")
+func (ed *EndpointsServer) handleApiConfigResponse(apiConfigResponse *http.Response) error {
+	err := verifyResponse(apiConfigResponse, 200, "application/json")
 	if err == nil {
-		body, err := ioutil.ReadAll(api_config_response.Body)
-		defer api_config_response.Body.Close()
+		body, err := ioutil.ReadAll(apiConfigResponse.Body)
+		defer apiConfigResponse.Body.Close()
 		if err != nil {
 			return err
 		}
-		err = ed.config_manager.parse_api_config_response(string(body))
+		err = ed.configManager.parseApiConfigResponse(string(body))
 		if err != nil {
 			return err
 		}
@@ -221,49 +219,49 @@ func (ed *EndpointsServer) handle_get_api_configs_response(api_config_response *
 //
 // Returns:
 // A string containing the response body.
-func (ed *EndpointsServer) call_spi(w http.ResponseWriter, orig_request *ApiRequest) (string, error) {
-	var method_config *endpoints.ApiMethod
+func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiRequest) (string, error) {
+	var methodConfig *endpoints.ApiMethod
 	var params map[string]string
-	if orig_request.is_rpc() {
-		method_config = ed.lookup_rpc_method(orig_request)
+	if origRequest.IsRpc() {
+		methodConfig = ed.lookupRpcMethod(origRequest)
 		params = nil
 	} else {
-		method_config, params = ed.lookup_rest_method(orig_request)
+		methodConfig, params = ed.lookupRestMethod(origRequest)
 	}
-	if method_config == nil {
-		cors_handler := newCheckCorsHeaders(orig_request.Request)
-		return send_not_found_response(w, cors_handler), nil
+	if methodConfig == nil {
+		corsHandler := newCheckCorsHeaders(origRequest.Request)
+		return sendNotFoundResponse(w, corsHandler), nil
 	}
 
 	// Prepare the request for the back end.
-	spi_request, err := ed.transform_request(orig_request, params, method_config)
+	spiRequest, err := ed.transformRequest(origRequest, params, methodConfig)
 	if err != nil {
 		return err.Error(), err
 	}
 
 	// Check if this SPI call is for the Discovery service. If so, route
 	// it to our Discovery handler.
-	discovery := NewDiscoveryService(ed.config_manager)
-	discovery_response, ok := discovery.handle_discovery_request(spi_request.URL.Path,
-		spi_request, w)
+	discovery := NewDiscoveryService(ed.configManager)
+	discoveryResponse, ok := discovery.handleDiscoveryRequest(spiRequest.URL.Path,
+		spiRequest, w)
 	if ok {
-		return discovery_response, nil
+		return discoveryResponse, nil
 	}
 
 	// Send the request to the user's SPI handlers.
-	url := fmt.Sprintf(_SPI_ROOT_FORMAT, spi_request.URL.Path)
-	req, err := http.NewRequest("POST", url, spi_request.Body)
+	url := fmt.Sprintf(SpiRootFormat, spiRequest.URL.Path)
+	req, err := http.NewRequest("POST", url, spiRequest.Body)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.RemoteAddr = spi_request.RemoteAddr
+	req.RemoteAddr = spiRequest.RemoteAddr
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
-	return ed.handle_spi_response(orig_request, spi_request, resp, w)
+	return ed.handleSpiResponse(origRequest, spiRequest, resp, w)
 }
 
 // Handle SPI response, transforming output as needed.
@@ -279,8 +277,8 @@ func (ed *EndpointsServer) call_spi(w http.ResponseWriter, orig_request *ApiRequ
 //
 // Returns:
 // A string containing the response body.
-func (ed *EndpointsServer) handle_spi_response(orig_request, spi_request *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
-	resp_body, err := ioutil.ReadAll(response.Body)
+func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+	respBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", err
 	}
@@ -290,36 +288,36 @@ func (ed *EndpointsServer) handle_spi_response(orig_request, spi_request *ApiReq
 	// error message and wrap it in a json error response.
 	for header, value := range response.Header {
 		if header == "Content-Type" && !strings.HasPrefix(value[0], "application/json") {
-			return ed.fail_request(w, orig_request.Request, fmt.Sprintf("Non-JSON reply: %s", resp_body)), nil
+			return ed.failRequest(w, origRequest.Request,
+				fmt.Sprintf("Non-JSON reply: %s", respBody)), nil
 		}
 	}
 
-	err = ed.check_error_response(response)
+	err = ed.checkErrorResponse(response)
 	if err != nil {
 		return "", err
 	}
 
-	// Need to check is_rpc() against the original request, because the
+	// Need to check IsRpc() against the original request, because the
 	// incoming request here has had its path modified.
 	var body string
-	if orig_request.is_rpc() {
-		body, err = ed.transform_jsonrpc_response(spi_request, string(resp_body))
+	if origRequest.IsRpc() {
+		body, err = ed.transformJsonrpcResponse(spiRequest, string(respBody))
 	} else {
-		body, err = ed.transform_rest_response(string(resp_body))
+		body, err = ed.transformRestResponse(string(respBody))
 	}
 	if err != nil {
 		return body, err
 	}
 
-	cors_handler := newCheckCorsHeaders(orig_request.Request)
-	cors_handler.UpdateHeaders(w.Header())
+	corsHandler := newCheckCorsHeaders(origRequest.Request)
+	corsHandler.UpdateHeaders(w.Header())
 	for k, vals := range response.Header {
 		w.Header()[k] = vals
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
 	w.WriteHeader(response.StatusCode)
 	fmt.Fprint(w, body)
-	//return send_response(response.status, response.headers, body, w, /*cors_handler=*/cors_handler)
 	return body, nil
 }
 
@@ -334,9 +332,9 @@ func (ed *EndpointsServer) handle_spi_response(orig_request, spi_request *ApiReq
 //
 // Returns:
 // A string containing the body of the error response.
-func (ed *EndpointsServer) fail_request(w http.ResponseWriter, orig_request *http.Request, message string) string {
-	cors_handler := newCheckCorsHeaders(orig_request)
-	return send_error_response(message, w, cors_handler)
+func (ed *EndpointsServer) failRequest(w http.ResponseWriter, origRequest *http.Request, message string) string {
+	corsHandler := newCheckCorsHeaders(origRequest)
+	return sendErrorResponse(message, w, corsHandler)
 }
 
 // Looks up and returns rest method for the currently-pending request.
@@ -347,9 +345,9 @@ func (ed *EndpointsServer) fail_request(w http.ResponseWriter, orig_request *htt
 // Returns:
 // A tuple of (method descriptor, parameters), or (None, None) if no method
 // was found for the current request.
-func (ed *EndpointsServer) lookup_rest_method(orig_request *ApiRequest) (*endpoints.ApiMethod, map[string]string) {
-	method_name, method, params := ed.config_manager.lookup_rest_method(orig_request.URL.Path, orig_request.Method)
-	orig_request.Method = method_name
+func (ed *EndpointsServer) lookupRestMethod(origRequest *ApiRequest) (*endpoints.ApiMethod, map[string]string) {
+	methodName, method, params := ed.configManager.lookupRestMethod(origRequest.URL.Path, origRequest.Method)
+	origRequest.Method = methodName
 	return method, params
 }
 
@@ -361,22 +359,22 @@ func (ed *EndpointsServer) lookup_rest_method(orig_request *ApiRequest) (*endpoi
 // Returns:
 // The RPC method descriptor that was found for the current request, or None
 // if none was found.
-func (ed *EndpointsServer) lookup_rpc_method(orig_request *ApiRequest) *endpoints.ApiMethod {
-	if orig_request.body_json == nil {
+func (ed *EndpointsServer) lookupRpcMethod(origRequest *ApiRequest) *endpoints.ApiMethod {
+	if origRequest.BodyJson == nil {
 		return nil
 	}
-	_method_name, ok := orig_request.body_json["method"]
-	method_name, ok2 := _method_name.(string)
+	methodName, ok := orig_request.body_json["method"]
+	methodNameStr, ok2 := methodName.(string)
 	if !ok || !ok2 {
-		method_name = ""
+		methodNameStr = ""
 	}
-	_version, ok := orig_request.body_json["apiVersion"]
-	version, ok3 := _version.(string)
+	version, ok := origRequest.BodyJson["apiVersion"]
+	versionStr, ok3 := version.(string)
 	if !ok || !ok3 {
-		version = ""
+		versionStr = ""
 	}
-	orig_request.Method = method_name
-	return ed.config_manager.lookup_rpc_method(method_name, version)
+	origRequest.Method = methodName
+	return ed.configManager.lookupRpcMethod(methodName, version)
 }
 
 // Transforms orig_request to apiserving request.
@@ -395,19 +393,19 @@ func (ed *EndpointsServer) lookup_rpc_method(orig_request *ApiRequest) *endpoint
 // An ApiRequest that"s a copy of the current request, modified so it can
 // be sent to the SPI.  The path is updated and parts of the body or other
 // properties may also be changed.
-func (ed *EndpointsServer) transform_request(orig_request *ApiRequest, params map[string]string, method_config *endpoints.ApiMethod) (*ApiRequest, error) {
+func (ed *EndpointsServer) transformRequest(origRequest *ApiRequest, params map[string]string, methodConfig *endpoints.ApiMethod) (*ApiRequest, error) {
 	var request *ApiRequest
 	var err error
-	if orig_request.is_rpc() {
-		request, err = ed.transform_jsonrpc_request(orig_request)
+	if origRequest.IsRpc() {
+		request, err = ed.transformJsonrpcRequest(origRequest)
 	} else {
-		method_params := method_config.Request.Params
-		request, err = ed.transform_rest_request(orig_request, params, method_params)
+		methodParams := methodConfig.Request.Params
+		request, err = ed.transformRestRequest(origRequest, params, methodParams)
 	}
 	if err != nil {
 		return request, err
 	}
-	request.URL.Path = method_config.RosyMethod
+	request.URL.Path = methodConfig.RosyMethod
 	return request, nil
 }
 
@@ -429,34 +427,34 @@ func (ed *EndpointsServer) transform_request(orig_request *ApiRequest, params ma
 // Raises:
 // EnumRejectionError: If the given value is not among the accepted
 // enum values in the field parameter.
-func (ed *EndpointsServer) check_enum(parameter_name string, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
-	if field_parameter == nil || field_parameter.Enum == nil || len(field_parameter.Enum) == 0 {
+func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+	if fieldParameter == nil || fieldParameter.Enum == nil || len(fieldParameter.Enum) == 0 {
 		return nil
 	}
 
-	enum_values := make([]string, 0)
-	for _, enum := range field_parameter.Enum {
+	enumValues := make([]string, 0)
+	for _, enum := range fieldParameter.Enum {
 		if enum.BackendVal != "" {
-			enum_values = append(enum_values, enum.BackendVal)
+			enumValues = append(enumValues, enum.BackendVal)
 		}
 	}
 
-	for _, ev := range enum_values {
+	for _, ev := range enumValues {
 		if value == ev {
 			return nil
 		}
 	}
-	return NewEnumRejectionError(parameter_name, value, enum_values)
+	return NewEnumRejectionError(parameterName, value, enumValues)
 }
 
 // Recursively calls check_parameter on the values in the list.
 //
 // "[index-of-value]" is appended to the parameter name for
 // error reporting purposes.
-func (ed *EndpointsServer) check_parameters(parameter_name string, values []string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+func (ed *EndpointsServer) checkParameters(parameterName string, values []string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	for index, element := range values {
-		parameter_name_index := fmt.Sprintf("%s[%d]", parameter_name, index)
-		err := ed.check_parameter(parameter_name_index, element, field_parameter)
+		parameterName_index := fmt.Sprintf("%s[%d]", parameterName, index)
+		err := ed.checkParameter(parameterNameIndex, element, fieldParameter)
 		if err != nil {
 			return err
 		}
@@ -477,8 +475,8 @@ func (ed *EndpointsServer) check_parameters(parameter_name string, values []stri
 //   field_parameter: The dictionary containing information specific to the
 //     field in question. This is retrieved from request.parameters in the
 //     method config.
-func (ed *EndpointsServer) check_parameter(parameter_name, value string, field_parameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
-	return ed.check_enum(parameter_name, value, field_parameter)
+func (ed *EndpointsServer) checkParameter(parameterName, value string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+	return ed.checkEnum(parameterName, value, fieldParameter)
 }
 
 // Converts a . delimitied field name to a message field in parameters.
@@ -497,28 +495,28 @@ func (ed *EndpointsServer) check_parameter(parameter_name, value string, field_p
 // value: The value to be set.
 // params: The dictionary holding all the parameters, where the value is
 // eventually set.
-func (ed *EndpointsServer) add_message_field(field_name string, value interface{}, params map[string]interface{}) {
-	pos := strings.Index(field_name, ".")
+func (ed *EndpointsServer) addMessageField(fieldName string, value interface{}, params map[string]interface{}) {
+	pos := strings.Index(fieldName, ".")
 	if pos == -1 {
-		params[field_name] = value
+		params[fieldName] = value
 		return
 	}
 
-	substr := strings.SplitN(field_name, ".", 2)
+	substr := strings.SplitN(fieldName, ".", 2)
 	root, remaining := substr[0], substr[1]
 
-	var sub_params map[string]interface{}
-	_sub_params, ok := params[root]
+	var subParams map[string]interface{}
+	_subParams, ok := params[root]
 	if ok {
-		sub_params, ok = _sub_params.(map[string]interface{})
+		subParams, ok = _subParams.(map[string]interface{})
 		if !ok {
-			log.Printf("Problem accessing sub-params: %#v", _sub_params)
+			log.Printf("Problem accessing sub-params: %#v", _subParams)
 		}
 	} else {
-		sub_params = make(map[string]interface{})
-		params[root] = sub_params
+		subParams = make(map[string]interface{})
+		params[root] = subParams
 	}
-	ed.add_message_field(remaining, value, sub_params)
+	ed.addMessageField(remaining, value, subParams)
 }
 
 // Updates the dictionary for an API payload with the request body.
@@ -531,14 +529,14 @@ func (ed *EndpointsServer) add_message_field(field_name string, value interface{
 //   destination: A dictionary containing an API payload parsed from the
 //     path and query parameters in a request.
 //   source: A dictionary parsed from the body of the request.
-func (ed *EndpointsServer) update_from_body(destination map[string]interface{}, source map[string]interface{}) {
+func (ed *EndpointsServer) updateFromBody(destination map[string]interface{}, source map[string]interface{}) {
 	for key, value := range source {
-		destination_value, ok := destination[key]
+		destinationValue, ok := destination[key]
 		if ok {
-			val, ok_val := value.(map[string]interface{})
-			dest_value, ok_dest := destination_value.(map[string]interface{})
-			if ok_val && ok_dest {
-				ed.update_from_body(dest_value, val)
+			val, okVal := value.(map[string]interface{})
+			destValue, okDest := destinationValue.(map[string]interface{})
+			if okVal && okDest {
+				ed.updateFromBody(destValue, val)
 			} else {
 				destination[key] = value
 			}
@@ -586,36 +584,35 @@ func (ed *EndpointsServer) update_from_body(destination map[string]interface{}, 
 // Returns:
 //   A copy of the current request that's been modified so it can be sent
 //   to the SPI.  The body is updated to include parameters from the URL.
-func (ed *EndpointsServer) transform_rest_request(orig_request *ApiRequest,
-	params map[string]string,
-	method_parameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
-
-	request, err := orig_request.copy()
+func (ed *EndpointsServer) transformRestRequest(origRequest *ApiRequest,
+		params map[string]string,
+		methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
+	request, err := origRequest.Copy()
 	if err != nil {
 		return request, err
 	}
-	body_json := make(map[string]interface{})
+	bodyJson := make(map[string]interface{})
 
 	// Handle parameters from the URL path.
 	for key, value := range params {
 		// Values need to be in a list to interact with query parameter values
 		// and to account for case of repeated parameters
-		body_json[key] = []string{value}
+		bodyJson[key] = []string{value}
 	}
 
 	// Add in parameters from the query string.
 	if len(request.URL.RawQuery) > 0 {
 		// For repeated elements, query and path work together
 		for key, value := range request.URL.Query() {
-			if json_val, ok := body_json[key]; ok {
-				json_arr, ok := json_val.([]string)
+			if jsonVal, ok := bodyJson[key]; ok {
+				jsonArr, ok := jsonVal.([]string)
 				if ok {
-					body_json[key] = append(value, json_arr...)
+					bodyJson[key] = append(value, jsonArr...)
 				} else {
 					panic(fmt.Sprintf("String array expected: %#v", json_val))
 				}
 			} else {
-				body_json[key] = value
+				bodyJson[key] = value
 			}
 		}
 	}
@@ -624,21 +621,21 @@ func (ed *EndpointsServer) transform_rest_request(orig_request *ApiRequest,
 	// parameters to nested parameters.  We don't use iteritems since we may
 	// modify body_json within the loop.  For instance, "a.b" is not a valid key
 	// and would be replaced with "a".
-	for key, _ := range body_json {
-		current_parameter, ok := method_parameters[key]
+	for key, _ := range bodyJson {
+		currentParameter, ok := methodParameters[key]
 		repeated := false
 		if ok {
-			repeated = current_parameter.Repeated
+			repeated = currentParameter.Repeated
 		}
 
 		if !repeated {
-			val := body_json[key]
-			val_arr, ok := val.([]string)
+			val := bodyJson[key]
+			valArr, ok := val.([]string)
 			if ok {
-				if len(val_arr) > 0 {
-					body_json[key] = val_arr[0]
+				if len(valArr) > 0 {
+					bodyJson[key] = valArr[0]
 				} else {
-					body_json[key] = "" //delete?
+					bodyJson[key] = "" //delete?
 				}
 			} else {
 				panic(fmt.Sprintf("String array expected: %#v", val))
@@ -650,39 +647,39 @@ func (ed *EndpointsServer) transform_rest_request(orig_request *ApiRequest,
 		// we need to call _check_parameter on them before calling
 		// _add_message_field.
 
-		value := body_json[key]
-		val_str, ok := value.(string)
+		value := bodyJson[key]
+		valStr, ok := value.(string)
 		var enumErr *EnumRejectionError = nil
 		if ok {
-			enumErr = ed.check_parameter(key, val_str, current_parameter)
-		} else if val_str_arr, ok := value.([]string); ok {
-			enumErr = ed.check_parameters(key, val_str_arr, current_parameter)
+			enumErr = ed.checkParameter(key, valStr, currentParameter)
+		} else if valStrArr, ok := value.([]string); ok {
+			enumErr = ed.checkParameters(key, valStrArr, currentParameter)
 		} else {
 			panic(fmt.Sprintf("Param value not a string or string array: %v",
 				value))
 		}
 		if enumErr == nil {
 			// Remove the old key and try to convert to nested message value
-			delete(body_json, key)
-			ed.add_message_field(key, value, body_json)
+			delete(bodyJson, key)
+			ed.addMessageField(key, value, bodyJson)
 		} else {
 			return request, enumErr
 		}
 	}
 
 	// Add in values from the body of the request.
-	if request.body_json != nil {
-		ed.update_from_body(body_json, request.body_json)
+	if request.bodyJson != nil {
+		ed.updateFromBody(bodyJson, request.BodyJson)
 	}
 
-	//	request.body_json = body_json
-	body, err := json.Marshal(body_json)
+	// request.body_json = body_json
+	body, err := json.Marshal(bodyJson)
 	if err == nil {
 		request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 	} else {
 		return request, err
 	}
-	json.Unmarshal(body, &request.body_json) // map[string]interface{}, no string or []string
+	json.Unmarshal(body, &request.BodyJson) // map[string]interface{}, no string or []string
 	return request, nil
 }
 
@@ -693,47 +690,47 @@ func (ed *EndpointsServer) transform_rest_request(orig_request *ApiRequest,
 //
 // Returns:
 //   A new request with the request_id updated and params moved to the body.
-func (ed *EndpointsServer) transform_jsonrpc_request(orig_request *ApiRequest) (*ApiRequest, error) {
-	request, err := orig_request.copy()
+func (ed *EndpointsServer) transformJsonrpcRequest(origRequest *ApiRequest) (*ApiRequest, error) {
+	request, err := origRequest.Copy()
 	if err != nil {
 		return request, err
 	}
 
-	request_id, ok_id := request.body_json["id"]
-	if ok_id {
-		request_id_str, ok := request_id.(string)
+	requestId, okId := request.bodyJson["id"]
+	if okId {
+		requestIdStr, ok := requestId.(string)
 		if ok {
-			request.request_id = request_id_str
+			request.RequestId = requestIdStr
 		} else {
-			request_id_int, ok := request_id.(int)
+			requestIdInt, ok := requestId.(int)
 			if ok {
-				request.request_id = fmt.Sprintf("%d", request_id_int)
+				request.RequestId = fmt.Sprintf("%d", requestIdInt)
 			} else {
-				return nil, fmt.Errorf("Problem extracting request ID: %#v", request_id)
+				return nil, fmt.Errorf("Problem extracting request ID: %#v", requestId)
 			}
 		}
 	} else {
-		request.request_id = ""
+		request.RequestId = ""
 	}
 
-	body_json, ok_param := request.body_json["params"]
-	if ok_param {
-		body_json_obj, ok := body_json.(map[string]interface{})
+	bodyJson, okParam := request.BodyJson["params"]
+	if okParam {
+		bodyJsonObj, ok := bodyJson.(map[string]interface{})
 		if ok {
-			request.body_json = body_json_obj
+			request.BodyJson = bodyJsonObj
 		} else {
-			body_json_map, ok := body_json.(map[string]interface{})
+			bodyJsonMap, ok := bodyJson.(map[string]interface{})
 			if ok {
-				request.body_json = body_json_map
+				request.BodyJson = bodyJsonMap
 			} else {
-				return nil, fmt.Errorf("Problem extracting JSON body from params: %#v", body_json)
+				return nil, fmt.Errorf("Problem extracting JSON body from params: %#v", bodyJson)
 			}
 		}
 	} else {
-		request.body_json = make(map[string]interface{})
+		request.BodyJson = make(map[string]interface{})
 	}
 
-	body, err := json.Marshal(request.body_json)
+	body, err := json.Marshal(request.BodyJson)
 	if err != nil {
 		return request, fmt.Errorf("Problem transforming RPC request: %s", err.Error())
 	}
@@ -748,7 +745,7 @@ func (ed *EndpointsServer) transform_jsonrpc_request(orig_request *ApiRequest) (
 //
 // Returns:
 //   BackendError if the response is an error.
-func (ed *EndpointsServer) check_error_response(response *http.Response) error {
+func (ed *EndpointsServer) checkErrorResponse(response *http.Response) error {
 	if response.StatusCode >= 300 {
 		return NewBackendError(response)
 	}
@@ -765,13 +762,13 @@ func (ed *EndpointsServer) check_error_response(response *http.Response) error {
 //
 // Returns:
 //   A reformatted version of the response JSON.
-func (ed *EndpointsServer) transform_rest_response(response_body string) (string, error) {
-	var body_json map[string]interface{}
-	err := json.Unmarshal([]byte(response_body), &body_json)
+func (ed *EndpointsServer) transformRestResponse(responseBody string) (string, error) {
+	var bodyJson map[string]interface{}
+	err := json.Unmarshal([]byte(responseBody), &bodyJson)
 	if err != nil {
-		return response_body, fmt.Errorf("Problem transforming REST response: %s", err.Error())
+		return responseBody, fmt.Errorf("Problem transforming REST response: %s", err.Error())
 	}
-	body, _ := json.MarshalIndent(body_json, "", "  ") // todo: sort keys
+	body, _ := json.MarshalIndent(bodyJson, "", "  ") // todo: sort keys
 	return string(body), nil
 }
 
@@ -785,14 +782,14 @@ func (ed *EndpointsServer) transform_rest_response(response_body string) (string
 //
 // Returns:
 //   A string with the updated, JsonRPC-formatted request body.
-func (ed *EndpointsServer) transform_jsonrpc_response(spi_request *ApiRequest, response_body string) (string, error) {
+func (ed *EndpointsServer) transformJsonrpcResponse(spiRequest *ApiRequest, responseBody string) (string, error) {
 	var result interface{}
-	err := json.Unmarshal([]byte(response_body), &result)
+	err := json.Unmarshal([]byte(responseBody), &result)
 	if err != nil {
-		return response_body, fmt.Errorf("Problem unmarshalling RPC response: %s", err.Error())
+		return responseBody, fmt.Errorf("Problem unmarshalling RPC response: %s", err.Error())
 	}
-	body_json := map[string]interface{}{"result": result}
-	return ed.finish_rpc_response(spi_request.request_id, spi_request.is_batch, body_json), nil
+	bodyJson := map[string]interface{}{"result": result}
+	return ed.finishRpcResponse(spiRequest.RequestId, spiRequest.IsBatch, bodyJson), nil
 }
 
 // Finish adding information to a JSON RPC response.
@@ -805,15 +802,15 @@ func (ed *EndpointsServer) transform_jsonrpc_response(spi_request *ApiRequest, r
 //
 // Returns:
 //   A string with the updated, JsonRPC-formatted request body.
-func (ed *EndpointsServer) finish_rpc_response(request_id string, is_batch bool, body_json map[string]interface{}) string {
-	if len(request_id) > 0 {
-		body_json["id"] = request_id
+func (ed *EndpointsServer) finishRpcResponse(requestId string, isBatch bool, bodyJson map[string]interface{}) string {
+	if len(requestId) > 0 {
+		bodyJson["id"] = requestId
 	}
 	var body []byte
-	if is_batch {
-		body, _ = json.MarshalIndent([]map[string]interface{}{body_json}, "", "  ")
+	if isBatch {
+		body, _ = json.MarshalIndent([]map[string]interface{}{bodyJson}, "", "  ")
 	} else {
-		body, _ = json.MarshalIndent(body_json, "", "  ") // todo: sort keys
+		body, _ = json.MarshalIndent(bodyJson, "", "  ") // todo: sort keys
 	}
 	return string(body)
 }
@@ -827,123 +824,31 @@ func (ed *EndpointsServer) finish_rpc_response(request_id string, is_batch bool,
 //
 // Returns:
 //   A string containing the response body.
-func (ed *EndpointsServer) handle_request_error(w http.ResponseWriter, orig_request *ApiRequest, err RequestError) string {
-	var status_code int
+func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest *ApiRequest, err RequestError) string {
+	var statusCode int
 	var body string
-	if orig_request.is_rpc() {
+	if origRequest.IsRpc() {
 		// JSON RPC errors are returned with status 200 OK and the
 		// error details in the body.
-		status_code = 200
-		id, ok := orig_request.body_json["id"].(string)
+		statusCode = 200
+		_id, _ := origRequest.BodyJson["id"]
+		id, ok := _id.(string)
 		if !ok {
 			// fixme: handle type assertion failure
 		}
-		body = ed.finish_rpc_response(id,
-			orig_request.is_batch, err.rpc_error())
+		body = ed.finishRpcResponse(id, origRequest.IsBatch, err.rpcError())
 	} else {
-		status_code = err.status_code()
-		body = err.rest_error()
+		status_code = err.statusCode()
+		body = err.restError()
 	}
 
-	//	response_status = fmt.Sprintf("%d %s", status_code,
-	//		http.StatusText(status_code)) // fixme: handle unknown status code "Unknown Error"
+	//response_status = fmt.Sprintf("%d %s", status_code,
+	//	http.StatusText(status_code)) // fixme: handle unknown status code "Unknown Error"
 
-	newCheckCorsHeaders(orig_request.Request).UpdateHeaders(w.Header())
-	//http.Error(w, body, status_code)
+	newCheckCorsHeaders(origRequest.Request).updateHeaders(w.Header())
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
 	w.WriteHeader(status_code)
 	fmt.Fprint(w, body)
-	//	return send_response(response_status, body, w, cors_handler)
 	return body
 }
-
-/* Utilities */
-
-func send_not_found_response(w http.ResponseWriter, cors_handler /*=None*/ CorsHandler) string {
-	if cors_handler != nil {
-		cors_handler.UpdateHeaders(w.Header())
-	}
-	body := "Not Found"
-	w.Header().Set("Content-Type", "text/plain")  // ; charset=utf-8
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
-	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprint(w, body)
-//	http.Error(w, body, http.StatusNotFound)
-	//return send_wsgi_response("404", h, , w, /*cors_handler=*/cors_handler)
-	return body
-}
-
-func send_error_response(message string, w http.ResponseWriter, cors_handler CorsHandler) string {
-	body_map := map[string]interface{}{
-		"error": map[string]interface{}{
-			"message": message,
-		},
-	}
-	body_bytes, _ := json.Marshal(body_map)
-	body := string(body_bytes)
-	//header := make(http.Header)
-	if cors_handler != nil {
-		cors_handler.UpdateHeaders(w.Header())
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
-	w.WriteHeader(http.StatusInternalServerError)
-	fmt.Fprint(w, body)
-	//return send_response("500", header, string(body), w, /*cors_handler=*/cors_handler)
-	return body
-}
-
-func send_rejected_response(rejection_error map[string]interface{}, w http.ResponseWriter, cors_handler /*=None*/ CorsHandler) string {
-	//body = rejection_error.to_json()
-	body_bytes, _ := json.Marshal(rejection_error)
-	body := string(body_bytes)
-	if cors_handler != nil {
-		cors_handler.UpdateHeaders(w.Header())
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
-	w.WriteHeader(http.StatusBadRequest)
-	fmt.Fprint(w, body)
-	//return send_response("400", header, body, w, /*cors_handler=*/cors_handler)
-	return body
-}
-
-func send_redirect_response(redirect_location string, w http.ResponseWriter, r *http.Request, cors_handler /*=None*/ CorsHandler) string {
-	//header := make(http.Header)
-	//header.Add("Location", redirect_location)
-	//return send_response("302", header, "", w, /*cors_handler=*/cors_handler)
-	if cors_handler != nil {
-		cors_handler.UpdateHeaders(w.Header())
-	}
-	http.Redirect(w, r, redirect_location, http.StatusFound)
-	return ""
-}
-
-// Dump reformatted response to CGI start_response.
-//
-// This calls start_response and returns the response body.
-//
-// Args:
-//   status: A string containing the HTTP status code to send.
-//   headers: A list of (header, value) tuples, the headers to send in the
-//     response.
-//   content: A string containing the body content to write.
-//   start_response:
-//   cors_handler: A handler to process CORS request headers and update the
-//     headers in the response.  Or this can be None, to bypass CORS checks.
-//
-// Returns:
-//   A string containing the response body.
-/*func send_response(status int, headers http.Header, content string, w http.ResponseWriter, cors_handler CorsHandler) *http.Response {
-	if cors_handler != nil {
-		cors_handler.UpdateHeaders(headers)
-	}
-
-	// Update content length.
-	content_len := len(content)
-	headers.append(("Content-Length", fmt.Sprintf("%d", content_len))
-
-	start_response(status, headers)
-	return content
-}*/

@@ -10,128 +10,92 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var api_config_map endpoints.ApiDescriptor
+var apiConfigMap endpoints.ApiDescriptor
 
 func init() {
-	json.Unmarshal([]byte(api_config_json), &api_config_map)
+	json.Unmarshal([]byte(apiConfigJson), &apiConfigMap)
 }
 
-//func prepare_discovery_request(status_code int, body string) *httptest.Server {
-//	/*self.mox.StubOutWithMock(httplib.HTTPSConnection, "request")
-//	self.mox.StubOutWithMock(httplib.HTTPSConnection, "getresponse")
-//	self.mox.StubOutWithMock(httplib.HTTPSConnection, "close")
-//
-//	httplib.HTTPSConnection.request(mox.IsA(basestring), mox.IsA(basestring),
-//		mox.IgnoreArg(), mox.IsA(dict))
-//	httplib.HTTPSConnection.getresponse().AndReturn(
-//		test_utils.MockConnectionResponse(status_code, body))
-//	httplib.HTTPSConnection.close()*/
-//
-//	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-//		if status_code != 200 {
-//			http.Error(w, "Error", status_code)
-//		} else {
-//			fmt.Fprintf(w, body)
-//		}
-//	}))
-//	return ts
-//}
-
-func Test_generate_discovery_doc_rest(t *testing.T) {
-	//discovery_api := &DiscoveryApiProxy{}
+func TestGenerateDiscoveryDocRest(t *testing.T) {
 	baseUrl := "https://tictactoe.appspot.com/_ah/api/tictactoe/v1/"
 
 	body := map[string]interface{}{"baseUrl": baseUrl}
-	body_json, _ := json.Marshal(body)
+	bodyJson, _ := json.Marshal(body)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, string(body_json))
+		fmt.Fprintf(w, string(bodyJson))
 	}))
-	//ts := prepare_discovery_request(200, body_json)
 	defer ts.Close()
-	_DISCOVERY_PROXY_HOST = ts.URL
+	DiscoveryProxyHost = ts.URL
 
-	//self.mox.ReplayAll()
-	doc, err := generate_discovery_doc(&api_config_map, "rest")
-	//self.mox.VerifyAll()
+	doc, err := generateDiscoveryDoc(&apiConfigMap, "rest")
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, doc)
 
-	var api_config map[string]interface{}
-	err = json.Unmarshal([]byte(doc), &api_config)
+	var apiConfig map[string]interface{}
+	err = json.Unmarshal([]byte(doc), &apiConfig)
 	assert.NoError(t, err)
-	assert.Equal(t, api_config["baseUrl"], baseUrl)
+	assert.Equal(t, apiConfig["baseUrl"], baseUrl)
 }
 
-func Test_generate_discovery_doc_rpc(t *testing.T) {
+func TestGenerateDiscoveryDocRpc(t *testing.T) {
 	rpcUrl := "https://tictactoe.appspot.com/_ah/api/rpc"
 	body := map[string]interface{}{"rpcUrl": rpcUrl}
-	body_json, _ := json.Marshal(body)
+	bodyJson, _ := json.Marshal(body)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, string(body_json))
+		fmt.Fprintf(w, string(bodyJson))
 	}))
-	//ts := prepare_discovery_request(200, body_json)
 	defer ts.Close()
-	_DISCOVERY_PROXY_HOST = ts.URL
+	DiscoveryProxyHost = ts.URL
 
-	//self.mox.ReplayAll()
-	doc, err := generate_discovery_doc(&api_config_map, "rpc")
-	//self.mox.VerifyAll()
+	doc, err := generateDiscoveryDoc(&apiConfigMap, "rpc")
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, doc)
 
-	var api_config map[string]interface{}
-	err = json.Unmarshal([]byte(doc), &api_config)
+	var apiConfig map[string]interface{}
+	err = json.Unmarshal([]byte(doc), &apiConfig)
 	assert.NoError(t, err)
-	assert.Equal(t, api_config["rpcUrl"], rpcUrl)
+	assert.Equal(t, apiConfig["rpcUrl"], rpcUrl)
 }
 
-func Test_generate_discovery_doc_invalid_format(t *testing.T) {
+func TestGenerateDiscoveryDocInvalidFormat(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "Error", 400)
 	}))
 	defer ts.Close()
 
-	_DISCOVERY_PROXY_HOST = ts.URL
-	//_DISCOVERY_API_PATH_PREFIX = ""
+	DiscoveryProxyHost = ts.URL
 
-	_, err := generate_discovery_doc(&api_config_map, "blah")
+	_, err := generateDiscoveryDoc(&apiConfigMap, "blah")
 	assert.Error(t, err)
 }
 
-func Test_generate_discovery_doc_bad_api_config(t *testing.T) {
+func TestGenerateDiscoveryDocBadApiConfig(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "", 503)
 	}))
 	defer ts.Close()
-	_DISCOVERY_PROXY_HOST = ts.URL
+	DiscoveryProxyHost = ts.URL
 
-	bad := &endpoints.ApiDescriptor{
-		Name: "none",
-	}
-	//mox.ReplayAll()
-	doc, err := generate_discovery_doc(bad, "rpc")
-	//self.mox.VerifyAll()
+	bad := &endpoints.ApiDescriptor{Name: "none"}
+	doc, err := generateDiscoveryDoc(bad, "rpc")
 
 	assert.Error(t, err)
 	assert.Empty(t, doc, "")
 }
 
-func Test_get_static_file_existing(t *testing.T) {
+func TestGetStaticFileExisting(t *testing.T) {
 	body := "static file body"
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, body)
 	}))
-	//prepare_discovery_request(200, body)
 	defer ts.Close()
-	_STATIC_PROXY_HOST = ts.URL
+	StaticProxyHost = ts.URL
 
-	//mox.ReplayAll()
-	response, response_body, err := get_static_file("/_ah/api/static/proxy.html")
-	//self.mox.VerifyAll()
+	response, responseBody, err := getStaticFile("/_ah/api/static/proxy.html")
 
 	assert.NoError(t, err)
 	assert.Equal(t, response.StatusCode, 200)
-	assert.Equal(t, body, response_body)
+	assert.Equal(t, body, responseBody)
 }

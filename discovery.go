@@ -14,24 +14,16 @@ import (
 // The endpoint host we're using to proxy discovery and static requests.
 // Using separate constants to make it easier to change the discovery service.
 var (
-	_DISCOVERY_PROXY_HOST      = "https://webapis-discovery.appspot.com"
-	_STATIC_PROXY_HOST         = "https://webapis-discovery.appspot.com"
-	_DISCOVERY_API_PATH_PREFIX = "/_ah/api/discovery/v1/"
+	DiscoveryProxyHost = "https://webapis-discovery.appspot.com"
+	StaticProxyHost = "https://webapis-discovery.appspot.com"
+	DiscoveryApiPathPrefix = "/_ah/api/discovery/v1/"
 )
 
 type ApiFormat string
-
 const (
 	REST ApiFormat = "rest"
 	RPC  ApiFormat = "rpc"
 )
-
-// Proxies discovery service requests to a known cloud endpoint.
-/*type DiscoveryApiProxy struct {}
-
-func NewDiscoveryApiProxy() *DiscoveryApiProxy {
-	return &DiscoveryApiProxy{}
-}*/
 
 // Proxies GET request to discovery service API.
 //
@@ -41,11 +33,11 @@ func NewDiscoveryApiProxy() *DiscoveryApiProxy {
 //
 // Returns:
 // HTTP response body or None if it failed.
-func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (string, error) {
-	full_path := _DISCOVERY_PROXY_HOST+_DISCOVERY_API_PATH_PREFIX+path
+func dispatchDiscoveryRequest(path, body string) (string, error) {
+	fullPath := DiscoveryProxyHost+DiscoveryApiPathPrefix+path
 	client := &http.Client{}
 
-	req, err := http.NewRequest("POST", full_path, nil)
+	req, err := http.NewRequest("POST", fullPath, nil)
 	if err != nil {
 		return "", err
 	}
@@ -60,13 +52,13 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (
 	if err != nil {
 		return "", err
 	}
-	response_body := string(resp_body)
+	responseBody := string(respBody)
 
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("Discovery API proxy failed on %s with %d.\r\nRequest: %s\r\nResponse: %s",
-			full_path, resp.StatusCode, body, response_body)
+			fullPath, resp.StatusCode, body, responseBody)
 	}
-	return response_body, nil
+	return responseBody, nil
 }
 
 // Generates a discovery document from an API file.
@@ -81,19 +73,14 @@ func /*(dp *DiscoveryApiProxy)*/ dispatch_discovery_request(path, body string) (
 //
 // Raises:
 // ValueError: When api_format is invalid.
-func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config *endpoints.ApiDescriptor, api_format ApiFormat) (string, error) {
-	path := "apis/generate/" + string(api_format)
-	//var config interface{}
-	//err := json.Unmarshal([]byte(api_config), &config)
-	//if err != nil {
-	//	return "", err
-	//}
-	request_dict := map[string]interface{}{"config": api_config}
-	request_body, err := json.Marshal(request_dict)
+func generateDiscoveryDoc(apiConfig *endpoints.ApiDescriptor, apiFormat ApiFormat) (string, error) {
+	path := "apis/generate/" + string(apiFormat)
+	requestMap := map[string]interface{}{"config": apiConfig}
+	requestBody, err := json.Marshal(requestMap)
 	if err != nil {
 		return "", err
 	}
-	return dispatch_discovery_request(path, string(request_body))
+	return dispatchDiscoveryRequest(path, string(requestBody))
 }
 
 // Generates an API directory from a list of API files.
@@ -103,13 +90,13 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_doc(api_config *endpoints.Ap
 //
 // Returns:
 // The API directory as JSON string.
-func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []string) (string, error) {
-	request_dict := map[string]interface{}{"configs": api_configs}
-	request_body, err := json.Marshal(request_dict)
+func generateDiscoveryDirectory(apiConfigs []string) (string, error) {
+	requestMap := map[string]interface{}{"configs": apiConfigs}
+	requestBody, err := json.Marshal(requestMap)
 	if err != nil {
 		return "", err
 	}
-	return dispatch_discovery_request("apis/generate/directory", string(request_body))
+	return dispatchDiscoveryRequest("apis/generate/directory", string(requestBody))
 }
 
 // Returns static content via a GET request.
@@ -122,8 +109,8 @@ func /*(dp *DiscoveryApiProxy)*/ generate_discovery_directory(api_configs []stri
 // response: A HTTPResponse object with the response from the static
 // proxy host.
 // response_body: A string containing the response body.
-func /*(dp *DiscoveryApiProxy)*/ get_static_file(path string) (*http.Response, string, error) {
-	resp, err := http.Get(_STATIC_PROXY_HOST + path)
+func getStaticFile(path string) (*http.Response, string, error) {
+	resp, err := http.Get(StaticProxyHost+path)
 	if err != nil {
 		return nil, "", err
 	}

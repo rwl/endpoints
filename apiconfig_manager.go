@@ -9,48 +9,46 @@ import (
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
 	"log"
-	"reflect"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 )
 
-const _PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
+const PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
 
-var _PATH_VARIABLE_PATTERN = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
+var PathVariablePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
 
 // Manages loading api configs and method lookup.
 type ApiConfigManager struct {
-	rpc_method_dict map[lookupKey]*endpoints.ApiMethod
-	rest_methods    []*restMethod
+	rpcMethods map[lookupKey]*endpoints.ApiMethod
+	restMethods    []*restMethod
 	configs         map[lookupKey]*endpoints.ApiDescriptor
-	config_lock     sync.Mutex
+	configLock     sync.Mutex
 }
 
 func NewApiConfigManager() *ApiConfigManager {
 	return &ApiConfigManager{
-		rpc_method_dict: make(map[lookupKey]*endpoints.ApiMethod),
-		rest_methods:    make([]*restMethod, 0),
+		rpcMethods: make(map[lookupKey]*endpoints.ApiMethod),
+		restMethods:    make([]*restMethod, 0),
 		configs:         make(map[lookupKey]*endpoints.ApiDescriptor),
-		config_lock:     sync.Mutex{},
+		configLock:     sync.Mutex{},
 	}
 }
 
 type lookupKey struct {
-	method_name string
+	methodName string
 	version     string
 }
 
 type restMethod struct {
-	compiled_path_pattern *regexp.Regexp
+	compiledPathPattern *regexp.Regexp
 	path                  string
 	methods               map[string]*methodInfo
 }
 
 type methodInfo struct {
-	method_name string
-	api_method  *endpoints.ApiMethod
+	methodName string
+	ApiMethod  *endpoints.ApiMethod
 }
 
 // Switch the URLs in one API configuration to use HTTP instead of HTTPS.
@@ -64,7 +62,7 @@ type methodInfo struct {
 //
 // Args:
 //   config: A dict with the JSON configuration for an API.
-func convert_https_to_http(config *endpoints.ApiDescriptor) {
+func convertHttpsToHttp(config *endpoints.ApiDescriptor) {
 	if len(config.Adapter.Bns) > 0 {
 		bns := config.Adapter.Bns
 		if strings.HasPrefix(bns, "https://") {
@@ -76,15 +74,6 @@ func convert_https_to_http(config *endpoints.ApiDescriptor) {
 	}
 }
 
-/*func _convert_https_to_http(config map[string]interface{}) {
-	if "adapter" in config and "bns" in config["adapter"]:
-		bns_adapter = config["adapter"]["bns"]
-		if bns_adapter.startswith("https://"):
-			config["adapter"]["bns"] = bns_adapter.replace("https", "http", 1)
-	if "root" in config and config["root"].startswith("https://"):
-		config["root"] = config["root"].replace("https", "http", 1)
-}*/
-
 // Parses a json api config and registers methods for dispatch.
 //
 // Side effects:
@@ -93,144 +82,53 @@ func convert_https_to_http(config *endpoints.ApiDescriptor) {
 //
 // Args:
 //   body: A string, the JSON body of the getApiConfigs response.
-func (m *ApiConfigManager) parse_api_config_response(body string) error {
-	var response_obj map[string]interface{}
-	err := json.Unmarshal([]byte(body), &response_obj)
+func (m *ApiConfigManager) parseApiConfigResponse(body string) error {
+	var responseObj map[string]interface{}
+	err := json.Unmarshal([]byte(body), &responseObj)
 	if err != nil {
-		return fmt.Errorf("Cannot parse BackendService.getApiConfigs response: %s",
-			body)
+		return fmt.Errorf("Cannot parse BackendService.getApiConfigs response: %s", body)
 	}
 
-	m.config_lock.Lock()
-	defer m.config_lock.Unlock()
+	m.configLock.Lock()
+	defer m.configLock.Unlock()
 
-	m.add_discovery_config()
+	m.AddDiscoveryConfig()
 	items, ok := response_obj["items"]
 	if !ok {
 		return errors.New(`BackendService.getApiConfigs response missing "items" key.`)
 	}
-	item_array, ok := items.([]interface{})
+	itemArray, ok := items.([]interface{})
 	if !ok {
-		return fmt.Errorf(`Invalid type for "items" value in response: %v`, reflect.TypeOf(items))
+		return fmt.Errorf(`Invalid type for "items" value in response: %#v`, items)
 	}
 
-	for _, api_config_json := range item_array {
-		api_config_json_str, ok := api_config_json.(string)
+	for _, apiConfigJson := range itemArray {
+		apiConfigJsonStr, ok := apiConfigJson.(string)
 		if !ok {
-			return fmt.Errorf(`Invalid type for "items" value in response: %v`, reflect.TypeOf(api_config_json))
+			return fmt.Errorf(`Invalid type for "items" value in response: %#v`, apiConfigJson)
 		}
 		var config *endpoints.ApiDescriptor
-		err := json.Unmarshal([]byte(api_config_json_str), &config)
+		err := json.Unmarshal([]byte(apiConfigJsonStr), &config)
 		if err != nil {
-			log.Printf("Can not parse API config: %s", api_config_json_str)
+			log.Printf("Can not parse API config: %s", apiConfigJsonStr)
 		} else {
-			lookup_key := lookupKey{config.Name, config.Version}
-			convert_https_to_http(config)
-			m.configs[lookup_key] = config
+			lookupKey := lookupKey{config.Name, config.Version}
+			convertHttpsToHttp(config)
+			m.configs[lookupKey] = config
 		}
 	}
 
 	for _, config := range m.configs {
 		name := config.Name
 		version := config.Version
-		sorted_methods := get_sorted_methods(config.Methods)
+		sortedMethods := sortMethods(config.Methods)
 
-		for _, method_info := range sorted_methods {
-			m.save_rpc_method(method_info.method_name, version, method_info.api_method)
-			m.save_rest_method(method_info.method_name, name, version, method_info.api_method)
+		for _, methodInfo := range sortedMethods {
+			m.saveRpcMethod(methodInfo.methodName, version, methodInfo.apiMethod)
+			m.saveRestMethod(methodInfo.methodName, name, version, methodInfo.apiMethod)
 		}
 	}
 	return nil
-}
-
-// Get a copy of "methods" sorted the way they would be on the live server.
-//
-// Args:
-//   methods: JSON configuration of an API"s methods.
-//
-// Returns:
-//   The same configuration with the methods sorted based on what order
-//   they'll be checked by the server.
-func get_sorted_methods(methods map[string]*endpoints.ApiMethod) []*methodInfo {
-	if methods == nil {
-		return nil
-	}
-	sorted_methods := make([]*methodInfo, len(methods))
-	i := 0
-	for name, m := range methods {
-		sorted_methods[i] = &methodInfo{name, m}
-		i++
-	}
-	sort.Sort(ByPath(sorted_methods))
-	return sorted_methods
-}
-
-type ByPath []*methodInfo
-
-func (by ByPath) Len() int {
-	return len(by)
-}
-
-// Less returns whether the element with index i should sort
-// before the element with index j.
-func (by ByPath) Less(i, j int) bool {
-	method_info1 := by[i].api_method
-	method_info2 := by[j].api_method
-
-	path1 := method_info1.Path
-	path2 := method_info2.Path
-
-	path_score1 := score_path(path1)
-	path_score2 := score_path(path2)
-	//fmt.Printf("1: %s - %d\n", path1, path_score1)
-	//fmt.Printf("2: %s - %d\n", path2, path_score2)
-	if path_score1 != path_score2 {
-		// Higher path scores come first.
-		return path_score1 > path_score2
-	}
-
-	// Compare by path text next, sorted alphabetically.
-	if path1 != path2 {
-		return path1 < path2
-	}
-
-	// All else being equal, sort by HTTP method.
-	httpMethod1 := method_info1.HttpMethod
-	httpMethod2 := method_info2.HttpMethod
-	return httpMethod1 < httpMethod2
-}
-
-func (by ByPath) Swap(i, j int) {
-	by[i], by[j] = by[j], by[i]
-}
-
-// Calculate the score for this path, used for comparisons.
-//
-// Higher scores have priority, and if scores are equal, the path text
-// is sorted alphabetically.  Scores are based on the number and location
-// of the constant parts of the path.  The server has some special handling
-// for variables with regexes, which we don't handle here.
-//
-// Args:
-//   path: The request path that we"re calculating a score for.
-//
-// Returns:
-//   The score for the given path.
-func score_path(path string) int {
-	score := 0
-	parts := strings.Split(path, "/")
-	for _, part := range parts {
-		score <<= 1
-		if part == "" || !strings.HasPrefix(part, "{") {
-			// Found a constant.
-			score += 1
-		}
-	}
-	// Shift by 31 instead of 32 because some (!) versions of Python like
-	// to convert the int to a long if we shift by 32, and the sorted()
-	// function that uses this blows up if it receives anything but an int.
-	score <<= uint(31 - len(parts))
-	return score
 }
 
 // Gets path parameters from a regular expression match.
@@ -240,22 +138,22 @@ func score_path(path string) int {
 //
 // Returns:
 //   A dictionary containing the variable names converted from base64.
-func get_path_params(names []string, match []string) (map[string]string, error) {
+func pathParams(names []string, match []string) (map[string]string, error) {
 	result := make(map[string]string)
 	if len(names) != len(match) {
 		return result, fmt.Errorf("Length of names [%d] and matches [%d] not equal.",
 			len(names), len(match))
 	}
-	for i, var_name := range names {
-		if i == 0 || var_name == "" {
+	for i, varName := range names {
+		if i == 0 || varName == "" {
 			continue
 		}
 		value := match[i]
-		actual_var_name, err := from_safe_path_param_name(var_name)
+		actualVarName, err := fromSafePathParamName(var_name)
 		if err != nil {
 			return result, err
 		}
-		result[actual_var_name] = value
+		result[actualVarName] = value
 	}
 	return result, nil
 }
@@ -271,10 +169,10 @@ func get_path_params(names []string, match []string) (map[string]string, error) 
 //
 // Returns:
 //   Method descriptor as specified in the API configuration.
-func (m *ApiConfigManager) lookup_rpc_method(method_name, version string) *endpoints.ApiMethod {
-	m.config_lock.Lock()
-	defer m.config_lock.Unlock()
-	method, _ := m.rpc_method_dict[lookupKey{method_name, version}]
+func (m *ApiConfigManager) lookupRpcMethod(methodName, version string) *endpoints.ApiMethod {
+	m.configLock.Lock()
+	defer m.configLock.Unlock()
+	method, _ := m.rpcMethods[lookupKey{methodName, version}]
 	return method
 }
 
@@ -293,28 +191,27 @@ func (m *ApiConfigManager) lookup_rpc_method(method_name, version string) *endpo
 //     <method name> is the string name of the method that was matched.
 //     <method> is the descriptor as specified in the API configuration. -and-
 //     <params> is a dict of path parameters matched in the rest request.
-func (m *ApiConfigManager) lookup_rest_method(path, http_method string) (string, *endpoints.ApiMethod, map[string]string) {
-	m.config_lock.Lock()
-	defer m.config_lock.Unlock()
-	for _, rm := range m.rest_methods {
-		match := rm.compiled_path_pattern.MatchString(path)
+func (m *ApiConfigManager) lookupRestMethod(path, httpMethod string) (string, *endpoints.ApiMethod, map[string]string) {
+	m.configLock.Lock()
+	defer m.configLock.Unlock()
+	for _, rm := range m.restMethods {
+		match := rm.compiledPathPattern.MatchString(path)
 		if match {
-			params, err := get_path_params(
-				rm.compiled_path_pattern.SubexpNames(),
-				rm.compiled_path_pattern.FindStringSubmatch(path),
+			params, err := pathParams(
+				rm.compiledPathPattern.SubexpNames(),
+				rm.compiledPathPattern.FindStringSubmatch(path),
 			)
 			if err != nil {
 				log.Printf("Error extracting path [%s] parameters: %s",
 					path, err.Error())
 				continue
 			}
-			method_key := strings.ToLower(http_method)
-			method, ok := rm.methods[method_key]
+			methodKey := strings.ToLower(httpMethod)
+			method, ok := rm.methods[methodKey]
 			if ok {
-				//break
-				return method.method_name, method.api_method, params
+				return method.methodName, method.apiMethod, params
 			} else {
-				log.Printf("No %s method found for path: %s", http_method, path)
+				log.Printf("No %s method found for path: %s", httpMethod, path)
 			}
 		}
 	}
@@ -322,9 +219,9 @@ func (m *ApiConfigManager) lookup_rest_method(path, http_method string) (string,
 	return "", nil, nil
 }
 
-func (m *ApiConfigManager) add_discovery_config() {
-	lookup_key := lookupKey{DISCOVERY_API_CONFIG.Name, DISCOVERY_API_CONFIG.Version}
-	m.configs[lookup_key] = DISCOVERY_API_CONFIG
+func (m *ApiConfigManager) addDiscoveryConfig() {
+	lookupKey := lookupKey{DiscoveryApiConfig.Name, DiscoveryApiConfig.Version}
+	m.configs[lookupKey] = DiscoveryApiConfig
 }
 
 // Creates a safe string to be used as a regex group name.
@@ -342,8 +239,8 @@ func (m *ApiConfigManager) add_discovery_config() {
 //
 // Returns:
 //   A string that"s safe to be used as a regex group name.
-func to_safe_path_param_name(matched_parameter string) string {
-	safe := "_" + base32.StdEncoding.EncodeToString([]byte(matched_parameter))
+func toSafePathParamName(matchedParameter string) string {
+	safe := "_" + base32.StdEncoding.EncodeToString([]byte(matchedParameter))
 	return strings.TrimRight(safe, "=")
 }
 
@@ -359,18 +256,18 @@ func to_safe_path_param_name(matched_parameter string) string {
 //
 // Returns:
 //   A string, the parameter matched from the URL template.
-func from_safe_path_param_name(safe_parameter string) (string, error) {
-	if !strings.HasPrefix(safe_parameter, "_") {
-		return "", fmt.Errorf(`Safe parameter lacks "_" prefix: %s`, safe_parameter)
+func fromSafePathParamName(safeParameter string) (string, error) {
+	if !strings.HasPrefix(safeParameter, "_") {
+		return "", fmt.Errorf(`Safe parameter lacks "_" prefix: %s`, safeParameter)
 	}
-	safe_parameter_as_base32 := safe_parameter[1:]
+	safeParameterAsBase32 := safeParameter[1:]
 
-	padding_length := -len(safe_parameter_as_base32) % 8
-	if padding_length < 0 {
-		padding_length = padding_length + 8
+	paddingLength := -len(safeParameterAsBase32) % 8
+	if paddingLength < 0 {
+		paddingLength = paddingLength + 8
 	}
-	padding := strings.Repeat("=", padding_length)
-	data, err := base32.StdEncoding.DecodeString(safe_parameter_as_base32 + padding)
+	padding := strings.Repeat("=", paddingLength)
+	data, err := base32.StdEncoding.DecodeString(safeParameterAsBase32 + padding)
 	if err != nil {
 		return "", err
 	}
@@ -387,7 +284,7 @@ func from_safe_path_param_name(safe_parameter string) (string, error) {
 //
 // Returns:
 // A compiled regex object to match this path pattern.
-func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
+func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 
 	// Replaces a {variable} with a regex to match it by name.
 	//
@@ -403,43 +300,13 @@ func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
 	// Returns:
 	//   A string regex to match the variable by name, if the full pattern was
 	//   matched.
-	replace_variable := func(var_name string) string {
-		if var_name != "" {
-			safe_name := to_safe_path_param_name(var_name)
-			return fmt.Sprintf("(?P<%s>%s)", safe_name, _PATH_VALUE_PATTERN)
+	replaceVariable := func(varName string) string {
+		if varName != "" {
+			safeName := toSafePathParamName(varName)
+			return fmt.Sprintf("(?P<%s>%s)", safeName, PATH_VALUE_PATTERN)
 		}
 		return var_name
 	}
-	/*replace_variable := func(match []string) string {
-		if len(match) > 2 {
-			var_name := to_safe_path_param_name(match[2])
-			return fmt.Sprintf("%s(?P<%s>%s)", match[1], var_name,
-				_PATH_VALUE_PATTERN)
-		}
-		return match[0]
-	}
-
-	//p := fmt.Sprintf("(/|^){(%s)}(?=/|$)", _PATH_VARIABLE_PATTERN)
-	p := fmt.Sprintf("(/|^){(%s)}(/|$)", _PATH_VARIABLE_PATTERN)
-	re, err := regexp.Compile(p)
-	if err != nil {
-		return re, err
-	}
-
-	matches := re.FindAllStringSubmatch(pattern, -1)
-	indexes := re.FindAllStringSubmatchIndex(pattern, -1)
-
-	offset := 0
-	for i, match := range matches {
-		index := indexes[i]
-		replaced := replace_variable(match)
-		if index != nil && len(index) > 1 {
-			pattern = pattern[:offset+index[0]] + replaced + pattern[offset+index[1]:]
-			offset += len(replaced) - index[1] - index[0]
-		}
-	}*/
-
-	//pattern = re.ReplaceAllString(pattern, replace_variable)
 
 	idxs, err := braceIndices(ppp)
 	if err != nil {
@@ -447,13 +314,13 @@ func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
 	}
 	replacements := make([]string, len(idxs)/2)
 	for i := 0; i < len(idxs); i += 2 {
-		var_name := ppp[idxs[i]+1 : idxs[i+1]-1]
-		ok := _PATH_VARIABLE_PATTERN.MatchString(var_name)
+		varName := ppp[idxs[i]+1 : idxs[i+1]-1]
+		ok := PathVariablePattern.MatchString(var_name)
 		var replaced string
 		if !ok {
-			return nil, fmt.Errorf("Invalid variable name: %s", var_name)
+			return nil, fmt.Errorf("Invalid variable name: %s", varName)
 		}
-		replaced = replace_variable(var_name)
+		replaced = replaceVariable(varName)
 		replacements[i/2] = replaced
 	}
 
@@ -462,7 +329,7 @@ func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
 	for i := 0; i < len(idxs); i += 2 {
 		pattern.WriteString(ppp[start:idxs[i]])
 		pattern.WriteString(replacements[i/2])
-		start = idxs[i+1] // + 1
+		start = idxs[i+1]
 	}
 	pattern.WriteString(ppp[start:])
 
@@ -482,8 +349,8 @@ func compile_path_pattern(ppp string) (*regexp.Regexp, error) {
 //   version: A string containing the version of the API.
 //   method: A dict containing the method descriptor (as in the api config
 //     file).
-func (m *ApiConfigManager) save_rpc_method(method_name, version string, method *endpoints.ApiMethod) {
-	m.rpc_method_dict[lookupKey{method_name, version}] = method
+func (m *ApiConfigManager) saveRpcMethod(methodName, version string, method *endpoints.ApiMethod) {
+	m.rpcMethodDict[lookupKey{methodName, version}] = method
 }
 
 // Store Rest api methods in a list for lookup at call time.
@@ -518,30 +385,30 @@ func (m *ApiConfigManager) save_rpc_method(method_name, version string, method *
 //   version: A string containing the version of the API.
 //   method: A dict containing the method descriptor (as in the api config
 //     file).
-func (m *ApiConfigManager) save_rest_method(method_name, api_name, version string, method *endpoints.ApiMethod) {
-	var compiled_pattern *regexp.Regexp
+func (m *ApiConfigManager) saveRestMethod(methodName, apiName, version string, method *endpoints.ApiMethod) {
+	var compiledPattern *regexp.Regexp
 	var err error
-	path_pattern := api_name + "/" + version + "/" + method.Path
-	http_method := strings.ToLower(method.HttpMethod)
-	for _, rm := range m.rest_methods {
-		if rm.path == path_pattern {
-			rm.methods[http_method] = &methodInfo{method_name, method}
+	pathPattern := apiName + "/" + version + "/" + method.Path
+	httpMethod := strings.ToLower(method.HttpMethod)
+	for _, rm := range m.restMethods {
+		if rm.path == pathPattern {
+			rm.methods[httpMethod] = &methodInfo{methodName, method}
 			goto R
 		}
 	}
-	compiled_pattern, err = compile_path_pattern(path_pattern)
+	compiledPattern, err = compilePathPattern(pathPattern)
 	if err != nil {
 		log.Println(err.Error())
 		// fixme: handle error
 		return
 	}
-	log.Printf("Registering rest method: %s %s %s %s", api_name, version, method_name, path_pattern)
-	m.rest_methods = append(m.rest_methods,
+	log.Printf("Registering rest method: %s %s %s %s", apiName, version, methodName, pathPattern)
+	m.restMethods = append(m.restMethods,
 		&restMethod{
-			compiled_pattern,
-			path_pattern,
+			compiledPattern,
+			pathPattern,
 			map[string]*methodInfo{
-				http_method: &methodInfo{method_name, method},
+				httpMethod: &methodInfo{methodName, method},
 			},
 		},
 	)
