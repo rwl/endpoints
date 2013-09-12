@@ -1,6 +1,6 @@
 package endpoint
 
-const api_config_json = `
+const apiConfigJson = `
 {
   "extends" : "thirdParty.api",
   "abstract" : false,

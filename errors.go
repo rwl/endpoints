@@ -9,9 +9,9 @@ import (
 )
 
 type RequestError interface {
-	status_code() int
-	rpc_error() map[string]interface{}
-	rest_error() string
+	StatusCode() int
+	RpcError() map[string]interface{}
+	RestError() string
 }
 
 // Base type for errors that happen while processing a request.
@@ -31,7 +31,7 @@ type BaseRequestError struct {
 	ExtraFields map[string]interface{} // Some errors have additional information. This provides a way for subclasses to provide that information.
 }
 
-func (re *BaseRequestError) status_code() int {
+func (re *BaseRequestError) StatusCode() int {
 	return re.StatusCode
 }
 
@@ -40,7 +40,7 @@ func (re *BaseRequestError) Error() string {
 }
 
 // Format this error into a JSON response.
-func (err *BaseRequestError) format_error(error_list_tag string) map[string]interface{} {
+func (err *BaseRequestError) FormatError(errorListTag string) map[string]interface{} {
 	error := map[string]interface{}{
 		"domain":  err.Domain,
 		"reason":  err.Reason,
@@ -51,47 +51,47 @@ func (err *BaseRequestError) format_error(error_list_tag string) map[string]inte
 	}
 	return map[string]interface{}{
 		"error": map[string]interface{}{
-			error_list_tag: []map[string]interface{}{error},
-			"code":         err.StatusCode,
-			"message":      err.Message,
+			errorListTag: []map[string]interface{}{error},
+			"code":       err.StatusCode,
+			"message":    err.Message,
 		},
 	}
 }
 
 // Format this error into a response to a REST request.
-func (err *BaseRequestError) rest_error() string {
-	error_json := err.format_error("errors")
-	rest, _ := json.MarshalIndent(error_json, "", "  ") // todo: sort keys
+func (err *BaseRequestError) RestError() string {
+	errorJson := err.FormatError("errors")
+	rest, _ := json.MarshalIndent(errorJson, "", "  ") // todo: sort keys
 	return string(rest)
 }
 
 // Format this error into a response to a JSON RPC request.
-func (err *BaseRequestError) rpc_error() map[string]interface{} {
-	return err.format_error("data")
+func (err *BaseRequestError) RpcError() map[string]interface{} {
+	return err.FormatError("data")
 }
 
 // Request rejection exception for enum values.
 type EnumRejectionError struct {
 	BaseRequestError
-	parameter_name string   // The name of the enum parameter which had a value rejected.
-	value          string   // The actual value passed in for the enum.
-	allowed_values []string // List of strings allowed for the enum.
+	ParameterName string   // The name of the enum parameter which had a value rejected.
+	Value          string   // The actual value passed in for the enum.
+	AllowedValues []string // List of strings allowed for the enum.
 }
 
-func NewEnumRejectionError(parameter_name, value string, allowed_values []string) *EnumRejectionError {
+func NewEnumRejectionError(parameterName, value string, allowedValues []string) *EnumRejectionError {
 	return &EnumRejectionError{
 		BaseRequestError: BaseRequestError{
 			StatusCode: 400,
-			Message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowed_values),
+			Message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowedValues),
 			Reason:     "invalidParameter",
 			ExtraFields: map[string]interface{}{
 				"locationType": "parameter",
-				"location":     parameter_name,
+				"location":     parameterName,
 			},
 		},
-		parameter_name: parameter_name,
-		value:          value,
-		allowed_values: allowed_values,
+		ParameterName: parameterName,
+		Value:          value,
+		AllowedValues: allowedValues,
 	}
 }
 
@@ -102,20 +102,19 @@ func (err *EnumRejectionError) Error() string {
 // Error returned when the backend SPI returns an error code.
 type BackendError struct {
 	BaseRequestError
-	errorInfo *ErrorInfo
+	ErrorInfo *ErrorInfo
 }
 
 func NewBackendError(response *http.Response) *BackendError {
 	// Convert backend error status to whatever the live server would return.
-	error_info := get_error_info(response.StatusCode)
+	error_info := getErrorInfo(response.StatusCode)
 
-	var error_json map[string]interface{}
+	var errorJson map[string]interface{}
 	body, _ := ioutil.ReadAll(response.Body)
-	err := json.Unmarshal(body, &error_json)
-	//	fmt.Printf("%s\n%s\n", string(body), err.Error())
+	err := json.Unmarshal(body, &errorJson)
 	var message string
 	if err == nil {
-		_message, ok := error_json["error_message"]
+		_message, ok := errorJson["error_message"]
 		if ok {
 			message, ok = _message.(string)
 			if !ok {
@@ -130,12 +129,12 @@ func NewBackendError(response *http.Response) *BackendError {
 
 	return &BackendError{
 		BaseRequestError: BaseRequestError{
-			StatusCode: error_info.http_status,
+			StatusCode: errorInfo.HttpStatus,
 			Message:    message,
-			Reason:     error_info.reason,
-			Domain:     error_info.domain,
+			Reason:     errorInfo.Reason,
+			Domain:     errorInfo.Domain,
 		},
-		errorInfo: error_info,
+		errorInfo: errorInfo,
 	}
 }
 

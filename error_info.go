@@ -6,14 +6,14 @@ package endpoint
 // TODO: Generate from /google/appengine/tools/devappserver2/endpoints/generated_error_info.py
 
 type ErrorInfo struct {
-	http_status, rpc_status int
-	reason, domain          string
+	HttpStatus, RpcStatus int
+	Reason, Domain          string
 }
 
-var UNSUPPORTED_ERROR = &ErrorInfo{404, 404, "unsupportedProtocol", "global"}
-var BACKEND_ERROR = &ErrorInfo{503, -32099, "backendError", "global"}
+var UnsupportedError = &ErrorInfo{404, 404, "unsupportedProtocol", "global"}
+var BackendError = &ErrorInfo{503, -32099, "backendError", "global"}
 
-var ERROR_MAP = map[int]*ErrorInfo{
+var ErrorMap = map[int]*ErrorInfo{
 	400: &ErrorInfo{400, 400, "badRequest", "global"},
 	401: &ErrorInfo{401, 401, "required", "global"},
 	402: &ErrorInfo{404, 404, "unsupportedProtocol", "global"},
@@ -42,14 +42,14 @@ var ERROR_MAP = map[int]*ErrorInfo{
 // Returns:
 // An _ErrorInfo object containing information that would be returned by the
 // live server for the provided lily_status.
-func get_error_info(lily_status int) *ErrorInfo {
-	if lily_status >= 500 {
-		return BACKEND_ERROR
+func getErrorInfo(lilyStatus int) *ErrorInfo {
+	if lilyStatus >= 500 {
+		return BackendError
 	}
 
-	error_info, ok := ERROR_MAP[lily_status]
+	errorInfo, ok := ErrorMap[lilyStatus]
 	if !ok {
-		return UNSUPPORTED_ERROR
+		return UnsupportedError
 	}
-	return error_info
+	return errorInfo
 }
