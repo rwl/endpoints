@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -41,18 +42,18 @@ func (re *BaseRequestError) Error() string {
 
 // Format this error into a JSON response.
 func (err *BaseRequestError) FormatError(errorListTag string) map[string]interface{} {
-	error := map[string]interface{}{
+	errorMap := map[string]interface{}{
 		"domain":  err.Domain,
 		"reason":  err.Reason,
 		"message": err.Message,
 	}
 	for k, v := range err.ExtraFields {
-		error[k] = v
+		errorMap[k] = v
 	}
 	return map[string]interface{}{
 		"error": map[string]interface{}{
-			errorListTag: []map[string]interface{}{error},
-			"code":       err.StatusCode,
+			errorListTag: []map[string]interface{}{errorMap},
+			"code":       err.StatusCode(),
 			"message":    err.Message,
 		},
 	}
@@ -61,7 +62,11 @@ func (err *BaseRequestError) FormatError(errorListTag string) map[string]interfa
 // Format this error into a response to a REST request.
 func (err *BaseRequestError) RestError() string {
 	errorJson := err.FormatError("errors")
-	rest, _ := json.MarshalIndent(errorJson, "", "  ") // todo: sort keys
+	rest, e := json.MarshalIndent(errorJson, "", "  ") // todo: sort keys
+	if e != nil {
+		log.Printf("Problem formatting error as REST response: %s", e.Error())
+		return e.Error()
+	}
 	return string(rest)
 }
 
@@ -74,7 +79,7 @@ func (err *BaseRequestError) RpcError() map[string]interface{} {
 type EnumRejectionError struct {
 	BaseRequestError
 	ParameterName string   // The name of the enum parameter which had a value rejected.
-	Value          string   // The actual value passed in for the enum.
+	Value         string   // The actual value passed in for the enum.
 	AllowedValues []string // List of strings allowed for the enum.
 }
 
@@ -90,7 +95,7 @@ func NewEnumRejectionError(parameterName, value string, allowedValues []string) 
 			},
 		},
 		ParameterName: parameterName,
-		Value:          value,
+		Value:         value,
 		AllowedValues: allowedValues,
 	}
 }

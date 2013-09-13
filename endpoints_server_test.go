@@ -94,7 +94,7 @@ func assertDispatchToSpi(t *testing.T, request *ApiRequest, config *endpoints.Ap
 	}()
 
 	server.On(
-		"handle_spi_response",
+		"handleSpiResponse",
 		mock.Anything, //OfType("*ApiRequest"),
 		mock.Anything, //OfType("*ApiRequest"),
 		mock.Anything, //spi_response,
@@ -176,20 +176,22 @@ func TestDispatchInvalidEnum(t *testing.T) {
 	var bodyJson map[string]interface{}
 	err := json.Unmarshal(body, &bodyJson)
 	assert.NoError(t, err, "Body: %s", string(body))
-	error, ok := bodyJson["error"]
+	errorVal, ok := bodyJson["error"]
 	assert.True(t, ok)
-	errorJson, ok := error.(map[string]interface{})
+	errorJson, ok := errorVal.(map[string]interface{})
 	assert.True(t, ok)
 	errors, ok := errorJson["errors"]
 	assert.True(t, ok)
 	errorsJson, ok := errors.([]interface{})
 	assert.True(t, ok)
-	errorsJson0, ok := errorsJson[0].(map[string]interface{})
-	assert.True(t, ok)
-	ok = assert.Equal(t, 1, len(errorsJson))
-	if ok {
-		assert.Equal(t, "gid", errorsJson0["location"])
-		assert.Equal(t, "invalidParameter", errorsJson0["reason"])
+	if len(errorsJson) > 0 {
+		errorsJson0, ok := errorsJson[0].(map[string]interface{})
+		assert.True(t, ok)
+		ok = assert.Equal(t, 1, len(errorsJson))
+		if ok {
+			assert.Equal(t, "gid", errorsJson0["location"])
+			assert.Equal(t, "invalidParameter", errorsJson0["reason"])
+		}
 	}
 }
 

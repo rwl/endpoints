@@ -104,32 +104,32 @@ func TestParseApiConfigOrderLength(t *testing.T) {
 func TestSortMethods1(t *testing.T) {
 	methods := map[string]*endpoints.ApiMethod {
 		"name1" : &endpoints.ApiMethod{
-			HttpMethod: "greetings",
-			Path:       "POST",
+			HttpMethod: "POST",
+			Path:       "greetings",
 		},
 		"name2" : &endpoints.ApiMethod{
-			HttpMethod: "greetings",
-			Path:       "GET",
+			HttpMethod: "GET",
+			Path:       "greetings",
 		},
 		"name3" : &endpoints.ApiMethod{
-			HttpMethod: "short/but/many/constants",
-			Path:       "GET",
+			HttpMethod: "GET",
+			Path:       "short/but/many/constants",
 		},
 		"name4" : &endpoints.ApiMethod{
-			HttpMethod: "greetings",
-			Path:       "",
+			HttpMethod: "",
+			Path:       "greetings",
 		},
 		"name5" : &endpoints.ApiMethod{
-			HttpMethod: "greetings/{gid}",
-			Path:       "GET",
+			HttpMethod: "GET",
+			Path:       "greetings/{gid}",
 		},
 		"name6" : &endpoints.ApiMethod{
-			HttpMethod: "greetings/{gid}",
-			Path:       "PUT",
+			HttpMethod: "PUT",
+			Path:       "greetings/{gid}",
 		},
 		"name7" : &endpoints.ApiMethod{
-			HttpMethod: "a/b/{var}/{var2}",
-			Path:       "GET",
+			HttpMethod: "GET",
+			Path:       "a/b/{var}/{var2}",
 		},
 	}
 	sortedMethods := sortMethods(methods)
