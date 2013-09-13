@@ -38,7 +38,7 @@ func NewApiRequest(r *http.Request) (*ApiRequest, error) {
 	if !strings.HasPrefix(ar.URL.Path, API_PREFIX) {
 		return nil, fmt.Errorf("Invalid request path: %s", ar.URL.Path)
 	}
-	ar.URL.Path = ar.URL.Path[len(_API_PREFIX):]
+	ar.URL.Path = ar.URL.Path[len(API_PREFIX):]
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -118,12 +118,12 @@ func (ar *ApiRequest) Copy() (*ApiRequest, error) {
 
 	request := &http.Request{
 		Method:           ar.Method,
-		URL:              url_copy,
+		URL:              urlCopy,
 		Proto:            ar.Proto,
 		ProtoMajor:       ar.ProtoMajor,
 		ProtoMinor:       ar.ProtoMinor,
-		Header:           header_copy,
-		Body:             body_copy,
+		Header:           headerCopy,
+		Body:             bodyCopy,
 		ContentLength:    ar.ContentLength,
 		TransferEncoding: ar.TransferEncoding,
 		Close:            ar.Close,
@@ -152,6 +152,6 @@ func (ar *ApiRequest) Copy() (*ApiRequest, error) {
 // If the request is sent to /rpc, we will treat it as JsonRPC.
 // The client libraries for iOS's Objective C use RPC and not the REST
 // versions of the API.
-func (ar *ApiRequest) IsRPC() bool {
+func (ar *ApiRequest) IsRpc() bool {
 	return ar.URL.Path == "rpc"
 }

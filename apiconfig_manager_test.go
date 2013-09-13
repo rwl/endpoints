@@ -46,7 +46,7 @@ func TestParseApiConfig(t *testing.T) {
 }
 
 func TestParseApiConfigOrderLength(t *testing.T) {
-	config_manager := NewApiConfigManager()
+	configManager := NewApiConfigManager()
 	methods := map[string]*endpoints.ApiMethod {
 		"guestbook_api.foo.bar": &endpoints.ApiMethod{
 			HttpMethod: "GET",
@@ -134,7 +134,7 @@ func TestSortMethods1(t *testing.T) {
 	}
 	sortedMethods := sortMethods(methods)
 
-	expected_methods := []*methodInfo{
+	expectedMethods := []*methodInfo{
 		&methodInfo{
 			"name3",
 			&endpoints.ApiMethod{
@@ -222,7 +222,7 @@ func TestSortMethods2(t *testing.T) {
 	sortedMethods := sortMethods(methods)
 
 	// Single-part paths should be sorted by path name, http_method.
-	expected_methods := []*methodInfo {
+	expectedMethods := []*methodInfo {
 		&methodInfo{
 			"name1",
 			&endpoints.ApiMethod{
@@ -492,7 +492,7 @@ func assertMatch(t *testing.T, path, paramPath string, paramCount int) map[strin
 }
 
 func TestOneVariableMatch(t *testing.T) {
-	params := assert_match(t, "/abc/123", "/abc/{x}", 1)
+	params := assertMatch(t, "/abc/123", "/abc/{x}", 1)
 	x, ok := params["x"]
 	assert.True(t, ok)
 	assert.Equal(t, "123", x)

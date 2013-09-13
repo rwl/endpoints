@@ -26,7 +26,7 @@ import (
 //   An ApiRequest object built based on the incoming parameters.
 func buildApiRequest(url, body string, httpHeaders http.Header) *ApiRequest {
 	req := buildRequest(url, body, httpHeaders)
-	apiRequest, err := newApiRequest(req)
+	apiRequest, err := NewApiRequest(req)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -87,7 +87,7 @@ func newMockEndpointsServer() (*MockEndpointsServer) {
 }
 
 // fixme: mock handle_spi_response without duplicating dispatch
-func (ed *MockEndpointsServer) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
+func (ed *MockEndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) string {
 	apiConfigResponse, _ := ed.getApiConfigs()
 	ed.handleApiConfigResponse(apiConfigResponse)
 	body, _ := ed.callSpi(w, ar)
@@ -141,14 +141,14 @@ func newMockEndpointsServerSpi() (*MockEndpointsServerSpi) {
 }
 
 // fixme: mock call_spi without duplicating dispatch
-func (ed *MockEndpointsServerSPI) dispatch(w http.ResponseWriter, ar *ApiRequest) string {
+func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *ApiRequest) string {
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
 	if err != nil {
 		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
 	}
-	err = ed.handleGetApiConfigResponse(apiConfigResponse)
+	err = ed.handleApiConfigResponse(apiConfigResponse)
 	if err != nil {
 		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
 	}
@@ -167,7 +167,7 @@ func (ed *MockEndpointsServerSPI) dispatch(w http.ResponseWriter, ar *ApiRequest
 	return body
 }
 
-func (ed *MockEndpointsServerSPI) callSpi(w http.ResponseWriter, origRequest *ApiRequest) (string, error) {
+func (ed *MockEndpointsServerSpi) callSpi(w http.ResponseWriter, origRequest *ApiRequest) (string, error) {
 	args := ed.Mock.Called(w, origRequest)
 	return args.String(0), args.Error(1)
 }

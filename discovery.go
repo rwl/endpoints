@@ -48,7 +48,7 @@ func dispatchDiscoveryRequest(path, body string) (string, error) {
 	}
 
 	defer resp.Body.Close()
-	resp_body, err := ioutil.ReadAll(resp.Body)
+	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}

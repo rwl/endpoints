@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 )
 
-func sendNotFoundResponse(w http.ResponseWriter, corsHandler CorsHandler) string {
+func sendNotFoundResponse(w http.ResponseWriter, corsHandler corsHandler) string {
 	if corsHandler != nil {
-		corsHandler.UpdateHeaders(w.Header())
+		corsHandler.updateHeaders(w.Header())
 	}
 	body := "Not Found"
 	w.Header().Set("Content-Type", "text/plain")
@@ -19,7 +19,7 @@ func sendNotFoundResponse(w http.ResponseWriter, corsHandler CorsHandler) string
 	return body
 }
 
-func sendErrorResponse(message string, w http.ResponseWriter, corsHandler CorsHandler) string {
+func sendErrorResponse(message string, w http.ResponseWriter, corsHandler corsHandler) string {
 	bodyMap := map[string]interface{}{
 		"error": map[string]interface{}{
 			"message": message,
@@ -37,7 +37,7 @@ func sendErrorResponse(message string, w http.ResponseWriter, corsHandler CorsHa
 	return body
 }
 
-func sendRejectedResponse(rejectionError map[string]interface{}, w http.ResponseWriter, corsHandler CorsHandler) string {
+func sendRejectedResponse(rejectionError map[string]interface{}, w http.ResponseWriter, corsHandler corsHandler) string {
 	bodyBytes, _ := json.Marshal(rejectionError)
 	body := string(bodyBytes)
 	if corsHandler != nil {
@@ -50,7 +50,7 @@ func sendRejectedResponse(rejectionError map[string]interface{}, w http.Response
 	return body
 }
 
-func sendRedirectResponse(redirectLocation string, w http.ResponseWriter, r *http.Request, corsHandler CorsHandler) string {
+func sendRedirectResponse(redirectLocation string, w http.ResponseWriter, r *http.Request, corsHandler corsHandler) string {
 	if corsHandler != nil {
 		corsHandler.updateHeaders(w.Header())
 	}

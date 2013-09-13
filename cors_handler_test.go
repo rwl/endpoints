@@ -26,7 +26,7 @@ func TestHandleNonJsonSpiResponseCors(t *testing.T) {
 		true,
 		"test.com",
 		"",
-		server_response,
+		serverResponse,
 	)
 	errorJson := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -62,7 +62,7 @@ func TestHandleNonJsonSpiResponseCors(t *testing.T) {
 func checkCors(t *testing.T, requestHeaders http.Header, expectResponse bool,
 		expectedOrigin, expectedAllowHeaders string, serverResponse *http.Response) string {
 	origRequest := buildApiRequest("/_ah/api/fake/path", "", requestHeaders)
-	spiRequest, err := origRequest.copy()
+	spiRequest, err := origRequest.Copy()
 	assert.NoError(t, err)
 
 	if serverResponse == nil {

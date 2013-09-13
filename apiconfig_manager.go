@@ -48,7 +48,7 @@ type restMethod struct {
 
 type methodInfo struct {
 	methodName string
-	ApiMethod  *endpoints.ApiMethod
+	apiMethod  *endpoints.ApiMethod
 }
 
 // Switch the URLs in one API configuration to use HTTP instead of HTTPS.
@@ -92,8 +92,8 @@ func (m *ApiConfigManager) parseApiConfigResponse(body string) error {
 	m.configLock.Lock()
 	defer m.configLock.Unlock()
 
-	m.AddDiscoveryConfig()
-	items, ok := response_obj["items"]
+	m.addDiscoveryConfig()
+	items, ok := responseObj["items"]
 	if !ok {
 		return errors.New(`BackendService.getApiConfigs response missing "items" key.`)
 	}
@@ -149,7 +149,7 @@ func pathParams(names []string, match []string) (map[string]string, error) {
 			continue
 		}
 		value := match[i]
-		actualVarName, err := fromSafePathParamName(var_name)
+		actualVarName, err := fromSafePathParamName(varName)
 		if err != nil {
 			return result, err
 		}
@@ -305,7 +305,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 			safeName := toSafePathParamName(varName)
 			return fmt.Sprintf("(?P<%s>%s)", safeName, PATH_VALUE_PATTERN)
 		}
-		return var_name
+		return varName
 	}
 
 	idxs, err := braceIndices(ppp)
@@ -315,7 +315,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 	replacements := make([]string, len(idxs)/2)
 	for i := 0; i < len(idxs); i += 2 {
 		varName := ppp[idxs[i]+1 : idxs[i+1]-1]
-		ok := PathVariablePattern.MatchString(var_name)
+		ok := PathVariablePattern.MatchString(varName)
 		var replaced string
 		if !ok {
 			return nil, fmt.Errorf("Invalid variable name: %s", varName)
@@ -350,7 +350,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 //   method: A dict containing the method descriptor (as in the api config
 //     file).
 func (m *ApiConfigManager) saveRpcMethod(methodName, version string, method *endpoints.ApiMethod) {
-	m.rpcMethodDict[lookupKey{methodName, version}] = method
+	m.rpcMethods[lookupKey{methodName, version}] = method
 }
 
 // Store Rest api methods in a list for lookup at call time.
@@ -402,7 +402,7 @@ func (m *ApiConfigManager) saveRestMethod(methodName, apiName, version string, m
 		// fixme: handle error
 		return
 	}
-	log.Printf("Registering rest method: %s %s %s %s", apiName, version, methodName, pathPattern)
+	//log.Printf("Registering rest method: %s %s %s %s", apiName, version, methodName, pathPattern)
 	m.restMethods = append(m.restMethods,
 		&restMethod{
 			compiledPattern,

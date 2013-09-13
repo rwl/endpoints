@@ -101,7 +101,7 @@ func assertDispatchToSpi(t *testing.T, request *ApiRequest, config *endpoints.Ap
 		w,
 	).Return("Test", nil)
 
-	response := server.dispatch(w, request)
+	response := server.serveHTTP(w, request)
 	server.Mock.AssertExpectations(t)
 
 	assert.Equal(t, "Test", response)
@@ -195,7 +195,7 @@ func TestDispatchInvalidEnum(t *testing.T) {
 
 // Check the error response if the SPI returns an error.
 func TestDispatchSpiError(t *testing.T) {
-	server := newMockEndpointsServerSPI()
+	server := newMockEndpointsServerSpi()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -230,7 +230,7 @@ func TestDispatchSpiError(t *testing.T) {
 		request,
 	).Return("", NewBackendError(response))
 
-	server.dispatch(w, request)
+	server.serveHTTP(w, request)
 	server.Mock.AssertExpectations(t)
 
 	expectedResponse := `{
@@ -254,7 +254,7 @@ func TestDispatchSpiError(t *testing.T) {
 
 // Test than an RPC call that returns an error is handled properly.
 func TestDispatchRpcError(t *testing.T) {
-	server := newMockEndpointsServerSPI()
+	server := newMockEndpointsServerSpi()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -293,7 +293,7 @@ func TestDispatchRpcError(t *testing.T) {
 		request,
 	).Return("", NewBackendError(response))
 
-	responseBody := server.dispatch(w, request)
+	responseBody := server.serveHTTP(w, request)
 	server.Mock.AssertExpectations(t)
 
 	expectedResponse := map[string]interface{}{

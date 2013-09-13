@@ -16,7 +16,7 @@ type RequestError interface {
 
 // Base type for errors that happen while processing a request.
 type BaseRequestError struct {
-	StatusCode int // HTTP status code number associated with this error.
+	statusCode int // HTTP status code number associated with this error.
 
 	Message string // Text message explaining the error.
 
@@ -32,7 +32,7 @@ type BaseRequestError struct {
 }
 
 func (re *BaseRequestError) StatusCode() int {
-	return re.StatusCode
+	return re.statusCode
 }
 
 func (re *BaseRequestError) Error() string {
@@ -81,7 +81,7 @@ type EnumRejectionError struct {
 func NewEnumRejectionError(parameterName, value string, allowedValues []string) *EnumRejectionError {
 	return &EnumRejectionError{
 		BaseRequestError: BaseRequestError{
-			StatusCode: 400,
+			statusCode: 400,
 			Message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowedValues),
 			Reason:     "invalidParameter",
 			ExtraFields: map[string]interface{}{
@@ -107,7 +107,7 @@ type BackendError struct {
 
 func NewBackendError(response *http.Response) *BackendError {
 	// Convert backend error status to whatever the live server would return.
-	error_info := getErrorInfo(response.StatusCode)
+	errorInfo := getErrorInfo(response.StatusCode)
 
 	var errorJson map[string]interface{}
 	body, _ := ioutil.ReadAll(response.Body)
@@ -129,12 +129,12 @@ func NewBackendError(response *http.Response) *BackendError {
 
 	return &BackendError{
 		BaseRequestError: BaseRequestError{
-			StatusCode: errorInfo.HttpStatus,
+			statusCode: errorInfo.HttpStatus,
 			Message:    message,
 			Reason:     errorInfo.Reason,
 			Domain:     errorInfo.Domain,
 		},
-		errorInfo: errorInfo,
+		ErrorInfo: errorInfo,
 	}
 }
 

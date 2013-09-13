@@ -30,7 +30,7 @@ func HandleHttp() {
 
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsServer struct {
-	config_manager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
+	configManager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
 	URL string
 }
 
@@ -55,11 +55,14 @@ func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 
 // EndpointsServer implements the http.Handler interface.
 func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ar, err := newApiRequest(r)
+	ar, err := NewApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
+	ed.serveHTTP(w, ar)
+}
 
+func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) {
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
@@ -99,7 +102,7 @@ func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // A string containing the response body (which is empty, in this case).
 func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
 	baseUrl := fmt.Sprintf("http://%s/_ah/api", r.URL.Host)
-	redirectUrl := ApiExplorerUrl + base_url
+	redirectUrl := ApiExplorerUrl + baseUrl
 	sendRedirectResponse(redirectUrl, w, r, nil)
 }
 
@@ -114,7 +117,7 @@ func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *ht
 // Returns:
 // A string containing the response body.
 func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
-	request, err := newApiRequest(r)
+	request, err := NewApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
@@ -311,7 +314,7 @@ func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *ApiRequest
 	}
 
 	corsHandler := newCheckCorsHeaders(origRequest.Request)
-	corsHandler.UpdateHeaders(w.Header())
+	corsHandler.updateHeaders(w.Header())
 	for k, vals := range response.Header {
 		w.Header()[k] = vals
 	}
@@ -363,7 +366,7 @@ func (ed *EndpointsServer) lookupRpcMethod(origRequest *ApiRequest) *endpoints.A
 	if origRequest.BodyJson == nil {
 		return nil
 	}
-	methodName, ok := orig_request.body_json["method"]
+	methodName, ok := origRequest.BodyJson["method"]
 	methodNameStr, ok2 := methodName.(string)
 	if !ok || !ok2 {
 		methodNameStr = ""
@@ -373,8 +376,8 @@ func (ed *EndpointsServer) lookupRpcMethod(origRequest *ApiRequest) *endpoints.A
 	if !ok || !ok3 {
 		versionStr = ""
 	}
-	origRequest.Method = methodName
-	return ed.configManager.lookupRpcMethod(methodName, version)
+	origRequest.Method = methodNameStr
+	return ed.configManager.lookupRpcMethod(methodNameStr, versionStr)
 }
 
 // Transforms orig_request to apiserving request.
@@ -453,7 +456,7 @@ func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldPa
 // error reporting purposes.
 func (ed *EndpointsServer) checkParameters(parameterName string, values []string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	for index, element := range values {
-		parameterName_index := fmt.Sprintf("%s[%d]", parameterName, index)
+		parameterNameIndex := fmt.Sprintf("%s[%d]", parameterName, index)
 		err := ed.checkParameter(parameterNameIndex, element, fieldParameter)
 		if err != nil {
 			return err
@@ -609,7 +612,7 @@ func (ed *EndpointsServer) transformRestRequest(origRequest *ApiRequest,
 				if ok {
 					bodyJson[key] = append(value, jsonArr...)
 				} else {
-					panic(fmt.Sprintf("String array expected: %#v", json_val))
+					panic(fmt.Sprintf("String array expected: %#v", jsonVal))
 				}
 			} else {
 				bodyJson[key] = value
@@ -668,7 +671,7 @@ func (ed *EndpointsServer) transformRestRequest(origRequest *ApiRequest,
 	}
 
 	// Add in values from the body of the request.
-	if request.bodyJson != nil {
+	if request.BodyJson != nil {
 		ed.updateFromBody(bodyJson, request.BodyJson)
 	}
 
@@ -696,7 +699,7 @@ func (ed *EndpointsServer) transformJsonrpcRequest(origRequest *ApiRequest) (*Ap
 		return request, err
 	}
 
-	requestId, okId := request.bodyJson["id"]
+	requestId, okId := request.BodyJson["id"]
 	if okId {
 		requestIdStr, ok := requestId.(string)
 		if ok {
@@ -836,10 +839,10 @@ func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest
 		if !ok {
 			// fixme: handle type assertion failure
 		}
-		body = ed.finishRpcResponse(id, origRequest.IsBatch, err.rpcError())
+		body = ed.finishRpcResponse(id, origRequest.IsBatch, err.RpcError())
 	} else {
-		status_code = err.statusCode()
-		body = err.restError()
+		statusCode = err.StatusCode()
+		body = err.RestError()
 	}
 
 	//response_status = fmt.Sprintf("%d %s", status_code,
@@ -848,7 +851,7 @@ func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest
 	newCheckCorsHeaders(origRequest.Request).updateHeaders(w.Header())
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
-	w.WriteHeader(status_code)
+	w.WriteHeader(statusCode)
 	fmt.Fprint(w, body)
 	return body
 }

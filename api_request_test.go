@@ -35,8 +35,8 @@ func TestParseWithBody(t *testing.T) {
 	body, err := ioutil.ReadAll(request.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, `{"test": "body"}`, string(body))
-	body_json := map[string]interface{}{"test": "body"}
-	assert.Equal(t, bodyJson, request.bodyJson)
+	bodyJson := map[string]interface{}{"test": "body"}
+	assert.Equal(t, bodyJson, request.BodyJson)
 	header := make(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
 	assert.Equal(t, header, request.Header)
@@ -52,7 +52,7 @@ func TestParseEmptyValues(t *testing.T) {
 	body, err := ioutil.ReadAll(request.Body)
 	assert.NoError(t, err)
 	assert.Empty(t, body)
-	assert.Equal(t, map[string]interface{}{}, request.bodyJson)
+	assert.Equal(t, map[string]interface{}{}, request.BodyJson)
 	header := make(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
 	assert.Equal(t, header, request.Header)
@@ -82,25 +82,25 @@ func TestIsRPC(t *testing.T) {
 	request := buildApiRequest("/_ah/api/rpc", "", nil)
 	assert.Equal(t, "rpc", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
-	assert.True(t, request.IsRPC())
+	assert.True(t, request.IsRpc())
 }
 
 func TestIsNotRPC(t *testing.T) {
 	request := buildApiRequest("/_ah/api/guestbook/v1/greetings/7", "", nil)
 	assert.Equal(t, "guestbook/v1/greetings/7", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
-	assert.False(t, request.IsRPC())
+	assert.False(t, request.IsRpc())
 }
 
 func TestIsNotRPCPrefix(t *testing.T) {
 	request := buildApiRequest("/_ah/api/rpcthing", "", nil)
 	assert.Equal(t, "rpcthing", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
-	assert.False(t, request.IsRPC())
+	assert.False(t, request.IsRpc())
 }
 
 func TestBatch(t *testing.T) {
-	request := build_api_request("/_ah/api/rpc",
+	request := buildApiRequest("/_ah/api/rpc",
 		`[{"method": "foo", "apiVersion": "v1"}]`, nil)
 	assert.True(t, request.IsBatch)
 }

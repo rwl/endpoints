@@ -10,10 +10,10 @@ type ErrorInfo struct {
 	Reason, Domain          string
 }
 
-var UnsupportedError = &ErrorInfo{404, 404, "unsupportedProtocol", "global"}
-var BackendError = &ErrorInfo{503, -32099, "backendError", "global"}
+var unsupportedError = &ErrorInfo{404, 404, "unsupportedProtocol", "global"}
+var backendError = &ErrorInfo{503, -32099, "backendError", "global"}
 
-var ErrorMap = map[int]*ErrorInfo{
+var errorMap = map[int]*ErrorInfo{
 	400: &ErrorInfo{400, 400, "badRequest", "global"},
 	401: &ErrorInfo{401, 401, "required", "global"},
 	402: &ErrorInfo{404, 404, "unsupportedProtocol", "global"},
@@ -44,12 +44,12 @@ var ErrorMap = map[int]*ErrorInfo{
 // live server for the provided lily_status.
 func getErrorInfo(lilyStatus int) *ErrorInfo {
 	if lilyStatus >= 500 {
-		return BackendError
+		return backendError
 	}
 
-	errorInfo, ok := ErrorMap[lilyStatus]
+	errorInfo, ok := errorMap[lilyStatus]
 	if !ok {
-		return UnsupportedError
+		return unsupportedError
 	}
 	return errorInfo
 }
