@@ -47,9 +47,9 @@ func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 		mux = http.DefaultServeMux
 	}
 	r := NewRouter()
-	r.HandleFunc("^/_ah/api/explorer/?$", ed.HandleApiExplorerRequest)
-	r.HandleFunc("^/_ah/api/static/.*$", ed.HandleApiStaticRequest)
-	r.HandleFunc("^/_ah/api/.*$", ed.ServeHTTP)
+	r.HandleFunc("/_ah/api/explorer", ed.HandleApiExplorerRequest)
+	r.HandleFunc("/_ah/api/static", ed.HandleApiStaticRequest)
+	r.HandleFunc("/_ah/api/", ed.ServeHTTP)
 	mux.Handle("/", r)
 }
 

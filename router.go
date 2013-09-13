@@ -2,12 +2,12 @@
 package endpoint
 
 import (
-	"regexp"
 	"net/http"
+	"strings"
 )
 
 type Route struct {
-	re *regexp.Regexp
+	pathPrefix string
 	handler func(http.ResponseWriter, *http.Request)
 }
 
@@ -19,14 +19,14 @@ func NewRouter() *Router {
 	return &Router{}
 }
 
-func (h *Router) HandleFunc(re string, handler func(http.ResponseWriter, *http.Request)) {
-	r := &Route{regexp.MustCompile(re), handler}
+func (h *Router) HandleFunc(pathPrefix string, handler func(http.ResponseWriter, *http.Request)) {
+	r := &Route{pathPrefix, handler}
 	h.routes = append(h.routes, r)
 }
 
 func (h *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, route := range h.routes {
-		if route.re.MatchString(r.URL.RequestURI()) {
+		if strings.HasPrefix(r.URL.Path, route.pathPrefix) {
 			route.handler(w, r)
 			break
 		}
