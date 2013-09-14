@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 	"strings"
 )
@@ -133,7 +133,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 		w.Header().Add("Content-Type", response.Header.Get("Content-Type"))
 		fmt.Fprintf(w, body)
 	} else {
-		log.Printf("Discovery API proxy failed on %s with %d. Details: %s",
+		glog.Errorf("Discovery API proxy failed on %s with %d. Details: %s",
 			request.RelativeUrl, response.StatusCode, body)
 		http.Error(w, body, response.StatusCode)
 	}
@@ -252,7 +252,7 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiReques
 	}
 
 	// Send the request to the user's SPI handlers.
-	url := fmt.Sprintf(SpiRootFormat, spiRequest.URL.Path)
+	url := ed.URL + fmt.Sprintf(SpiRootFormat, spiRequest.URL.Path)
 	req, err := http.NewRequest("POST", url, spiRequest.Body)
 	if err != nil {
 		return "", err
@@ -513,7 +513,7 @@ func (ed *EndpointsServer) addMessageField(fieldName string, value interface{}, 
 	if ok {
 		subParams, ok = _subParams.(map[string]interface{})
 		if !ok {
-			log.Printf("Problem accessing sub-params: %#v", _subParams)
+			glog.Errorf("Problem accessing sub-params: %#v", _subParams)
 		}
 	} else {
 		subParams = make(map[string]interface{})

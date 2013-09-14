@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 )
 
@@ -64,7 +64,7 @@ func (err *BaseRequestError) RestError() string {
 	errorJson := err.FormatError("errors")
 	rest, e := json.MarshalIndent(errorJson, "", "  ") // todo: sort keys
 	if e != nil {
-		log.Printf("Problem formatting error as REST response: %s", e.Error())
+		glog.Errorf("Problem formatting error as REST response: %s", e.Error())
 		return e.Error()
 	}
 	return string(rest)

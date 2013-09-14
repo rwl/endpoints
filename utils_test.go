@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,7 +28,7 @@ func buildApiRequest(url, body string, httpHeaders http.Header) *ApiRequest {
 	req := buildRequest(url, body, httpHeaders)
 	apiRequest, err := NewApiRequest(req)
 	if err != nil {
-		log.Fatal(err.Error())
+		glog.Fatal(err.Error())
 	}
 
 	return apiRequest
@@ -38,7 +38,7 @@ func buildRequest(url, body string, httpHeaders http.Header) *http.Request {
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:42%s", url),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
 	if err != nil {
-		log.Fatal(err.Error())
+		glog.Fatal(err.Error())
 	}
 	req.Header.Set("Content-Type", "application/json")
 
