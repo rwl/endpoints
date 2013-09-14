@@ -7,4 +7,5 @@ install:
   - go get github.com/stretchr/stew/objects
   - go get github.com/stretchr/objx
   - go get github.com/stretchr/testify
+  - go get github.com/golang/glog
   - go get github.com/rwl/go-endpoints/endpoints
