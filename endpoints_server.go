@@ -18,8 +18,8 @@ const DEFAULT_URL = "http://localhost:8080"
 
 var (
 	ApiServingPattern = "_ah/api/.*" // Pattern for paths handled by this package.
-	SpiRootFormat = "/_ah/spi/%s"
-	ApiExplorerUrl = "https://developers.google.com/apis-explorer/?base="
+	SpiRootFormat     = "/_ah/spi/%s"
+	ApiExplorerUrl    = "https://developers.google.com/apis-explorer/?base="
 )
 
 var DefaultServer *EndpointsServer = NewEndpointsServer()
@@ -67,12 +67,12 @@ func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) {
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
 	if err != nil {
-		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs error: "+err.Error())
+		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs error: " + err.Error())
 		return
 	}
 	err = ed.handleApiConfigResponse(apiConfigResponse)
 	if err != nil {
-		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs handling error: "+err.Error())
+		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs handling error: " + err.Error())
 		return
 	}
 
@@ -146,7 +146,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 // request.
 func (ed *EndpointsServer) getApiConfigs() (*http.Response, error) {
 	req, err := http.NewRequest("POST",
-		ed.URL+"/_ah/spi/BackendService.getApiConfigs",
+			ed.URL + "/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	if err != nil {
 		return nil, err
@@ -588,8 +588,8 @@ func (ed *EndpointsServer) updateFromBody(destination map[string]interface{}, so
 //   A copy of the current request that's been modified so it can be sent
 //   to the SPI.  The body is updated to include parameters from the URL.
 func (ed *EndpointsServer) transformRestRequest(origRequest *ApiRequest,
-		params map[string]string,
-		methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
+params map[string]string,
+methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
 	request, err := origRequest.Copy()
 	if err != nil {
 		return request, err

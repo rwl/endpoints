@@ -51,7 +51,7 @@ func prepareTestServer(t *testing.T, config *endpoints.ApiDescriptor) *httptest.
 //     the mock response sent by the back end.  If None, this will create an
 //     empty response.
 func assertDispatchToSpi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spiPath string,
-	expectedSpiBodyJson map[string]interface{}) {
+expectedSpiBodyJson map[string]interface{}) {
 	server := newMockEndpointsServer()
 	ts := prepareTestServer(t, config)
 	server.URL = ts.URL
@@ -221,9 +221,9 @@ func TestDispatchSpiError(t *testing.T) {
 		Status:     "404 Not Found",
 		StatusCode: 404,
 		Body: ioutil.NopCloser(
-			bytes.NewBufferString(
-				`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
-			),
+		bytes.NewBufferString(
+		`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
+		),
 		),
 	}
 	server.On(
@@ -284,9 +284,9 @@ func TestDispatchRpcError(t *testing.T) {
 		Status:     "404 Not Found",
 		StatusCode: 404,
 		Body: ioutil.NopCloser(
-			bytes.NewBufferString(
-				`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
-			),
+		bytes.NewBufferString(
+		`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
+		),
 		),
 	}
 	server.On(
@@ -563,8 +563,8 @@ func TestHandleSpiResponseRest(t *testing.T) {
 	spiRequest, err := origRequest.Copy()
 	assert.NoError(t, err)
 	body, _ := json.MarshalIndent(map[string]interface{}{
-		"some": "response",
-	}, "", "  ")
+			"some": "response",
+		}, "", "  ")
 	spiResponse := &http.Response{
 		Status:     "200 OK",
 		StatusCode: 200,

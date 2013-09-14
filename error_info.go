@@ -6,8 +6,8 @@ package endpoint
 // TODO: Generate from /google/appengine/tools/devappserver2/endpoints/generated_error_info.py
 
 type ErrorInfo struct {
-	HttpStatus, RpcStatus int
-	Reason, Domain          string
+	HttpStatus,  RpcStatus   int
+	Reason,  Domain          string
 }
 
 var unsupportedError = &ErrorInfo{404, 404, "unsupportedProtocol", "global"}

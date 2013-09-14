@@ -36,7 +36,7 @@ func NewApiConfigManager() *ApiConfigManager {
 }
 
 type lookupKey struct {
-	methodName string
+	methodName  string
 	version     string
 }
 
@@ -262,7 +262,7 @@ func fromSafePathParamName(safeParameter string) (string, error) {
 	}
 	safeParameterAsBase32 := safeParameter[1:]
 
-	paddingLength := -len(safeParameterAsBase32) % 8
+	paddingLength := -len(safeParameterAsBase32)%8
 	if paddingLength < 0 {
 		paddingLength = paddingLength + 8
 	}
@@ -314,7 +314,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 	}
 	replacements := make([]string, len(idxs)/2)
 	for i := 0; i < len(idxs); i += 2 {
-		varName := ppp[idxs[i]+1 : idxs[i+1]-1]
+		varName := ppp[idxs[i] + 1 : idxs[i + 1] - 1]
 		ok := PathVariablePattern.MatchString(varName)
 		var replaced string
 		if !ok {
@@ -329,7 +329,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 	for i := 0; i < len(idxs); i += 2 {
 		pattern.WriteString(ppp[start:idxs[i]])
 		pattern.WriteString(replacements[i/2])
-		start = idxs[i+1]
+		start = idxs[i + 1]
 	}
 	pattern.WriteString(ppp[start:])
 

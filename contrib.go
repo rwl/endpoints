@@ -17,7 +17,7 @@ func braceIndices(s string) ([]int, error) {
 			}
 		case '}':
 			if level--; level == 0 {
-				idxs = append(idxs, idx, i+1)
+				idxs = append(idxs, idx, i + 1)
 			} else if level < 0 {
 				return nil, fmt.Errorf("unbalanced braces in %q", s)
 			}

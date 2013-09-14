@@ -52,7 +52,7 @@ func buildRequest(url, body string, httpHeaders http.Header) *http.Request {
 
 // Test that the headers and body match.
 func assertHttpMatch(t *testing.T, response *http.Response, expectedStatus int,
-	expectedHeaders http.Header, expectedBody string) {
+expectedHeaders http.Header, expectedBody string) {
 	assert.Equal(t, expectedStatus, response.StatusCode)
 
 	// Verify that headers match. Order shouldn't matter.
@@ -65,7 +65,7 @@ func assertHttpMatch(t *testing.T, response *http.Response, expectedStatus int,
 
 // Test that the headers and body match.
 func assertHttpMatchRecorder(t *testing.T, recorder *httptest.ResponseRecorder,
-	expectedStatus int, expectedHeaders http.Header, expectedBody string) {
+expectedStatus int, expectedHeaders http.Header, expectedBody string) {
 	assert.Equal(t, expectedStatus, recorder.Code)
 
 	// Verify that headers match. Order shouldn't matter.
@@ -124,7 +124,7 @@ func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiRe
 }
 
 func (ed *MockEndpointsServer) handleSpiResponse(origRequest, spiRequest *ApiRequest,
-		response *http.Response, w http.ResponseWriter) (string, error) {
+response *http.Response, w http.ResponseWriter) (string, error) {
 	args := ed.Mock.Called(origRequest, spiRequest, response, w)
 	return args.String(0), args.Error(1)
 }
@@ -146,11 +146,11 @@ func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *ApiReques
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
 	if err != nil {
-		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
+		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: " + err.Error())
 	}
 	err = ed.handleApiConfigResponse(apiConfigResponse)
 	if err != nil {
-		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
+		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: " + err.Error())
 	}
 
 	// Call the service.

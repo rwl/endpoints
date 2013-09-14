@@ -1,4 +1,3 @@
-
 package endpoint
 
 import (
@@ -8,7 +7,7 @@ import (
 
 type Route struct {
 	pathPrefix string
-	handler func(http.ResponseWriter, *http.Request)
+	handler func (http.ResponseWriter, *http.Request)
 }
 
 type Router struct {
@@ -19,7 +18,7 @@ func NewRouter() *Router {
 	return &Router{}
 }
 
-func (h *Router) HandleFunc(pathPrefix string, handler func(http.ResponseWriter, *http.Request)) {
+func (h *Router) HandleFunc(pathPrefix string, handler func (http.ResponseWriter, *http.Request)) {
 	r := &Route{pathPrefix, handler}
 	h.routes = append(h.routes, r)
 }

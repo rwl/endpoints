@@ -73,8 +73,8 @@ func TestTransformJsonRpcRequest(t *testing.T) {
 //   method_params: Optional dictionary specifying the parameter configuration
 //     associated with the method.
 func transformRestRequest(server *EndpointsServer, pathParameters map[string]string,
-	queryParameters string, bodyJson map[string]interface{},
-	expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestParamSpec) error {
+queryParameters string, bodyJson map[string]interface{},
+expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestParamSpec) error {
 
 	if methodParams == nil {
 		methodParams = make(map[string]*endpoints.ApiRequestParamSpec)

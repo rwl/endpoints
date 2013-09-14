@@ -14,12 +14,13 @@ import (
 // The endpoint host we're using to proxy discovery and static requests.
 // Using separate constants to make it easier to change the discovery service.
 var (
-	DiscoveryProxyHost = "https://webapis-discovery.appspot.com"
-	StaticProxyHost = "https://webapis-discovery.appspot.com"
+	DiscoveryProxyHost     = "https://webapis-discovery.appspot.com"
+	StaticProxyHost        = "https://webapis-discovery.appspot.com"
 	DiscoveryApiPathPrefix = "/_ah/api/discovery/v1/"
 )
 
 type ApiFormat string
+
 const (
 	REST ApiFormat = "rest"
 	RPC  ApiFormat = "rpc"
@@ -34,7 +35,7 @@ const (
 // Returns:
 // HTTP response body or None if it failed.
 func dispatchDiscoveryRequest(path, body string) (string, error) {
-	fullPath := DiscoveryProxyHost+DiscoveryApiPathPrefix+path
+	fullPath := DiscoveryProxyHost + DiscoveryApiPathPrefix + path
 	client := &http.Client{}
 
 	req, err := http.NewRequest("POST", fullPath, nil)
@@ -110,7 +111,7 @@ func generateDiscoveryDirectory(apiConfigs []string) (string, error) {
 // proxy host.
 // response_body: A string containing the response body.
 func getStaticFile(path string) (*http.Response, string, error) {
-	resp, err := http.Get(StaticProxyHost+path)
+	resp, err := http.Get(StaticProxyHost + path)
 	if err != nil {
 		return nil, "", err
 	}
