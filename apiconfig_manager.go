@@ -1,4 +1,17 @@
-// Configuration manager to store API configurations.
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -18,6 +31,8 @@ const PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
 
 var PathVariablePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
 
+// Configuration manager to store API configurations.
+//
 // Manages loading api configs and method lookup.
 type ApiConfigManager struct {
 	rpcMethods map[lookupKey]*endpoints.ApiMethod
@@ -41,8 +56,8 @@ type lookupKey struct {
 }
 
 type restMethod struct {
-	compiledPathPattern *regexp.Regexp
-	path                  string
+	compiledPathPattern *regexp.Regexp // A compiled regex to match against the incoming URL.
+	path                  string // The original path pattern (checked to prevent duplicates).
 	methods               map[string]*methodInfo
 }
 
@@ -53,15 +68,7 @@ type methodInfo struct {
 
 // Switch the URLs in one API configuration to use HTTP instead of HTTPS.
 //
-// When doing local development in the dev server, any requests to the API
-// need to use HTTP rather than HTTPS.  This converts the API configuration
-// to use HTTP.  With this change, client libraries that use the API
-// configuration will now be able to communicate with the local server.
-//
-// This modifies the given dictionary in place.
-//
-// Args:
-//   config: A dict with the JSON configuration for an API.
+// This modifies the given config in place.
 func convertHttpsToHttp(config *endpoints.ApiDescriptor) {
 	if len(config.Adapter.Bns) > 0 {
 		bns := config.Adapter.Bns
@@ -74,14 +81,11 @@ func convertHttpsToHttp(config *endpoints.ApiDescriptor) {
 	}
 }
 
-// Parses a json api config and registers methods for dispatch.
+// Parses the JSON body of the getApiConfigs response and registers methods
+// for dispatch.
 //
-// Side effects:
-//   Parses method name, etc for all methods and updates the indexing
-//   datastructures with the information.
-//
-// Args:
-//   body: A string, the JSON body of the getApiConfigs response.
+// Parses method name, etc for all methods and updates the indexing
+// datastructures with the information.
 func (m *ApiConfigManager) parseApiConfigResponse(body string) error {
 	var responseObj map[string]interface{}
 	err := json.Unmarshal([]byte(body), &responseObj)
@@ -133,11 +137,7 @@ func (m *ApiConfigManager) parseApiConfigResponse(body string) error {
 
 // Gets path parameters from a regular expression match.
 //
-// Args:
-//   match: A regular expression Match object for a path.
-//
-// Returns:
-//   A dictionary containing the variable names converted from base64.
+// Returns a map containing the variable names converted from base64.
 func pathParams(names []string, match []string) (map[string]string, error) {
 	result := make(map[string]string)
 	if len(names) != len(match) {
@@ -158,17 +158,12 @@ func pathParams(names []string, match []string) (map[string]string, error) {
 	return result, nil
 }
 
-// Lookup the JsonRPC method at call time.
+// Looks up the JsonRPC method at call time.
 //
-// The method is looked up in self._rpc_method_dict, the dictionary that
-// it is saved in for SaveRpcMethod().
+// The method is looked up in rpcMethods, the map that
+// it is saved in for saveRpcMethod().
 //
-// Args:
-//   method_name: A string containing the name of the method.
-//   version: A string containing the version of the API.
-//
-// Returns:
-//   Method descriptor as specified in the API configuration.
+// Returns a method descriptor as specified in the API configuration.
 func (m *ApiConfigManager) lookupRpcMethod(methodName, version string) *endpoints.ApiMethod {
 	m.configLock.Lock()
 	defer m.configLock.Unlock()
@@ -176,21 +171,18 @@ func (m *ApiConfigManager) lookupRpcMethod(methodName, version string) *endpoint
 	return method
 }
 
-// Look up the rest method at call time.
+// Looks up the REST method at call time.
 //
-// The method is looked up in self._rest_methods, the list it is saved
-// in for SaveRestMethod.
+// The method is looked up in restMethods, the list it is saved
+// in for saveRestMethod.
 //
 // Args:
 //   path: A string containing the path from the URL of the request.
 //   http_method: A string containing HTTP method of the request.
 //
-// Returns:
-//   Tuple of (<method name>, <method>, <params>)
-//   Where:
-//     <method name> is the string name of the method that was matched.
-//     <method> is the descriptor as specified in the API configuration. -and-
-//     <params> is a dict of path parameters matched in the rest request.
+// Returns the name of the method that was matched, the descriptor as
+// specified in the API configuration and a map of path parameters matched
+// in the REST request.
 func (m *ApiConfigManager) lookupRestMethod(path, httpMethod string) (string, *endpoints.ApiMethod, map[string]string) {
 	m.configLock.Lock()
 	defer m.configLock.Unlock()
@@ -224,21 +216,15 @@ func (m *ApiConfigManager) addDiscoveryConfig() {
 	m.configs[lookupKey] = DiscoveryApiConfig
 }
 
-// Creates a safe string to be used as a regex group name.
+// Takes a string containing the parameter matched from the URL template and
+// returns a safe string to be used as a regex group name.
 //
 // Only alphanumeric characters and underscore are allowed in variable name
 // tokens, and numeric are not allowed as the first character.
 //
-// We cast the matched_parameter to base32 (since the alphabet is safe),
+// We convert the matched_parameter to base32 (since the alphabet is safe),
 // strip the padding (= not safe) and prepend with _, since we know a token
 // can begin with underscore.
-//
-// Args:
-//   matched_parameter: A string containing the parameter matched from the URL
-//   template.
-//
-// Returns:
-//   A string that"s safe to be used as a regex group name.
 func toSafePathParamName(matchedParameter string) string {
 	safe := "_" + base32.StdEncoding.EncodeToString([]byte(matchedParameter))
 	return strings.TrimRight(safe, "=")
@@ -250,12 +236,6 @@ func toSafePathParamName(matchedParameter string) string {
 // tokens, and numeric are not allowed as the first character.
 //
 // The safe_parameter is a base32 representation of the actual value.
-//
-// Args:
-//   safe_parameter: A string that was generated by _to_safe_path_param_name.
-//
-// Returns:
-//   A string, the parameter matched from the URL template.
 func fromSafePathParamName(safeParameter string) (string, error) {
 	if !strings.HasPrefix(safeParameter, "_") {
 		return "", fmt.Errorf(`Safe parameter lacks "_" prefix: %s`, safeParameter)
@@ -274,39 +254,25 @@ func fromSafePathParamName(safeParameter string) (string, error) {
 	return string(data), nil
 }
 
-// Generates a compiled regex pattern for a path pattern.
+// Replaces a {variable} with a regex to match it by name.
+//
+// Changes the string corresponding to the variable name to the base32
+// representation of the string, prepended by an underscore. This is
+// necessary because we can have message variable names in URL patterns
+// (e.g. via {x.y}) but the character "." can"t be in a regex group name.
+func replaceVariable(varName string) string {
+	if varName != "" {
+		safeName := toSafePathParamName(varName)
+		return fmt.Sprintf("(?P<%s>%s)", safeName, PATH_VALUE_PATTERN)
+	}
+	return varName
+}
+
+// Generates a compiled regex pattern for a parameterized path pattern.
 //
 // e.g. "/MyApi/v1/notes/{id}"
-// returns re.compile(r"^/MyApi/v1/notes/(?P<id>[^:/?#\[\]{}]*)")
-//
-// Args:
-//   pattern: A string, the parameterized path pattern to be checked.
-//
-// Returns:
-// A compiled regex object to match this path pattern.
+// returns regexp.MustCompile(r"^/MyApi/v1/notes/(?P<id>[^:/?#\[\]{}]*)")
 func compilePathPattern(ppp string) (*regexp.Regexp, error) {
-
-	// Replaces a {variable} with a regex to match it by name.
-	//
-	// Changes the string corresponding to the variable name to the base32
-	// representation of the string, prepended by an underscore. This is
-	// necessary because we can have message variable names in URL patterns
-	// (e.g. via {x.y}) but the character "." can"t be in a regex group name.
-	//
-	// Args:
-	//   match: A regex match object, the matching regex group as sent by
-	//   re.sub().
-	//
-	// Returns:
-	//   A string regex to match the variable by name, if the full pattern was
-	//   matched.
-	replaceVariable := func(varName string) string {
-		if varName != "" {
-			safeName := toSafePathParamName(varName)
-			return fmt.Sprintf("(?P<%s>%s)", safeName, PATH_VALUE_PATTERN)
-		}
-		return varName
-	}
 
 	idxs, err := braceIndices(ppp)
 	if err != nil {
@@ -342,50 +308,39 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 
 // Store JsonRpc api methods in a map for lookup at call time.
 //
-// (rpcMethodName, apiVersion) => method.
-//
-// Args:
-//   method_name: A string containing the name of the API method.
-//   version: A string containing the version of the API.
-//   method: A dict containing the method descriptor (as in the api config
-//     file).
+// (methodName, version) => method.
 func (m *ApiConfigManager) saveRpcMethod(methodName, version string, method *endpoints.ApiMethod) {
 	glog.Infof("Registering RPC method: %s %s %s %s", methodName, version, method.HttpMethod, method.Path)
 	m.rpcMethods[lookupKey{methodName, version}] = method
 }
 
-// Store Rest api methods in a list for lookup at call time.
+// Store Rest api methods in an array for lookup at call time.
 //
-// The list is self._rest_methods, a list of tuples:
-//   [(<compiled_path>, <path_pattern>, <method_dict>), ...]
-// where:
-//   <compiled_path> is a compiled regex to match against the incoming URL
-//   <path_pattern> is a string representing the original path pattern,
-//   checked on insertion to prevent duplicates.     -and-
-//   <method_dict> is a dict of httpMethod => (method_name, method)
+// The array is restMethods, an array of restMethod structs.
 //
 // This structure is a bit complex, it supports use in two contexts:
-//   Creation time:
-//     - SaveRestMethod is called repeatedly, each method will have a path,
-//       which we want to be compiled for fast lookup at call time
-//     - We want to prevent duplicate incoming path patterns, so store the
-//       un-compiled path, not counting on a compiled regex being a stable
-//       comparison as it is not documented as being stable for this use.
-//     - Need to store the method that will be mapped at calltime.
-//     - Different methods may have the same path but different http method.
-//   Call time:
-//     - Quickly scan through the list attempting .match(path) on each
-//       compiled regex to find the path that matches.
-//     - When a path is matched, look up the API method from the request
-//       and get the method name and method config for the matching
-//       API method and method name.
 //
-// Args:
-//   method_name: A string containing the name of the API method.
-//   api_name: A string containing the name of the API.
-//   version: A string containing the version of the API.
-//   method: A dict containing the method descriptor (as in the api config
-//     file).
+// Creation time:
+//
+// - saveRestMethod is called repeatedly, each method will have a path,
+//   which we want to be compiled for fast lookup at call time
+//
+// - We want to prevent duplicate incoming path patterns, so store the
+//   un-compiled path, not counting on a compiled regex being a stable
+//   comparison as it is not documented as being stable for this use.
+//
+// - Need to store the method that will be mapped at calltime.
+//
+// - Different methods may have the same path but different http method.
+//
+// Call time:
+//
+// - Quickly scan through the list attempting .match(path) on each
+//   compiled regex to find the path that matches.
+//
+// - When a path is matched, look up the API method from the request
+//   and get the method name and method config for the matching
+//   API method and method name.
 func (m *ApiConfigManager) saveRestMethod(methodName, apiName, version string, method *endpoints.ApiMethod) {
 	var compiledPattern *regexp.Regexp
 	var err error

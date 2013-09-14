@@ -1,3 +1,17 @@
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -290,8 +304,7 @@ func TestParseApiConfigInvalidApiConfig(t *testing.T) {
 			"guestbook_api.foo.bar": fakeMethod,
 		},
 	})
-	// Invalid Json.
-	config2 := "{"
+	config2 := "{" // Invalid Json.
 	items, _ := json.Marshal(map[string]interface{}{
 		"items": []string{string(config), string(config2)},
 	})
@@ -324,7 +337,7 @@ func TestParseApiConfigConvertHttps(t *testing.T) {
 	assert.Equal(t, "http://localhost/_ah/api", configManager.configs[key].Root)
 }
 
-// Test that the _convert_https_to_http function works.
+// Test that the convertHttpsToHttp function works.
 func TestConvertHttpsToHttp(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
@@ -341,7 +354,7 @@ func TestConvertHttpsToHttp(t *testing.T) {
 	assert.Equal(t, "http://tictactoe.appspot.com/_ah/api", config.Root)
 }
 
-// Verify that we don"t change non-HTTPS URLs.
+// Verify that we don't change non-HTTPS URLs.
 func TestDontConvertNonHttpsToHttp(t *testing.T) {
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
@@ -413,7 +426,7 @@ func TestTrailingSlashOptional(t *testing.T) {
 	assert.Equal(t, params, make(map[string]string))
 }
 
-/* Parameterized path tests. */
+// Parameterized path tests.
 
 func TestInvalidVariableNameLeadingDigit(t *testing.T) {
 	matched := PathVariablePattern.MatchString("1abc")
@@ -431,14 +444,10 @@ func TestValidVariableName(t *testing.T) {
 	assert.Equal(t, PathVariablePattern.FindString("AbC1"), "AbC1")
 }
 
-// Assert that the given path does not match param_path pattern.
+// Assert that the given inbound request path does not match the
+// parameterized path pattern.
 //
 // For example, /xyz/123 does not match /abc/{x}.
-//
-// Args:
-//   path: A string, the inbound request path.
-//   param_path: A string, the parameterized path pattern to match against
-//     this path.
 func assertNoMatch(t *testing.T, path, paramPath string) {
 	re, err := compilePathPattern(paramPath)
 	assert.NoError(t, err)
@@ -462,19 +471,12 @@ func TestNoMatchCollectionWithItem(t *testing.T) {
 	assertNoMatch(t, "/api/v1/resources/123", "/{name}/{version}/resources")
 }
 
-// Assert that the given path does match param_path pattern.
+// Assert that the given inbound request path does match the parameterized
+// path pattern.
 //
-// For example, /abc/123 does not match /abc/{x}.
+// For example, /abc/123 does match /abc/{x}.
 //
-// Args:
-//   path: A string, the inbound request path.
-//   param_path: A string, the parameterized path pattern to match against
-//     this path.
-//   param_count: An int, the expected number of parameters to match in
-//     pattern.
-//
-// Returns:
-//   Dict mapping path variable name to path variable value.
+// Also checks against the expected number of parameters.
 func assertMatch(t *testing.T, path, paramPath string, paramCount int) map[string]string {
 	re, err := compilePathPattern(paramPath)
 	ok := assert.NoError(t, err)
@@ -528,9 +530,6 @@ func TestMessageAndSimpleVariableMatch(t *testing.T) {
 // Assert that the path parameter value is not valid.
 //
 // For example, /abc/3!:2 is invalid for /abc/{x}.
-//
-// Args:
-//   value: A string containing a variable value to check for validity.
 func assertInvalidValue(t *testing.T, value string) {
 	paramPath := "/abc/{x}"
 	path := fmt.Sprintf("/abc/%s", value)

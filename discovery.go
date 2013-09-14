@@ -1,5 +1,16 @@
-// Proxy that dispatches Discovery requests to the prod Discovery service.
-// Copyright 2007 Google Inc.
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package endpoint
 
@@ -11,9 +22,9 @@ import (
 	"net/http"
 )
 
-// The endpoint host we're using to proxy discovery and static requests.
-// Using separate constants to make it easier to change the discovery service.
 var (
+	// The endpoint host we're using to proxy discovery and static requests.
+	// Using separate constants to make it easier to change the discovery service.
 	DiscoveryProxyHost     = "https://webapis-discovery.appspot.com"
 	StaticProxyHost        = "https://webapis-discovery.appspot.com"
 	DiscoveryApiPathPrefix = "/_ah/api/discovery/v1/"
@@ -26,14 +37,9 @@ const (
 	RPC  ApiFormat = "rpc"
 )
 
-// Proxies GET request to discovery service API.
-//
-// Args:
-// path: A string containing the URL path relative to discovery service.
-// body: A string containing the HTTP POST request body.
-//
-// Returns:
-// HTTP response body or None if it failed.
+// Proxies GET requests to the discovery service API. Takes the URL path
+// relative to discovery service and the HTTP POST request body and returns
+// the HTTP response body or an error if it failed.
 func dispatchDiscoveryRequest(path, body string) (string, error) {
 	fullPath := DiscoveryProxyHost + DiscoveryApiPathPrefix + path
 	client := &http.Client{}
@@ -62,18 +68,9 @@ func dispatchDiscoveryRequest(path, body string) (string, error) {
 	return responseBody, nil
 }
 
-// Generates a discovery document from an API file.
-//
-// Args:
-// api_config: A string containing the .api file contents.
-// api_format: A string, either 'rest' or 'rpc' depending on the which kind
-// of discvoery doc is requested.
-//
-// Returns:
-// The discovery doc as JSON string.
-//
-// Raises:
-// ValueError: When api_format is invalid.
+// Generates a discovery document from an API file. Takes the .api file
+// contents and the kind of discvoery doc requested and returns the discovery
+// doc as JSON string.
 func generateDiscoveryDoc(apiConfig *endpoints.ApiDescriptor, apiFormat ApiFormat) (string, error) {
 	path := "apis/generate/" + string(apiFormat)
 	requestMap := map[string]interface{}{"config": apiConfig}
@@ -84,13 +81,8 @@ func generateDiscoveryDoc(apiConfig *endpoints.ApiDescriptor, apiFormat ApiForma
 	return dispatchDiscoveryRequest(path, string(requestBody))
 }
 
-// Generates an API directory from a list of API files.
-//
-// Args:
-//   api_configs: A list of strings which are the .api file contents.
-//
-// Returns:
-// The API directory as JSON string.
+// Generates an API directory from a list of API files. Takes an array of
+// .api file contents and returns the API directory as JSON string.
 func generateDiscoveryDirectory(apiConfigs []string) (string, error) {
 	requestMap := map[string]interface{}{"configs": apiConfigs}
 	requestBody, err := json.Marshal(requestMap)
@@ -100,16 +92,9 @@ func generateDiscoveryDirectory(apiConfigs []string) (string, error) {
 	return dispatchDiscoveryRequest("apis/generate/directory", string(requestBody))
 }
 
-// Returns static content via a GET request.
-//
-// Args:
-// path: A string containing the URL path after the domain.
-//
-// Returns:
-// A tuple of (response, response_body):
-// response: A HTTPResponse object with the response from the static
-// proxy host.
-// response_body: A string containing the response body.
+// Returns static content via a GET request. Takes the URL path after the
+// domain and returns a Response from the static proxy host and the response
+// body.
 func getStaticFile(path string) (*http.Response, string, error) {
 	resp, err := http.Get(StaticProxyHost + path)
 	if err != nil {

@@ -1,3 +1,17 @@
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -41,24 +55,21 @@ func TestHandleNonJsonSpiResponseCors(t *testing.T) {
 
 // Check that CORS headers are handled correctly.
 //
-// Args:
-//   request_headers: A list of (header, value), to be used as headers in the
-//     request.
-//   expect_response: A boolean, whether or not CORS headers are expected in
-//     the response.
-//   expected_origin: A string or None.  If this is a string, this is the value
-//     that"s expected in the response"s allow origin header.  This can be
-//     None if expect_response is False.
-//   expected_allow_headers: A string or None.  If this is a string, this is
-//     the value that"s expected in the response"s allow headers header.  If
-//     this is None, then the response shouldn"t have any allow headers
-//     headers.
-//   server_response: A dispatcher.ResponseTuple or None.  The backend"s
-//     response, to be wrapped and returned as the server"s response.  If
-//     this is None, a generic response will be generated.
+// requestHeaders: A header map to be used in the request.
 //
-// Returns:
-//   A string containing the body of the response that would be sent.
+// expectResponse: Whether or not CORS headers are expected in the response.
+//
+// expectedOrigin: If specified, this is the value that's expected in the
+// response's allow origin header.
+//
+// expectedAllowHeaders: If specified, this is the value that's expected in
+// the response's allow headers header. If this is empty, then the response
+// shouldn't have any allow headers headers.
+//
+// serverResponse: The backend's response, to be wrapped and returned as
+// the server's response. If this is nil, a generic response will be generated.
+//
+// Returns the body of the response that would be sent.
 func checkCors(t *testing.T, requestHeaders http.Header, expectResponse bool,
 expectedOrigin, expectedAllowHeaders string, serverResponse *http.Response) string {
 	origRequest := buildApiRequest("/_ah/api/fake/path", "", requestHeaders)

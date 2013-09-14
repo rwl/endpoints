@@ -1,3 +1,17 @@
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -38,18 +52,6 @@ func prepareTestServer(t *testing.T, config *endpoints.ApiDescriptor) *httptest.
 }
 
 // Assert that dispatching a request to the SPI works.
-//
-// Mock out the dispatcher.add_request and handle_spi_response, and use these
-// to ensure that the correct request is being sent to the back end when
-// Dispatch is called.
-//
-// Args:
-//   request: An ApiRequest, the request to dispatch.
-//   config: A dict containing the API configuration.
-//   spi_path: A string containing the relative path to the SPI.
-//   expected_spi_body_json: If not None, this is a JSON object containing
-//     the mock response sent by the back end.  If None, this will create an
-//     empty response.
 func assertDispatchToSpi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spiPath string,
 expectedSpiBodyJson map[string]interface{}) {
 	server := newMockEndpointsServer()
@@ -596,7 +598,7 @@ func TestTransformRestResponse(t *testing.T) {
 	assert.Equal(t, expectedResponse, response)
 }
 
-// Verify request_id inserted into the body, and body into body.result.
+// Verify requestId inserted into the body, and body into body.result.
 func TestTransformJsonRpcResponseBatch(t *testing.T) {
 	server := NewEndpointsServer()
 	origRequest := buildApiRequest(

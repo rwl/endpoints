@@ -1,3 +1,17 @@
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -6,14 +20,8 @@ import (
 	"strings"
 )
 
-// Get a copy of "methods" sorted the way they would be on the live server.
-//
-// Args:
-//   methods: JSON configuration of an API"s methods.
-//
-// Returns:
-//   The same configuration with the methods sorted based on what order
-//   they'll be checked by the server.
+// Returns the same method configurations sorted based on the order
+// they'll be checked by the server.
 func sortMethods(methods map[string]*endpoints.ApiMethod) []*methodInfo {
 	if methods == nil {
 		return nil
@@ -34,7 +42,7 @@ func (by ByPath) Len() int {
 	return len(by)
 }
 
-// Less returns whether the element with index i should sort
+// Returns whether the element with index i should sort
 // before the element with index j.
 func (by ByPath) Less(i, j int) bool {
 	methodInfo1 := by[i].apiMethod
@@ -71,12 +79,6 @@ func (by ByPath) Swap(i, j int) {
 // is sorted alphabetically.  Scores are based on the number and location
 // of the constant parts of the path.  The server has some special handling
 // for variables with regexes, which we don't handle here.
-//
-// Args:
-//   path: The request path that we"re calculating a score for.
-//
-// Returns:
-//   The score for the given path.
 func scorePath(path string) int {
 	score := 0
 	parts := strings.Split(path, "/")
@@ -87,9 +89,6 @@ func scorePath(path string) int {
 			score += 1
 		}
 	}
-	// Shift by 31 instead of 32 because some (!) versions of Python like
-	// to convert the int to a long if we shift by 32, and the sorted()
-	// function that uses this blows up if it receives anything but an int.
-	score <<= uint(31 - len(parts))
+	score <<= uint(31 - len(parts)) // todo: shift by 32 instead of 31 (?)
 	return score
 }

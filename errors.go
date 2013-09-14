@@ -1,4 +1,17 @@
-// Errors used in the local Cloud Endpoints server.
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -8,6 +21,8 @@ import (
 	"github.com/golang/glog"
 	"net/http"
 )
+
+// Errors used in the local Cloud Endpoints server.
 
 type RequestError interface {
 	StatusCode() int
@@ -21,15 +36,18 @@ type BaseRequestError struct {
 
 	Message string // Text message explaining the error.
 
-	// Error reason is a custom string in the Cloud Endpoints server.  When
-	// possible, this should match the reason that the live server will generate,
-	// based on the error's status code.  If this returns None, the error formatter
-	// will attempt to generate a reason from the status code.
+	// Error reason is a custom string in the Cloud Endpoints server. When
+	// possible, this should match the reason that the live server will
+	// generate, based on the error's status code.  If this is empty,
+	// the error formatter will attempt to generate a reason from the status
+	// code.
 	Reason string
 
 	Domain string // The string "global" by default.
 
-	ExtraFields map[string]interface{} // Some errors have additional information. This provides a way for subclasses to provide that information.
+	// Some errors have additional information. This provides a way for
+	// subclasses to provide that information.
+	ExtraFields map[string]interface{}
 }
 
 func (re *BaseRequestError) StatusCode() int {

@@ -1,4 +1,16 @@
-// Test utilities.
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package endpoint
 
@@ -16,14 +28,6 @@ import (
 )
 
 // Build an ApiRequest for the given path and body.
-//
-// Args:
-//   url: A string containing the URL for the proposed request.
-//   body: A string containing the body of the proposed request.
-//   http_headers: A list of (header, value) headers to add to the request.
-//
-// Returns:
-//   An ApiRequest object built based on the incoming parameters.
 func buildApiRequest(url, body string, httpHeaders http.Header) *ApiRequest {
 	req := buildRequest(url, body, httpHeaders)
 	apiRequest, err := NewApiRequest(req)
@@ -34,6 +38,7 @@ func buildApiRequest(url, body string, httpHeaders http.Header) *ApiRequest {
 	return apiRequest
 }
 
+// Build a Request for the given path and body.
 func buildRequest(url, body string, httpHeaders http.Header) *http.Request {
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:42%s", url),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
@@ -86,7 +91,7 @@ func newMockEndpointsServer() (*MockEndpointsServer) {
 	}
 }
 
-// fixme: mock handle_spi_response without duplicating dispatch
+// fixme: mock handleSpiResponse without duplicating serveHTTP
 func (ed *MockEndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) string {
 	apiConfigResponse, _ := ed.getApiConfigs()
 	ed.handleApiConfigResponse(apiConfigResponse)
@@ -94,7 +99,7 @@ func (ed *MockEndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) 
 	return body
 }
 
-// fixme: mock handle_spi_response without duplicating call_spi
+// fixme: mock handleSpiResponse without duplicating callSpi
 func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiRequest) (string, error) {
 	var methodConfig *endpoints.ApiMethod
 	var params map[string]string
@@ -140,7 +145,7 @@ func newMockEndpointsServerSpi() (*MockEndpointsServerSpi) {
 	}
 }
 
-// fixme: mock call_spi without duplicating dispatch
+// fixme: mock callSpi without duplicating serveHTTP
 func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *ApiRequest) string {
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.

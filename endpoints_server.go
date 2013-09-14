@@ -1,4 +1,16 @@
-// Copyright 2007 Google Inc.
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package endpoint
 
@@ -30,7 +42,9 @@ func HandleHttp() {
 
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsServer struct {
-	configManager *ApiConfigManager // An ApiConfigManager instance that allows a caller to set up an existing configuration for testing.
+	// An ApiConfigManager instance that allows a caller to set up an
+	// existing configuration for testing.
+	configManager *ApiConfigManager
 	URL string
 }
 
@@ -63,7 +77,7 @@ func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) {
-	// Get API configuration first.  We need this so we know how to
+	// Get API configuration first. We need this so we know how to
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
 	if err != nil {
@@ -91,15 +105,6 @@ func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) {
 }
 
 // Handler for requests to _ah/api/explorer.
-//
-// This calls start_response and returns the response body.
-//
-// Args:
-// request: An ApiRequest, the request from the user.
-// start_response:
-//
-// Returns:
-// A string containing the response body (which is empty, in this case).
 func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
 	baseUrl := fmt.Sprintf("http://%s/_ah/api", r.URL.Host)
 	redirectUrl := ApiExplorerUrl + baseUrl
@@ -107,15 +112,6 @@ func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *ht
 }
 
 // Handler for requests to _ah/api/static/.*.
-//
-// This calls start_response and returns the response body.
-//
-// Args:
-// request: An ApiRequest, the request from the user.
-// start_response:
-//
-// Returns:
-// A string containing the response body.
 func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := NewApiRequest(r)
 	if err != nil {
@@ -140,10 +136,6 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 }
 
 // Makes a call to the BackendService.getApiConfigs endpoint.
-//
-// Returns:
-// A ResponseTuple containing the response information from the HTTP
-// request.
 func (ed *EndpointsServer) getApiConfigs() (*http.Response, error) {
 	req, err := http.NewRequest("POST",
 			ed.URL + "/_ah/spi/BackendService.getApiConfigs",
@@ -161,16 +153,7 @@ func (ed *EndpointsServer) getApiConfigs() (*http.Response, error) {
 }
 
 // Verifies that a response has the expected status and content type.
-//
-// Args:
-// response: The ResponseTuple to be checked.
-// status_code: An int, the HTTP status code to be compared with response
-// status.
-// content_type: A string with the acceptable Content-Type header value.
-// None allows any content type.
-//
-// Returns:
-// True if both status_code and content_type match, else False.
+// Returns true if both statusCode and contentType match the response.
 func verifyResponse(response *http.Response, statusCode int, contentType string) error {
 	if response.StatusCode != statusCode {
 		return fmt.Errorf("HTTP status code does not match the response status code: %d != %d", statusCode, response.StatusCode)
@@ -188,13 +171,7 @@ func verifyResponse(response *http.Response, statusCode int, contentType string)
 	return fmt.Errorf("Incorrect response Content-Type: %s != %s", ct, contentType)
 }
 
-// Parses the result of GetApiConfigs and stores its information.
-//
-// Args:
-//   api_config_response: The http.Response from the GetApiConfigs call.
-//
-// Returns:
-//   True on success, False on failure
+// Parses the result of getApiConfigs and stores its information.
 func (ed *EndpointsServer) handleApiConfigResponse(apiConfigResponse *http.Response) error {
 	err := verifyResponse(apiConfigResponse, 200, "application/json")
 	if err == nil {
@@ -213,15 +190,6 @@ func (ed *EndpointsServer) handleApiConfigResponse(apiConfigResponse *http.Respo
 }
 
 // Generate SPI call (from earlier-saved request).
-//
-// This calls start_response and returns the response body.
-//
-// Args:
-// orig_request: An ApiRequest, the original request from the user.
-// start_response:
-//
-// Returns:
-// A string containing the response body.
 func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiRequest) (string, error) {
 	var methodConfig *endpoints.ApiMethod
 	var params map[string]string
@@ -268,18 +236,6 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiReques
 }
 
 // Handle SPI response, transforming output as needed.
-//
-// This calls start_response and returns the response body.
-//
-// Args:
-// orig_request: An ApiRequest, the original request from the user.
-// spi_request: An ApiRequest, the transformed request that was sent to the
-// SPI handler.
-// response: A ResponseTuple, the response from the SPI handler.
-// start_response:
-//
-// Returns:
-// A string containing the response body.
 func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
 	respBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -325,16 +281,6 @@ func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *ApiRequest
 }
 
 // Write an immediate failure response to outfile, no redirect.
-//
-// This calls start_response and returns the error body.
-//
-// Args:
-// orig_request: An ApiRequest, the original request from the user.
-// message: A string containing the error message to be displayed to user.
-// start_response:
-//
-// Returns:
-// A string containing the body of the error response.
 func (ed *EndpointsServer) failRequest(w http.ResponseWriter, origRequest *http.Request, message string) string {
 	corsHandler := newCheckCorsHeaders(origRequest)
 	return sendErrorResponse(message, w, corsHandler)
@@ -342,12 +288,8 @@ func (ed *EndpointsServer) failRequest(w http.ResponseWriter, origRequest *http.
 
 // Looks up and returns rest method for the currently-pending request.
 //
-// Args:
-// orig_request: An ApiRequest, the original request from the user.
-//
-// Returns:
-// A tuple of (method descriptor, parameters), or (None, None) if no method
-// was found for the current request.
+// Returns a method descriptor and a parameter map, or (nil, nil) if no
+// method was found for the current request.
 func (ed *EndpointsServer) lookupRestMethod(origRequest *ApiRequest) (*endpoints.ApiMethod, map[string]string) {
 	methodName, method, params := ed.configManager.lookupRestMethod(origRequest.URL.Path, origRequest.Method)
 	origRequest.Method = methodName
@@ -356,12 +298,8 @@ func (ed *EndpointsServer) lookupRestMethod(origRequest *ApiRequest) (*endpoints
 
 // Looks up and returns RPC method for the currently-pending request.
 //
-// Args:
-// orig_request: An ApiRequest, the original request from the user.
-//
-// Returns:
-// The RPC method descriptor that was found for the current request, or None
-// if none was found.
+// Returns the RPC method descriptor that was found for the current request,
+// or nil if none was found.
 func (ed *EndpointsServer) lookupRpcMethod(origRequest *ApiRequest) *endpoints.ApiMethod {
 	if origRequest.BodyJson == nil {
 		return nil
@@ -380,22 +318,12 @@ func (ed *EndpointsServer) lookupRpcMethod(origRequest *ApiRequest) *endpoints.A
 	return ed.configManager.lookupRpcMethod(methodNameStr, versionStr)
 }
 
-// Transforms orig_request to apiserving request.
+// Transforms origRequest to an api-serving request.
 //
-// This method uses orig_request to determine the currently-pending request
-// and returns a new transformed request ready to send to the SPI.  This
-// method accepts a rest-style or RPC-style request.
-//
-// Args:
-// orig_request: An ApiRequest, the original request from the user.
-// params: A dictionary containing path parameters for rest requests, or
-// None for an RPC request.
-// method_config: A dict, the API config of the method to be called.
-//
-// Returns:
-// An ApiRequest that"s a copy of the current request, modified so it can
-// be sent to the SPI.  The path is updated and parts of the body or other
-// properties may also be changed.
+// This method uses origRequest to determine the currently-pending request
+// and returns a new transformed request ready to send to the SPI. The path
+// is updated and parts of the body or other properties may also be changed.
+// This method accepts a REST-style or RPC-style request.
 func (ed *EndpointsServer) transformRequest(origRequest *ApiRequest, params map[string]string, methodConfig *endpoints.ApiMethod) (*ApiRequest, error) {
 	var request *ApiRequest
 	var err error
@@ -414,21 +342,16 @@ func (ed *EndpointsServer) transformRequest(origRequest *ApiRequest, params map[
 
 // Checks if the parameter value is valid if an enum.
 //
-// If the parameter is not an enum, does nothing. If it is, verifies that
+// If the parameter is not an enum, it does nothing. If it is, verifies that
 // its value is valid.
 //
-// Args:
-// parameter_name: A string containing the name of the parameter, which is
-// either just a variable name or the name with the index appended. For
-// example "var" or "var[2]".
-// value: A string or list of strings containing the value(s) to be used as
-// enum(s) for the parameter.
-// field_parameter: The dictionary containing information specific to the
-// field in question. This is retrieved from request.parameters in the
-// method config.
+// Takes the name of the parameter (Which is either just a variable name or
+// the name with the index appended. For example "var" or "var[2]".), the
+// value to be used as enum for the parameter and a spec containing
+// information specific to the field in question (This is retrieved from
+// request.Parameters in the method config.
 //
-// Raises:
-// EnumRejectionError: If the given value is not among the accepted
+// Returns an EnumRejectionError if the given value is not among the accepted
 // enum values in the field parameter.
 func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	if fieldParameter == nil || fieldParameter.Enum == nil || len(fieldParameter.Enum) == 0 {
@@ -450,7 +373,7 @@ func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldPa
 	return NewEnumRejectionError(parameterName, value, enumValues)
 }
 
-// Recursively calls check_parameter on the values in the list.
+// Recursively calls checkParameter on the values in the list.
 //
 // "[index-of-value]" is appended to the parameter name for
 // error reporting purposes.
@@ -470,34 +393,30 @@ func (ed *EndpointsServer) checkParameters(parameterName string, values []string
 // Currently only checks if value adheres to enum rule, but more checks may be
 // added.
 //
-// Args:
-//   parameter_name: A string containing the name of the parameter, which is
-//     either just a variable name or the name with the index appended, in the
-//     recursive case. For example "var" or "var[2]".
-//   value: A string containing the value to be used for the parameter.
-//   field_parameter: The dictionary containing information specific to the
-//     field in question. This is retrieved from request.parameters in the
-//     method config.
+// Takes the name of the parameter (Which is either just a variable name or
+// the name with the index appended. For example "var" or "var[2]".), the
+// value to be used as enum for the parameter and a spec containing
+// information specific to the field in question (This is retrieved from
+// request.Parameters in the method config.
 func (ed *EndpointsServer) checkParameter(parameterName, value string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
 	return ed.checkEnum(parameterName, value, fieldParameter)
 }
 
 // Converts a . delimitied field name to a message field in parameters.
 //
-// This adds the field to the params dict, broken out so that message
+// This adds the field to the params map, broken out so that message
 // parameters appear as sub-dicts within the outer param.
 //
 // For example:
-//   {"a.b.c": ["foo"]}
-// becomes:
-//   {"a": {"b": {"c": ["foo"]}}}
 //
-// Args:
-//   field_name: A string containing the "." delimitied name to be converted
-// into a dictionary.
-// value: The value to be set.
-// params: The dictionary holding all the parameters, where the value is
-// eventually set.
+//		{"a.b.c": ["foo"]}
+//
+// becomes:
+//
+//		{"a": {"b": {"c": ["foo"]}}}
+//
+// The params argument is a map holding all the parameters, where the value
+// is eventually set.
 func (ed *EndpointsServer) addMessageField(fieldName string, value interface{}, params map[string]interface{}) {
 	pos := strings.Index(fieldName, ".")
 	if pos == -1 {
@@ -524,14 +443,12 @@ func (ed *EndpointsServer) addMessageField(fieldName string, value interface{}, 
 
 // Updates the dictionary for an API payload with the request body.
 //
-// The values from the body should override those already in the payload, but
-// for nested fields (message objects) the values can be combined
+// The values from the body should override those already in the payload,
+// but for nested fields (message objects) the values can be combined
 // recursively.
 //
-// Args:
-//   destination: A dictionary containing an API payload parsed from the
-//     path and query parameters in a request.
-//   source: A dictionary parsed from the body of the request.
+// Takes a map containing an API payload parsed from the path and query
+// parameters in a request and a map parsed from the body of the request.
 func (ed *EndpointsServer) updateFromBody(destination map[string]interface{}, source map[string]interface{}) {
 	for key, value := range source {
 		destinationValue, ok := destination[key]
@@ -549,9 +466,9 @@ func (ed *EndpointsServer) updateFromBody(destination map[string]interface{}, so
 	}
 }
 
-// Translates a Rest request into an apiserving request.
+// Translates a REST request into an an api-serving request.
 //
-// This makes a copy of orig_request and transforms it to apiserving
+// This makes a copy of origRequest and transforms it to api-serving
 // format (moving request parameters to the body).
 //
 // The request can receive values from the path, query and body and combine
@@ -568,25 +485,20 @@ func (ed *EndpointsServer) updateFromBody(destination map[string]interface{}, so
 // query string and "{"a": {"b": 11}}" occurs in the body, then they will be
 // combined as
 //
-// {
-//   "a": {
-//     "b": 11,
-//     "c": 10,
-//   }
-// }
+//	{
+//	  "a": {
+//	    "b": 11,
+//	    "c": 10,
+//	  }
+//	}
 //
 // before being sent to the SPI server.
 //
-// Args:
-//   orig_request: An ApiRequest, the original request from the user.
-//   params: A dict with URL path parameters extracted by the config_manager
-//     lookup.
-//   method_parameters: A dictionary containing the API configuration for the
-//     parameters for the request.
-//
-// Returns:
-//   A copy of the current request that's been modified so it can be sent
-//   to the SPI.  The body is updated to include parameters from the URL.
+// Takes the original request from the user, a map with URL path parameters
+// extracted by the configManager lookup, a map containing the API
+// configuration for the parameters for the request and returns a copy of
+// the current request that's been modified so it can be sent to the SPI.
+// The body is updated to include parameters from the URL.
 func (ed *EndpointsServer) transformRestRequest(origRequest *ApiRequest,
 params map[string]string,
 methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
@@ -621,8 +533,8 @@ methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error)
 	}
 
 	// Validate all parameters we've merged so far and convert any "." delimited
-	// parameters to nested parameters.  We don't use iteritems since we may
-	// modify body_json within the loop.  For instance, "a.b" is not a valid key
+	// parameters to nested parameters. We don't use iteritems since we may
+	// modify bodyJson within the loop. For instance, "a.b" is not a valid key
 	// and would be replaced with "a".
 	for key, _ := range bodyJson {
 		currentParameter, ok := methodParameters[key]
@@ -647,8 +559,8 @@ methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error)
 
 		// Order is important here. Parameter names are dot-delimited in
 		// parameters instead of nested in maps as a message field is, so
-		// we need to call _check_parameter on them before calling
-		// _add_message_field.
+		// we need to call checkParameter on them before calling
+		// addMessageField.
 
 		value := bodyJson[key]
 		valStr, ok := value.(string)
@@ -675,7 +587,7 @@ methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error)
 		ed.updateFromBody(bodyJson, request.BodyJson)
 	}
 
-	// request.body_json = body_json
+	//request.BodyJson = bodyJson
 	body, err := json.Marshal(bodyJson)
 	if err == nil {
 		request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
@@ -686,13 +598,10 @@ methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error)
 	return request, nil
 }
 
-// Translates a JsonRpc request/response into apiserving request/response.
+// Translates a JsonRpc request/response into an api-serving request/response.
 //
-// Args:
-//   orig_request: An ApiRequest, the original request from the user.
-//
-// Returns:
-//   A new request with the request_id updated and params moved to the body.
+// Returns a new request with the request_id updated and params moved to the
+// body.
 func (ed *EndpointsServer) transformJsonrpcRequest(origRequest *ApiRequest) (*ApiRequest, error) {
 	request, err := origRequest.Copy()
 	if err != nil {
@@ -743,11 +652,7 @@ func (ed *EndpointsServer) transformJsonrpcRequest(origRequest *ApiRequest) (*Ap
 
 // Returns an error if the response from the SPI was an error.
 //
-// Args:
-//   response: A http.Response containing the backend response.
-//
-// Returns:
-//   BackendError if the response is an error.
+// Returns a BackendError if the response is an error.
 func (ed *EndpointsServer) checkErrorResponse(response *http.Response) error {
 	if response.StatusCode >= 300 {
 		return NewBackendError(response)
@@ -758,13 +663,9 @@ func (ed *EndpointsServer) checkErrorResponse(response *http.Response) error {
 // Translates an apiserving REST response so it's ready to return.
 //
 // Currently, the only thing that needs to be fixed here is indentation,
-// so it's consistent with what the live app will return.
+// so it's consistent with what a GAE app would return.
 //
-// Args:
-//   response_body: A string containing the backend response.
-//
-// Returns:
-//   A reformatted version of the response JSON.
+// Returns a reformatted version of the response JSON.
 func (ed *EndpointsServer) transformRestResponse(responseBody string) (string, error) {
 	var bodyJson map[string]interface{}
 	err := json.Unmarshal([]byte(responseBody), &bodyJson)
@@ -775,16 +676,9 @@ func (ed *EndpointsServer) transformRestResponse(responseBody string) (string, e
 	return string(body), nil
 }
 
-// Translates an apiserving response to a JsonRpc response.
+// Translates an api-serving response to a JsonRpc response.
 //
-// Args:
-//   spi_request: An ApiRequest, the transformed request that was sent to the
-//     SPI handler.
-//   response_body: A string containing the backend response to transform
-//     back to JsonRPC.
-//
-// Returns:
-//   A string with the updated, JsonRPC-formatted request body.
+// Returns the updated, JsonRPC-formatted request body.
 func (ed *EndpointsServer) transformJsonrpcResponse(spiRequest *ApiRequest, responseBody string) (string, error) {
 	var result interface{}
 	err := json.Unmarshal([]byte(responseBody), &result)
@@ -797,14 +691,8 @@ func (ed *EndpointsServer) transformJsonrpcResponse(spiRequest *ApiRequest, resp
 
 // Finish adding information to a JSON RPC response.
 //
-// Args:
-//   request_id: None if the request didn't have a request ID.  Otherwise, this
-//     is a string containing the request ID for the request.
-//   is_batch: A boolean indicating whether the request is a batch request.
-//   body_json: A dict containing the JSON body of the response.
-//
-// Returns:
-//   A string with the updated, JsonRPC-formatted request body.
+// The requestId argument may be empty if the request didn't have a
+// request ID. Returns the updated, JsonRPC-formatted request body.
 func (ed *EndpointsServer) finishRpcResponse(requestId string, isBatch bool, bodyJson map[string]interface{}) string {
 	if len(requestId) > 0 {
 		bodyJson["id"] = requestId
@@ -818,15 +706,6 @@ func (ed *EndpointsServer) finishRpcResponse(requestId string, isBatch bool, bod
 	return string(body)
 }
 
-// Handle a request error, converting it to a WSGI response.
-//
-// Args:
-//   orig_request: An ApiRequest, the original request from the user.
-//   error: A RequestError containing information about the error.
-//   start_response:
-//
-// Returns:
-//   A string containing the response body.
 func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest *ApiRequest, err RequestError) string {
 	var statusCode int
 	var body string

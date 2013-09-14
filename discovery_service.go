@@ -1,3 +1,17 @@
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -53,16 +67,7 @@ func NewDiscoveryService(config_manager *ApiConfigManager) *DiscoveryService {
 	return &DiscoveryService{config_manager}
 }
 
-// Sends an HTTP 200 json success response.
-//
-// This calls start_response and returns the response body.
-//
-// Args:
-//   response: A string containing the response body to return.
-//   start_response: A function with semantics defined in PEP-333.
-//
-// Returns:
-//   A string, the response body.
+// Sends an HTTP 200 json success response with the given body.
 func sendSuccessResponse(response string, w http.ResponseWriter) string {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(response)))
@@ -70,18 +75,8 @@ func sendSuccessResponse(response string, w http.ResponseWriter) string {
 	return response
 }
 
-// Sends back HTTP response with API directory.
-//
-// This calls start_response and returns the response body.  It will return
+// Sends back HTTP response with API directory. It will return
 // the discovery doc for the requested api/version.
-//
-// Args:
-//   api_format: A string containing either 'rest' or 'rpc'.
-//   request: An ApiRequest, the transformed request sent to the Discovery SPI.
-//   start_response: A function with semantics defined in PEP-333.
-//
-// Returns:
-//   A string, the response body.
 func (ds *DiscoveryService) getRpcOrRest(apiFormat ApiFormat, request *ApiRequest, w http.ResponseWriter) string {
 	api, ok := request.BodyJson["api"]
 	version, _ := request.BodyJson["version"]
@@ -103,14 +98,6 @@ func (ds *DiscoveryService) getRpcOrRest(apiFormat ApiFormat, request *ApiReques
 }
 
 // Sends HTTP response containing the API directory.
-//
-// This calls start_response and returns the response body.
-//
-// Args:
-//   start_response: A function with semantics defined in PEP-333.
-//
-// Returns:
-//   A string containing the response body.
 func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 	apiConfigs := make([]string, 0)
 	for _, apiConfig := range ds.configManager.configs {
@@ -133,33 +120,8 @@ func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 	return sendSuccessResponse(directory, w)
 }
 
-// Returns the result of a discovery service request.
-//
-// This calls start_response and returns the response body.
-//
-// Args:
-//   path: A string containing the SPI API path (the portion of the path
-//     after /_ah/spi/).
-//   request: An ApiRequest, the transformed request sent to the Discovery SPI.
-//   start_response:
-//
-// Returns:
-//   The response body. Or returns False if the request wasn't handled by
-//   DiscoveryService.
-//func (ds *DiscoveryService) handle_discovery_request(path string, request *ApiRequest, w http.ResponseWriter) bool {
-//	handled := true
-//	switch path {
-//	case _GET_REST_API:
-//		/*return */ds.get_rpc_or_rest("rest", request, w)
-//	case _GET_RPC_API:
-//		/*return */ds.get_rpc_or_rest("rpc", request, w)
-//	case _LIST_API:
-//		/*return */ds.list(w)
-//	default:
-//		handled = false
-//	}
-//	return handled
-//}
+// Returns the result of a discovery service request and false if the request
+// wasn't handled by DiscoveryService.
 func (ds *DiscoveryService) handleDiscoveryRequest(path string, request *ApiRequest, w http.ResponseWriter) (string, bool) {
 	switch path {
 	case GET_REST_API:

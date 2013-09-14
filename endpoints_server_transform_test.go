@@ -1,3 +1,17 @@
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -11,7 +25,7 @@ import (
 	"reflect"
 )
 
-/* Tests that only hit the request transformation functions.*/
+// Tests that only hit the request transformation functions.
 
 // Verify path is method name after a request is transformed.
 func TestTransformRequest(t *testing.T) {
@@ -39,7 +53,7 @@ func TestTransformRequest(t *testing.T) {
 	assert.Equal(t, "GuestbookApi.greetings_get", newRequest.URL.Path)
 }
 
-// Verify request_id is extracted and body is scoped to body.params.
+// Verify requestId is extracted and body is scoped to body.params.
 func TestTransformJsonRpcRequest(t *testing.T) {
 	server := NewEndpointsServer()
 
@@ -61,17 +75,6 @@ func TestTransformJsonRpcRequest(t *testing.T) {
 }
 
 // Takes body, query and path values from a rest request for testing.
-//
-// Args:
-//   path_parameters: A dict containing the parameters parsed from the path.
-//     For example if the request came through /a/b for the template /a/{x}
-//     then we"d have {"x": "b"}.
-//   query_parameters: A dict containing the parameters parsed from the query
-//     string.
-//   body_json: A dict with the JSON object from the request body.
-//   expected: A dict with the expected JSON body after being transformed.
-//   method_params: Optional dictionary specifying the parameter configuration
-//     associated with the method.
 func transformRestRequest(server *EndpointsServer, pathParameters map[string]string,
 queryParameters string, bodyJson map[string]interface{},
 expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestParamSpec) error {
@@ -114,7 +117,7 @@ expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestPa
 	return nil
 }
 
-/* Path only. */
+// Path only.
 
 func TestTransformRestRequestPathOnly(t *testing.T) {
 	server := NewEndpointsServer()
@@ -176,7 +179,7 @@ func TestTransformRestRequestPathOnlyEnum(t *testing.T) {
 	}
 }
 
-/* Query only. */
+// Query only.
 
 func TestTransformRestRequestQueryOnly(t *testing.T) {
 	server := NewEndpointsServer()
@@ -299,7 +302,7 @@ func TestTransformRestRequestQueryOnlyRepeatedEnum(t *testing.T) {
 	}
 }
 
-/* Body only. */
+// Body only.
 
 func TestTransformRestRequestBodyOnly(t *testing.T) {
 	server := NewEndpointsServer()
@@ -378,7 +381,7 @@ func TestTransformRestRequestBodyOnlyEnum(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-/* Path and query only */
+// Path and query only.
 
 func TestTransformRestRequestPathQueryNoCollision(t *testing.T) {
 	server := NewEndpointsServer()
@@ -417,7 +420,7 @@ func TestTransformRestRequestPathQueryCollisionInRepeatedParam(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-/* Path and body only. */
+// Path and body only.
 
 func TestTransformRestRequestPathBodyNoCollision(t *testing.T) {
 	server := NewEndpointsServer()
@@ -494,7 +497,7 @@ func TestTransformRestRequestPathBodyMessageFieldCollision(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-/* Query and body only */
+// Query and body only.
 
 func TestTransformRestRequestQueryBodyNoCollision(t *testing.T) {
 	server := NewEndpointsServer()
@@ -570,7 +573,7 @@ func TestTransformRestRequestQueryBodyMessageFieldCollision(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-/* Path, body and query. */
+// Path, body and query.
 
 func TestTransformRestRequestPathQueryBodyNoCollision(t *testing.T) {
 	server := NewEndpointsServer()

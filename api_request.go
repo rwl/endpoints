@@ -1,4 +1,17 @@
-// Cloud Endpoints API request-related data and functions.
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package endpoint
 
 import (
@@ -13,9 +26,11 @@ import (
 	"strings"
 )
 
+// Cloud Endpoints API request-related types and functions.
+
 const API_PREFIX = "/_ah/api/"
 
-// Simple data object representing an API request.
+// Simple data type representing an API request.
 type ApiRequest struct {
 	*http.Request
 
@@ -64,9 +79,8 @@ func NewApiRequest(r *http.Request) (*ApiRequest, error) {
 
 	// Check if it's a batch request.  We'll only handle single-element batch
 	// requests on the dev server (and we need to handle them because that's
-	// what RPC and JS calls typically show up as).  Pull the request out of the
-	// list and record the fact that we're processing a batch.
-	//	body_json_array, ok := body_json.([]interface{})
+	// what RPC and JS calls typically show up as). Pulls the request out of
+	// the list and logs the fact that we're processing a batch.
 	if ar.IsBatch {
 		switch n := len(bodyJsonArray); n {
 		case 0:
@@ -84,7 +98,7 @@ func NewApiRequest(r *http.Request) (*ApiRequest, error) {
 		}
 	} else {
 		ar.BodyJson = bodyJson
-		ar.Body = ioutil.NopCloser(bytes.NewBuffer(body)) // reset buffer fixme: use a reader?
+		ar.Body = ioutil.NopCloser(bytes.NewBuffer(body)) // reset buffer todo: use a reader?
 	}
 	return ar, nil
 }
@@ -149,6 +163,7 @@ func (ar *ApiRequest) Copy() (*ApiRequest, error) {
 // Google's JsonRPC protocol creates a handler at /rpc for any Cloud
 // Endpoints API, with api name, version, and method name being in the
 // body of the request.
+//
 // If the request is sent to /rpc, we will treat it as JsonRPC.
 // The client libraries for iOS's Objective C use RPC and not the REST
 // versions of the API.
