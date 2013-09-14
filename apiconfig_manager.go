@@ -27,22 +27,22 @@ import (
 	"sync"
 )
 
-const PATH_VALUE_PATTERN = `[^:/?#\[\]{}]*`
+const pathValuePattern = `[^:/?#\[\]{}]*`
 
-var PathVariablePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
+var pathVariablePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
 
 // Configuration manager to store API configurations.
 //
 // Manages loading api configs and method lookup.
-type ApiConfigManager struct {
+type apiConfigManager struct {
 	rpcMethods map[lookupKey]*endpoints.ApiMethod
 	restMethods    []*restMethod
 	configs         map[lookupKey]*endpoints.ApiDescriptor
 	configLock     sync.Mutex
 }
 
-func NewApiConfigManager() *ApiConfigManager {
-	return &ApiConfigManager{
+func newApiConfigManager() *apiConfigManager {
+	return &apiConfigManager{
 		rpcMethods: make(map[lookupKey]*endpoints.ApiMethod),
 		restMethods:    make([]*restMethod, 0),
 		configs:         make(map[lookupKey]*endpoints.ApiDescriptor),
@@ -86,7 +86,7 @@ func convertHttpsToHttp(config *endpoints.ApiDescriptor) {
 //
 // Parses method name, etc for all methods and updates the indexing
 // datastructures with the information.
-func (m *ApiConfigManager) parseApiConfigResponse(body string) error {
+func (m *apiConfigManager) parseApiConfigResponse(body string) error {
 	var responseObj map[string]interface{}
 	err := json.Unmarshal([]byte(body), &responseObj)
 	if err != nil {
@@ -164,7 +164,7 @@ func pathParams(names []string, match []string) (map[string]string, error) {
 // it is saved in for saveRpcMethod().
 //
 // Returns a method descriptor as specified in the API configuration.
-func (m *ApiConfigManager) lookupRpcMethod(methodName, version string) *endpoints.ApiMethod {
+func (m *apiConfigManager) lookupRpcMethod(methodName, version string) *endpoints.ApiMethod {
 	m.configLock.Lock()
 	defer m.configLock.Unlock()
 	method, _ := m.rpcMethods[lookupKey{methodName, version}]
@@ -183,7 +183,7 @@ func (m *ApiConfigManager) lookupRpcMethod(methodName, version string) *endpoint
 // Returns the name of the method that was matched, the descriptor as
 // specified in the API configuration and a map of path parameters matched
 // in the REST request.
-func (m *ApiConfigManager) lookupRestMethod(path, httpMethod string) (string, *endpoints.ApiMethod, map[string]string) {
+func (m *apiConfigManager) lookupRestMethod(path, httpMethod string) (string, *endpoints.ApiMethod, map[string]string) {
 	m.configLock.Lock()
 	defer m.configLock.Unlock()
 	for _, rm := range m.restMethods {
@@ -211,9 +211,9 @@ func (m *ApiConfigManager) lookupRestMethod(path, httpMethod string) (string, *e
 	return "", nil, nil
 }
 
-func (m *ApiConfigManager) addDiscoveryConfig() {
-	lookupKey := lookupKey{DiscoveryApiConfig.Name, DiscoveryApiConfig.Version}
-	m.configs[lookupKey] = DiscoveryApiConfig
+func (m *apiConfigManager) addDiscoveryConfig() {
+	lookupKey := lookupKey{discoveryApiConfig.Name, discoveryApiConfig.Version}
+	m.configs[lookupKey] = discoveryApiConfig
 }
 
 // Takes a string containing the parameter matched from the URL template and
@@ -263,7 +263,7 @@ func fromSafePathParamName(safeParameter string) (string, error) {
 func replaceVariable(varName string) string {
 	if varName != "" {
 		safeName := toSafePathParamName(varName)
-		return fmt.Sprintf("(?P<%s>%s)", safeName, PATH_VALUE_PATTERN)
+		return fmt.Sprintf("(?P<%s>%s)", safeName, pathValuePattern)
 	}
 	return varName
 }
@@ -281,7 +281,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 	replacements := make([]string, len(idxs)/2)
 	for i := 0; i < len(idxs); i += 2 {
 		varName := ppp[idxs[i] + 1 : idxs[i + 1] - 1]
-		ok := PathVariablePattern.MatchString(varName)
+		ok := pathVariablePattern.MatchString(varName)
 		var replaced string
 		if !ok {
 			return nil, fmt.Errorf("Invalid variable name: %s", varName)
@@ -309,7 +309,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 // Store JsonRpc api methods in a map for lookup at call time.
 //
 // (methodName, version) => method.
-func (m *ApiConfigManager) saveRpcMethod(methodName, version string, method *endpoints.ApiMethod) {
+func (m *apiConfigManager) saveRpcMethod(methodName, version string, method *endpoints.ApiMethod) {
 	glog.Infof("Registering RPC method: %s %s %s %s", methodName, version, method.HttpMethod, method.Path)
 	m.rpcMethods[lookupKey{methodName, version}] = method
 }
@@ -341,7 +341,7 @@ func (m *ApiConfigManager) saveRpcMethod(methodName, version string, method *end
 // - When a path is matched, look up the API method from the request
 //   and get the method name and method config for the matching
 //   API method and method name.
-func (m *ApiConfigManager) saveRestMethod(methodName, apiName, version string, method *endpoints.ApiMethod) {
+func (m *apiConfigManager) saveRestMethod(methodName, apiName, version string, method *endpoints.ApiMethod) {
 	var compiledPattern *regexp.Regexp
 	var err error
 	pathPattern := apiName + "/" + version + "/" + method.Path

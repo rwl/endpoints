@@ -39,7 +39,7 @@ func TestGenerateDiscoveryDocRest(t *testing.T) {
 		fmt.Fprintf(w, string(bodyJson))
 	}))
 	defer ts.Close()
-	DiscoveryProxyHost = ts.URL
+	discoveryProxyHost = ts.URL
 
 	doc, err := generateDiscoveryDoc(&apiConfigMap, "rest")
 
@@ -60,7 +60,7 @@ func TestGenerateDiscoveryDocRpc(t *testing.T) {
 		fmt.Fprintf(w, string(bodyJson))
 	}))
 	defer ts.Close()
-	DiscoveryProxyHost = ts.URL
+	discoveryProxyHost = ts.URL
 
 	doc, err := generateDiscoveryDoc(&apiConfigMap, "rpc")
 
@@ -79,7 +79,7 @@ func TestGenerateDiscoveryDocInvalidFormat(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	DiscoveryProxyHost = ts.URL
+	discoveryProxyHost = ts.URL
 
 	_, err := generateDiscoveryDoc(&apiConfigMap, "blah")
 	assert.Error(t, err)
@@ -90,7 +90,7 @@ func TestGenerateDiscoveryDocBadApiConfig(t *testing.T) {
 		http.Error(w, "", 503)
 	}))
 	defer ts.Close()
-	DiscoveryProxyHost = ts.URL
+	discoveryProxyHost = ts.URL
 
 	bad := &endpoints.ApiDescriptor{Name: "none"}
 	doc, err := generateDiscoveryDoc(bad, "rpc")
@@ -105,7 +105,7 @@ func TestGetStaticFileExisting(t *testing.T) {
 		fmt.Fprintf(w, body)
 	}))
 	defer ts.Close()
-	StaticProxyHost = ts.URL
+	staticProxyHost = ts.URL
 
 	response, responseBody, err := getStaticFile("/_ah/api/static/proxy.html")
 

@@ -19,14 +19,14 @@ import (
 	"strings"
 )
 
-const CORS_HEADER_ORIGIN = "Origin"
-const CORS_HEADER_REQUEST_METHOD = "Access-Control-Request-Method"
-const CORS_HEADER_REQUEST_HEADERS = "Access-Control-Request-Headers"
-const CORS_HEADER_ALLOW_ORIGIN = "Access-Control-Allow-Origin"
-const CORS_HEADER_ALLOW_METHODS = "Access-Control-Allow-Methods"
-const CORS_HEADER_ALLOW_HEADERS = "Access-Control-Allow-Headers"
+const corsHeaderOrigin = "Origin"
+const corsHeaderRequestMethod = "Access-Control-Request-Method"
+const corsHeaderRequestHeaders = "Access-Control-Request-Headers"
+const corsHeaderAllowOrigin = "Access-Control-Allow-Origin"
+const corsHeaderAllowMethods = "Access-Control-Allow-Methods"
+const corsHeaderAllowHeaders = "Access-Control-Allow-Headers"
 
-var CorsAllowedMethods = []string{"DELETE", "GET", "PATCH", "POST", "PUT"}
+var corsAllowedMethods = []string{"DELETE", "GET", "PATCH", "POST", "PUT"}
 
 type corsHandler interface {
 	updateHeaders(http.Header)
@@ -49,13 +49,13 @@ func newCheckCorsHeaders(request *http.Request) *checkCorsHeaders {
 // Check for a CORS request, and see if it gets a CORS response.
 func (c *checkCorsHeaders) checkCorsRequest(request *http.Request) {
 	// Check for incoming CORS headers.
-	c.origin = request.Header.Get(CORS_HEADER_ORIGIN)
-	c.corsRequestMethod = request.Header.Get(CORS_HEADER_REQUEST_METHOD)
-	c.corsRequestHeaders = request.Header.Get(CORS_HEADER_REQUEST_HEADERS)
+	c.origin = request.Header.Get(corsHeaderOrigin)
+	c.corsRequestMethod = request.Header.Get(corsHeaderRequestMethod)
+	c.corsRequestHeaders = request.Header.Get(corsHeaderRequestHeaders)
 
 	// Check if the request should get a CORS response.
 	in := false
-	for _, method := range CorsAllowedMethods {
+	for _, method := range corsAllowedMethods {
 		if method == strings.ToUpper(c.corsRequestMethod) {
 			in = true
 			break
@@ -73,10 +73,10 @@ func (c *checkCorsHeaders) updateHeaders(headers http.Header) {
 	}
 
 	// Add CORS headers.
-	headers.Set(CORS_HEADER_ALLOW_ORIGIN, c.origin)
-	headers.Set(CORS_HEADER_ALLOW_METHODS,
-		strings.Join(CorsAllowedMethods, ","))
+	headers.Set(corsHeaderAllowOrigin, c.origin)
+	headers.Set(corsHeaderAllowMethods,
+		strings.Join(corsAllowedMethods, ","))
 	if len(c.corsRequestHeaders) != 0 {
-		headers.Set(CORS_HEADER_ALLOW_HEADERS, c.corsRequestHeaders)
+		headers.Set(corsHeaderAllowHeaders, c.corsRequestHeaders)
 	}
 }

@@ -23,9 +23,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func commonSetup() (*ApiConfigManager, *ApiRequest, *DiscoveryService) {
+func commonSetup() (*apiConfigManager, *apiRequest, *DiscoveryService) {
 	apiConfigMap := map[string]interface{}{"items": []string{apiConfigJson}}
-	apiConfigManager := NewApiConfigManager()
+	apiConfigManager := newApiConfigManager()
 	apiConfig, _ := json.Marshal(apiConfigMap)
 	apiConfigManager.parseApiConfigResponse(string(apiConfig))
 
@@ -47,11 +47,11 @@ func TestGenerateDiscoveryDocRestService(t *testing.T) {
 		fmt.Fprintf(w, string(body))
 	}))
 	defer ts.Close()
-	DiscoveryProxyHost = ts.URL
+	discoveryProxyHost = ts.URL
 
 	w := httptest.NewRecorder()
 
-	discovery.handleDiscoveryRequest(GET_REST_API, apiRequest, w)
+	discovery.handleDiscoveryRequest(getRestApi, apiRequest, w)
 
 	assertHttpMatchRecorder(t, w, 200,
 		http.Header{
@@ -70,11 +70,11 @@ func TestGenerateDiscoveryDocRpcService(t *testing.T) {
 		fmt.Fprintf(w, string(body))
 	}))
 	defer ts.Close()
-	DiscoveryProxyHost = ts.URL
+	discoveryProxyHost = ts.URL
 
 	w := httptest.NewRecorder()
 
-	discovery.handleDiscoveryRequest(GET_RPC_API, apiRequest, w)
+	discovery.handleDiscoveryRequest(getRpcApi, apiRequest, w)
 
 	assertHttpMatchRecorder(t, w, 200,
 		http.Header{
@@ -88,7 +88,7 @@ func TestGenerateDiscoveryDocRestUnknownApi(t *testing.T) {
 	request := buildApiRequest("/_ah/api/foo",
 		`{"api": "blah", "version": "v1"}`, nil)
 	w := httptest.NewRecorder()
-	discoveryApi.handleDiscoveryRequest(GET_REST_API, request, w)
+	discoveryApi.handleDiscoveryRequest(getRestApi, request, w)
 	assert.Equal(t, w.Code, 404)
 }
 
@@ -100,11 +100,11 @@ func TestGenerateDirectory(t *testing.T) {
 		fmt.Fprintf(w, string(body))
 	}))
 	defer ts.Close()
-	DiscoveryProxyHost = ts.URL
+	discoveryProxyHost = ts.URL
 
 	w := httptest.NewRecorder()
 
-	discovery.handleDiscoveryRequest(LIST_API, apiRequest, w)
+	discovery.handleDiscoveryRequest(listApi, apiRequest, w)
 
 	assertHttpMatchRecorder(t, w, 200,
 		http.Header{

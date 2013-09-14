@@ -28,39 +28,39 @@ import (
 
 // Cloud Endpoints API request-related types and functions.
 
-const API_PREFIX = "/_ah/api/"
+const apiPrefix = "/_ah/api/"
 
 // Simple data type representing an API request.
-type ApiRequest struct {
+type apiRequest struct {
 	*http.Request
 
-	RelativeUrl string
+	relativeUrl string
 	// Only single-element batch requests are handled (RPC and JS calls
 	// typically show up as batch requests). Pull the request out of the
 	// list and record the fact that we're processing a batch.
-	IsBatch   bool
-	BodyJson  map[string]interface{}
-	RequestId string
+	isBatch   bool
+	bodyJson  map[string]interface{}
+	requestId string
 }
 
-func NewApiRequest(r *http.Request) (*ApiRequest, error) {
-	ar := &ApiRequest{
+func newApiRequest(r *http.Request) (*apiRequest, error) {
+	ar := &apiRequest{
 		Request:  r,
-		IsBatch: false,
-		RelativeUrl: r.URL.Path,
+		isBatch: false,
+		relativeUrl: r.URL.Path,
 	}
 
-	if !strings.HasPrefix(ar.URL.Path, API_PREFIX) {
+	if !strings.HasPrefix(ar.URL.Path, apiPrefix) {
 		return nil, fmt.Errorf("Invalid request path: %s", ar.URL.Path)
 	}
-	ar.URL.Path = ar.URL.Path[len(API_PREFIX):]
+	ar.URL.Path = ar.URL.Path[len(apiPrefix):]
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return nil, fmt.Errorf("Problem parsing request body: %s", r.Body)
 	}
 
-	ar.IsBatch = false
+	ar.isBatch = false
 	var bodyJson map[string]interface{}
 	var bodyJsonArray []map[string]interface{}
 	if len(body) > 0 {
@@ -70,18 +70,18 @@ func NewApiRequest(r *http.Request) (*ApiRequest, error) {
 			if err != nil {
 				return nil, fmt.Errorf("Problem unmarshalling request body: %s", body)
 			}
-			ar.IsBatch = true
+			ar.isBatch = true
 		}
 	} else {
 		bodyJson = make(map[string]interface{})
 	}
-	ar.RequestId = ""
+	ar.requestId = ""
 
 	// Check if it's a batch request.  We'll only handle single-element batch
 	// requests on the dev server (and we need to handle them because that's
 	// what RPC and JS calls typically show up as). Pulls the request out of
 	// the list and logs the fact that we're processing a batch.
-	if ar.IsBatch {
+	if ar.isBatch {
 		switch n := len(bodyJsonArray); n {
 		case 0:
 			return nil, errors.New("Batch request has zero parts")
@@ -90,20 +90,20 @@ func NewApiRequest(r *http.Request) (*ApiRequest, error) {
 			glog.Errorf(`Batch requests with more than 1 element aren't supported. Only the first element will be handled. Found %d elements.`, n)
 		}
 		glog.Info("Converting batch request to single request.")
-		ar.BodyJson = bodyJsonArray[0]
-		bodyBytes, err := json.Marshal(ar.BodyJson)
+		ar.bodyJson = bodyJsonArray[0]
+		bodyBytes, err := json.Marshal(ar.bodyJson)
 		ar.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 		if err != nil {
 			return ar, err
 		}
 	} else {
-		ar.BodyJson = bodyJson
+		ar.bodyJson = bodyJson
 		ar.Body = ioutil.NopCloser(bytes.NewBuffer(body)) // reset buffer todo: use a reader?
 	}
 	return ar, nil
 }
 
-func (ar *ApiRequest) Copy() (*ApiRequest, error) {
+func (ar *apiRequest) copy() (*apiRequest, error) {
 	body, err := ioutil.ReadAll(ar.Body)
 	if err != nil {
 		return nil, err
@@ -151,12 +151,12 @@ func (ar *ApiRequest) Copy() (*ApiRequest, error) {
 		TLS:              ar.TLS,
 	}
 
-	return &ApiRequest{
+	return &apiRequest{
 		Request:    request,
-		IsBatch:   ar.IsBatch,
-		BodyJson:  ar.BodyJson,
-		RequestId: ar.RequestId,
-		RelativeUrl: ar.RelativeUrl,
+		isBatch:   ar.isBatch,
+		bodyJson:  ar.bodyJson,
+		requestId: ar.requestId,
+		relativeUrl: ar.relativeUrl,
 	}, nil
 }
 
@@ -167,6 +167,6 @@ func (ar *ApiRequest) Copy() (*ApiRequest, error) {
 // If the request is sent to /rpc, we will treat it as JsonRPC.
 // The client libraries for iOS's Objective C use RPC and not the REST
 // versions of the API.
-func (ar *ApiRequest) IsRpc() bool {
+func (ar *apiRequest) isRpc() bool {
 	return ar.URL.Path == "rpc"
 }

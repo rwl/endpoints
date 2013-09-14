@@ -33,11 +33,11 @@ func TestParseNoBody(t *testing.T) {
 	body, err := ioutil.ReadAll(request.Body)
 	assert.NoError(t, err)
 	assert.Empty(t, body)
-	assert.Equal(t, request.BodyJson, make(map[string]interface{}))
+	assert.Equal(t, request.bodyJson, make(map[string]interface{}))
 	header := make(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
 	assert.Equal(t, header, request.Header)
-	assert.Empty(t, request.RequestId)
+	assert.Empty(t, request.requestId)
 }
 
 func TestParseWithBody(t *testing.T) {
@@ -50,11 +50,11 @@ func TestParseWithBody(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, `{"test": "body"}`, string(body))
 	bodyJson := map[string]interface{}{"test": "body"}
-	assert.Equal(t, bodyJson, request.BodyJson)
+	assert.Equal(t, bodyJson, request.bodyJson)
 	header := make(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
 	assert.Equal(t, header, request.Header)
-	assert.Empty(t, request.RequestId)
+	assert.Empty(t, request.requestId)
 }
 
 func TestParseEmptyValues(t *testing.T) {
@@ -66,11 +66,11 @@ func TestParseEmptyValues(t *testing.T) {
 	body, err := ioutil.ReadAll(request.Body)
 	assert.NoError(t, err)
 	assert.Empty(t, body)
-	assert.Equal(t, map[string]interface{}{}, request.BodyJson)
+	assert.Equal(t, map[string]interface{}{}, request.bodyJson)
 	header := make(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
 	assert.Equal(t, header, request.Header)
-	assert.Empty(t, request.RequestId)
+	assert.Empty(t, request.requestId)
 }
 
 func TestParseMultipleValues(t *testing.T) {
@@ -85,38 +85,38 @@ func TestParseMultipleValues(t *testing.T) {
 	body, err := ioutil.ReadAll(request.Body)
 	assert.NoError(t, err)
 	assert.Empty(t, body)
-	assert.Equal(t, map[string]interface{}{}, request.BodyJson)
+	assert.Equal(t, map[string]interface{}{}, request.bodyJson)
 	header := make(http.Header)
 	header.Set("CONTENT-TYPE", "application/json")
 	assert.Equal(t, header, request.Header)
-	assert.Empty(t, request.RequestId)
+	assert.Empty(t, request.requestId)
 }
 
 func TestIsRPC(t *testing.T) {
 	request := buildApiRequest("/_ah/api/rpc", "", nil)
 	assert.Equal(t, "rpc", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
-	assert.True(t, request.IsRpc())
+	assert.True(t, request.isRpc())
 }
 
 func TestIsNotRPC(t *testing.T) {
 	request := buildApiRequest("/_ah/api/guestbook/v1/greetings/7", "", nil)
 	assert.Equal(t, "guestbook/v1/greetings/7", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
-	assert.False(t, request.IsRpc())
+	assert.False(t, request.isRpc())
 }
 
 func TestIsNotRPCPrefix(t *testing.T) {
 	request := buildApiRequest("/_ah/api/rpcthing", "", nil)
 	assert.Equal(t, "rpcthing", request.URL.Path)
 	assert.Empty(t, request.URL.RawQuery)
-	assert.False(t, request.IsRpc())
+	assert.False(t, request.isRpc())
 }
 
 func TestBatch(t *testing.T) {
 	request := buildApiRequest("/_ah/api/rpc",
 		`[{"method": "foo", "apiVersion": "v1"}]`, nil)
-	assert.True(t, request.IsBatch)
+	assert.True(t, request.isBatch)
 }
 
 // Verify that additional items are dropped if the batch size is > 1.
@@ -124,17 +124,17 @@ func Test_batch_too_large(t *testing.T) {
 	request := buildApiRequest("/_ah/api/rpc",
 		`[{"method": "foo", "apiVersion": "v1"},
 		  {"method": "bar", "apiversion": "v1"}]`, nil)
-	assert.True(t, request.IsBatch)
+	assert.True(t, request.isBatch)
 	var bodyJson map[string]interface{}
 	err := json.Unmarshal([]byte(`{"method": "foo", "apiVersion": "v1"}`),
 		&bodyJson)
 	assert.NoError(t, err)
-	assert.Equal(t, bodyJson, request.BodyJson)
+	assert.Equal(t, bodyJson, request.bodyJson)
 }
 
 func TestCopy(t *testing.T) {
 	request := buildApiRequest("/_ah/api/foo?bar=baz", `{"test": "body"}`, nil)
-	copied, err := request.Copy()
+	copied, err := request.copy()
 	assert.NoError(t, err)
 	assert.Equal(t, request.Header, copied.Header)
 	body, err := ioutil.ReadAll(request.Body)
@@ -142,12 +142,12 @@ func TestCopy(t *testing.T) {
 	body_copy, err2 := ioutil.ReadAll(copied.Body)
 	assert.NoError(t, err2)
 	assert.Equal(t, string(body), string(body_copy))
-	assert.Equal(t, request.BodyJson, copied.BodyJson)
+	assert.Equal(t, request.bodyJson, copied.bodyJson)
 	assert.Equal(t, request.URL.Path, copied.URL.Path)
 
 	copied.Header.Set("Content-Type", "text/plain")
 	copied.Body = ioutil.NopCloser(bytes.NewBufferString("Got a whole new body!"))
-	copied.BodyJson = map[string]interface{}{"new": "body"}
+	copied.bodyJson = map[string]interface{}{"new": "body"}
 	copied.URL.Path = "And/a/new/path/"
 
 	assert.NotEqual(t, request.Header, copied.Header)
@@ -156,6 +156,6 @@ func TestCopy(t *testing.T) {
 	body_copy, err2 = ioutil.ReadAll(copied.Body)
 	assert.NoError(t, err2)
 	assert.NotEqual(t, string(body), string(body_copy))
-	assert.NotEqual(t, request.BodyJson, copied.BodyJson)
+	assert.NotEqual(t, request.bodyJson, copied.bodyJson)
 	assert.NotEqual(t, request.URL.Path, copied.URL.Path)
 }

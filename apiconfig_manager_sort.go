@@ -32,19 +32,19 @@ func sortMethods(methods map[string]*endpoints.ApiMethod) []*methodInfo {
 		sortedMethods[i] = &methodInfo{name, m}
 		i++
 	}
-	sort.Sort(ByPath(sortedMethods))
+	sort.Sort(byPath(sortedMethods))
 	return sortedMethods
 }
 
-type ByPath []*methodInfo
+type byPath []*methodInfo
 
-func (by ByPath) Len() int {
+func (by byPath) Len() int {
 	return len(by)
 }
 
 // Returns whether the element with index i should sort
 // before the element with index j.
-func (by ByPath) Less(i, j int) bool {
+func (by byPath) Less(i, j int) bool {
 	methodInfo1 := by[i].apiMethod
 	methodInfo2 := by[j].apiMethod
 
@@ -69,7 +69,7 @@ func (by ByPath) Less(i, j int) bool {
 	return httpMethod1 < httpMethod2
 }
 
-func (by ByPath) Swap(i, j int) {
+func (by byPath) Swap(i, j int) {
 	by[i], by[j] = by[j], by[i]
 }
 

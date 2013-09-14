@@ -52,7 +52,7 @@ func prepareTestServer(t *testing.T, config *endpoints.ApiDescriptor) *httptest.
 }
 
 // Assert that dispatching a request to the SPI works.
-func assertDispatchToSpi(t *testing.T, request *ApiRequest, config *endpoints.ApiDescriptor, spiPath string,
+func assertDispatchToSpi(t *testing.T, request *apiRequest, config *endpoints.ApiDescriptor, spiPath string,
 expectedSpiBodyJson map[string]interface{}) {
 	server := newMockEndpointsServer()
 	ts := prepareTestServer(t, config)
@@ -97,8 +97,8 @@ expectedSpiBodyJson map[string]interface{}) {
 
 	server.On(
 		"handleSpiResponse",
-		mock.Anything, //OfType("*ApiRequest"),
-		mock.Anything, //OfType("*ApiRequest"),
+		mock.Anything, //OfType("*apiRequest"),
+		mock.Anything, //OfType("*apiRequest"),
 		mock.Anything, //spi_response,
 		w,
 	).Return("Test", nil)
@@ -380,9 +380,9 @@ func TestExplorerRedirect(t *testing.T) {
 
 	// Set up mocks for the call to DiscoveryApiProxy.get_static_file.
 	discoveryApi := &MockDiscoveryApiProxy{}
-	server := NewEndpointsServerConfig(
+	server := newEndpointsServerConfig(
 		&http.Client{},
-		NewApiConfigManager(),
+		newApiConfigManager(),
 		discoveryApi,
 	)
 	testBody := "test body"
@@ -434,7 +434,7 @@ func TestHandleNonJsonSpiResponse(t *testing.T) {
 	server := NewEndpointsServer()
 	w := httptest.NewRecorder()
 	origRequest := buildApiRequest("/_ah/api/fake/path", "", nil)
-	spiRequest, err := origRequest.Copy()
+	spiRequest, err := origRequest.copy()
 	assert.NoError(t, err)
 	header := make(http.Header)
 	header.Set("Content-type", "text/plain")
@@ -492,9 +492,9 @@ func TestHandleSpiResponseJsonRpc(t *testing.T) {
 		`{"method": "foo.bar", "apiVersion": "X"}`,
 		nil,
 	)
-	assert.True(t, origRequest.IsRpc())
-	origRequest.RequestId = "Z"
-	spiRequest, err := origRequest.Copy()
+	assert.True(t, origRequest.isRpc())
+	origRequest.requestId = "Z"
+	spiRequest, err := origRequest.copy()
 	assert.NoError(t, err)
 	spiResponse := &http.Response{
 		Status:     "200 OK",
@@ -528,10 +528,10 @@ func TestHandleSpiResponseBatchJsonRpc(t *testing.T) {
 		`[{"method": "foo.bar", "apiVersion": "X"}]`,
 		nil,
 	)
-	assert.True(t, origRequest.IsBatch)
-	assert.True(t, origRequest.IsRpc())
-	origRequest.RequestId = "Z"
-	spiRequest, err := origRequest.Copy()
+	assert.True(t, origRequest.isBatch)
+	assert.True(t, origRequest.isRpc())
+	origRequest.requestId = "Z"
+	spiRequest, err := origRequest.copy()
 	assert.NoError(t, err)
 	spiResponse := &http.Response{
 		Status:     "200 OK",
@@ -562,7 +562,7 @@ func TestHandleSpiResponseRest(t *testing.T) {
 	server := NewEndpointsServer()
 	w := httptest.NewRecorder()
 	origRequest := buildApiRequest("/_ah/api/test", "{}", nil)
-	spiRequest, err := origRequest.Copy()
+	spiRequest, err := origRequest.copy()
 	assert.NoError(t, err)
 	body, _ := json.MarshalIndent(map[string]interface{}{
 			"some": "response",
@@ -606,9 +606,9 @@ func TestTransformJsonRpcResponseBatch(t *testing.T) {
 		`[{"params": {"sample": "body"}, "id": "42"}]`,
 		nil,
 	)
-	request, err := origRequest.Copy()
+	request, err := origRequest.copy()
 	assert.NoError(t, err)
-	request.RequestId = "42"
+	request.requestId = "42"
 	origResponse := `{"sample": "body"}`
 	response, err := server.transformJsonrpcResponse(request, origResponse)
 	assert.NoError(t, err)

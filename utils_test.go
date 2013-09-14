@@ -27,10 +27,10 @@ import (
 	"fmt"
 )
 
-// Build an ApiRequest for the given path and body.
-func buildApiRequest(url, body string, httpHeaders http.Header) *ApiRequest {
+// Build an apiRequest for the given path and body.
+func buildApiRequest(url, body string, httpHeaders http.Header) *apiRequest {
 	req := buildRequest(url, body, httpHeaders)
-	apiRequest, err := NewApiRequest(req)
+	apiRequest, err := newApiRequest(req)
 	if err != nil {
 		glog.Fatal(err.Error())
 	}
@@ -92,7 +92,7 @@ func newMockEndpointsServer() (*MockEndpointsServer) {
 }
 
 // fixme: mock handleSpiResponse without duplicating serveHTTP
-func (ed *MockEndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) string {
+func (ed *MockEndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) string {
 	apiConfigResponse, _ := ed.getApiConfigs()
 	ed.handleApiConfigResponse(apiConfigResponse)
 	body, _ := ed.callSpi(w, ar)
@@ -100,10 +100,10 @@ func (ed *MockEndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) 
 }
 
 // fixme: mock handleSpiResponse without duplicating callSpi
-func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiRequest) (string, error) {
+func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiRequest) (string, error) {
 	var methodConfig *endpoints.ApiMethod
 	var params map[string]string
-	if origRequest.IsRpc() {
+	if origRequest.isRpc() {
 		methodConfig = ed.lookupRpcMethod(origRequest)
 		params = nil
 	} else {
@@ -128,7 +128,7 @@ func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiRe
 	return ed.handleSpiResponse(origRequest, spiRequest, resp, w)
 }
 
-func (ed *MockEndpointsServer) handleSpiResponse(origRequest, spiRequest *ApiRequest,
+func (ed *MockEndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest,
 response *http.Response, w http.ResponseWriter) (string, error) {
 	args := ed.Mock.Called(origRequest, spiRequest, response, w)
 	return args.String(0), args.Error(1)
@@ -146,7 +146,7 @@ func newMockEndpointsServerSpi() (*MockEndpointsServerSpi) {
 }
 
 // fixme: mock callSpi without duplicating serveHTTP
-func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *ApiRequest) string {
+func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *apiRequest) string {
 	// Get API configuration first.  We need this so we know how to
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
@@ -172,7 +172,7 @@ func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *ApiReques
 	return body
 }
 
-func (ed *MockEndpointsServerSpi) callSpi(w http.ResponseWriter, origRequest *ApiRequest) (string, error) {
+func (ed *MockEndpointsServerSpi) callSpi(w http.ResponseWriter, origRequest *apiRequest) (string, error) {
 	args := ed.Mock.Called(w, origRequest)
 	return args.String(0), args.Error(1)
 }

@@ -42,17 +42,21 @@ func HandleHttp() {
 
 // Dispatcher that handles requests to the built-in apiserver handlers.
 type EndpointsServer struct {
-	// An ApiConfigManager instance that allows a caller to set up an
+	// An apiConfigManager instance that allows a caller to set up an
 	// existing configuration for testing.
-	configManager *ApiConfigManager
+	configManager *apiConfigManager
 	URL string
 }
 
 func NewEndpointsServer() *EndpointsServer {
-	return NewEndpointsServerConfig(NewApiConfigManager(), DEFAULT_URL)
+	return newEndpointsServerConfig(newApiConfigManager(), DEFAULT_URL)
 }
 
-func NewEndpointsServerConfig(configManager *ApiConfigManager, url string) *EndpointsServer {
+func NewEndpointsServerURL(url string) *EndpointsServer {
+	return newEndpointsServerConfig(newApiConfigManager(), url)
+}
+
+func newEndpointsServerConfig(configManager *apiConfigManager, url string) *EndpointsServer {
 	return &EndpointsServer{configManager, url}
 }
 
@@ -69,14 +73,14 @@ func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 
 // EndpointsServer implements the http.Handler interface.
 func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ar, err := NewApiRequest(r)
+	ar, err := newApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 	ed.serveHTTP(w, ar)
 }
 
-func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *ApiRequest) {
+func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) {
 	// Get API configuration first. We need this so we know how to
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
@@ -113,12 +117,12 @@ func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *ht
 
 // Handler for requests to _ah/api/static/.*.
 func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
-	request, err := NewApiRequest(r)
+	request, err := newApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	response, body, err := getStaticFile(request.RelativeUrl)
+	response, body, err := getStaticFile(request.relativeUrl)
 	//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
@@ -130,7 +134,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 		fmt.Fprintf(w, body)
 	} else {
 		glog.Errorf("Discovery API proxy failed on %s with %d. Details: %s",
-			request.RelativeUrl, response.StatusCode, body)
+			request.relativeUrl, response.StatusCode, body)
 		http.Error(w, body, response.StatusCode)
 	}
 }
@@ -190,10 +194,10 @@ func (ed *EndpointsServer) handleApiConfigResponse(apiConfigResponse *http.Respo
 }
 
 // Generate SPI call (from earlier-saved request).
-func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiRequest) (string, error) {
+func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiRequest) (string, error) {
 	var methodConfig *endpoints.ApiMethod
 	var params map[string]string
-	if origRequest.IsRpc() {
+	if origRequest.isRpc() {
 		methodConfig = ed.lookupRpcMethod(origRequest)
 		params = nil
 	} else {
@@ -236,7 +240,7 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *ApiReques
 }
 
 // Handle SPI response, transforming output as needed.
-func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *ApiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
 	respBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", err
@@ -257,10 +261,10 @@ func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *ApiRequest
 		return "", err
 	}
 
-	// Need to check IsRpc() against the original request, because the
+	// Need to check isRpc() against the original request, because the
 	// incoming request here has had its path modified.
 	var body string
-	if origRequest.IsRpc() {
+	if origRequest.isRpc() {
 		body, err = ed.transformJsonrpcResponse(spiRequest, string(respBody))
 	} else {
 		body, err = ed.transformRestResponse(string(respBody))
@@ -290,7 +294,7 @@ func (ed *EndpointsServer) failRequest(w http.ResponseWriter, origRequest *http.
 //
 // Returns a method descriptor and a parameter map, or (nil, nil) if no
 // method was found for the current request.
-func (ed *EndpointsServer) lookupRestMethod(origRequest *ApiRequest) (*endpoints.ApiMethod, map[string]string) {
+func (ed *EndpointsServer) lookupRestMethod(origRequest *apiRequest) (*endpoints.ApiMethod, map[string]string) {
 	methodName, method, params := ed.configManager.lookupRestMethod(origRequest.URL.Path, origRequest.Method)
 	origRequest.Method = methodName
 	return method, params
@@ -300,16 +304,16 @@ func (ed *EndpointsServer) lookupRestMethod(origRequest *ApiRequest) (*endpoints
 //
 // Returns the RPC method descriptor that was found for the current request,
 // or nil if none was found.
-func (ed *EndpointsServer) lookupRpcMethod(origRequest *ApiRequest) *endpoints.ApiMethod {
-	if origRequest.BodyJson == nil {
+func (ed *EndpointsServer) lookupRpcMethod(origRequest *apiRequest) *endpoints.ApiMethod {
+	if origRequest.bodyJson == nil {
 		return nil
 	}
-	methodName, ok := origRequest.BodyJson["method"]
+	methodName, ok := origRequest.bodyJson["method"]
 	methodNameStr, ok2 := methodName.(string)
 	if !ok || !ok2 {
 		methodNameStr = ""
 	}
-	version, ok := origRequest.BodyJson["apiVersion"]
+	version, ok := origRequest.bodyJson["apiVersion"]
 	versionStr, ok3 := version.(string)
 	if !ok || !ok3 {
 		versionStr = ""
@@ -324,10 +328,10 @@ func (ed *EndpointsServer) lookupRpcMethod(origRequest *ApiRequest) *endpoints.A
 // and returns a new transformed request ready to send to the SPI. The path
 // is updated and parts of the body or other properties may also be changed.
 // This method accepts a REST-style or RPC-style request.
-func (ed *EndpointsServer) transformRequest(origRequest *ApiRequest, params map[string]string, methodConfig *endpoints.ApiMethod) (*ApiRequest, error) {
-	var request *ApiRequest
+func (ed *EndpointsServer) transformRequest(origRequest *apiRequest, params map[string]string, methodConfig *endpoints.ApiMethod) (*apiRequest, error) {
+	var request *apiRequest
 	var err error
-	if origRequest.IsRpc() {
+	if origRequest.isRpc() {
 		request, err = ed.transformJsonrpcRequest(origRequest)
 	} else {
 		methodParams := methodConfig.Request.Params
@@ -499,10 +503,10 @@ func (ed *EndpointsServer) updateFromBody(destination map[string]interface{}, so
 // configuration for the parameters for the request and returns a copy of
 // the current request that's been modified so it can be sent to the SPI.
 // The body is updated to include parameters from the URL.
-func (ed *EndpointsServer) transformRestRequest(origRequest *ApiRequest,
+func (ed *EndpointsServer) transformRestRequest(origRequest *apiRequest,
 params map[string]string,
-methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error) {
-	request, err := origRequest.Copy()
+methodParameters map[string]*endpoints.ApiRequestParamSpec) (*apiRequest, error) {
+	request, err := origRequest.copy()
 	if err != nil {
 		return request, err
 	}
@@ -583,18 +587,18 @@ methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error)
 	}
 
 	// Add in values from the body of the request.
-	if request.BodyJson != nil {
-		ed.updateFromBody(bodyJson, request.BodyJson)
+	if request.bodyJson != nil {
+		ed.updateFromBody(bodyJson, request.bodyJson)
 	}
 
-	//request.BodyJson = bodyJson
+	//request.bodyJson = bodyJson
 	body, err := json.Marshal(bodyJson)
 	if err == nil {
 		request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 	} else {
 		return request, err
 	}
-	json.Unmarshal(body, &request.BodyJson) // map[string]interface{}, no string or []string
+	json.Unmarshal(body, &request.bodyJson) // map[string]interface{}, no string or []string
 	return request, nil
 }
 
@@ -602,47 +606,47 @@ methodParameters map[string]*endpoints.ApiRequestParamSpec) (*ApiRequest, error)
 //
 // Returns a new request with the request_id updated and params moved to the
 // body.
-func (ed *EndpointsServer) transformJsonrpcRequest(origRequest *ApiRequest) (*ApiRequest, error) {
-	request, err := origRequest.Copy()
+func (ed *EndpointsServer) transformJsonrpcRequest(origRequest *apiRequest) (*apiRequest, error) {
+	request, err := origRequest.copy()
 	if err != nil {
 		return request, err
 	}
 
-	requestId, okId := request.BodyJson["id"]
+	requestId, okId := request.bodyJson["id"]
 	if okId {
 		requestIdStr, ok := requestId.(string)
 		if ok {
-			request.RequestId = requestIdStr
+			request.requestId = requestIdStr
 		} else {
 			requestIdInt, ok := requestId.(int)
 			if ok {
-				request.RequestId = fmt.Sprintf("%d", requestIdInt)
+				request.requestId = fmt.Sprintf("%d", requestIdInt)
 			} else {
 				return nil, fmt.Errorf("Problem extracting request ID: %#v", requestId)
 			}
 		}
 	} else {
-		request.RequestId = ""
+		request.requestId = ""
 	}
 
-	bodyJson, okParam := request.BodyJson["params"]
+	bodyJson, okParam := request.bodyJson["params"]
 	if okParam {
 		bodyJsonObj, ok := bodyJson.(map[string]interface{})
 		if ok {
-			request.BodyJson = bodyJsonObj
+			request.bodyJson = bodyJsonObj
 		} else {
 			bodyJsonMap, ok := bodyJson.(map[string]interface{})
 			if ok {
-				request.BodyJson = bodyJsonMap
+				request.bodyJson = bodyJsonMap
 			} else {
 				return nil, fmt.Errorf("Problem extracting JSON body from params: %#v", bodyJson)
 			}
 		}
 	} else {
-		request.BodyJson = make(map[string]interface{})
+		request.bodyJson = make(map[string]interface{})
 	}
 
-	body, err := json.Marshal(request.BodyJson)
+	body, err := json.Marshal(request.bodyJson)
 	if err != nil {
 		return request, fmt.Errorf("Problem transforming RPC request: %s", err.Error())
 	}
@@ -679,14 +683,14 @@ func (ed *EndpointsServer) transformRestResponse(responseBody string) (string, e
 // Translates an api-serving response to a JsonRpc response.
 //
 // Returns the updated, JsonRPC-formatted request body.
-func (ed *EndpointsServer) transformJsonrpcResponse(spiRequest *ApiRequest, responseBody string) (string, error) {
+func (ed *EndpointsServer) transformJsonrpcResponse(spiRequest *apiRequest, responseBody string) (string, error) {
 	var result interface{}
 	err := json.Unmarshal([]byte(responseBody), &result)
 	if err != nil {
 		return responseBody, fmt.Errorf("Problem unmarshalling RPC response: %s", err.Error())
 	}
 	bodyJson := map[string]interface{}{"result": result}
-	return ed.finishRpcResponse(spiRequest.RequestId, spiRequest.IsBatch, bodyJson), nil
+	return ed.finishRpcResponse(spiRequest.requestId, spiRequest.isBatch, bodyJson), nil
 }
 
 // Finish adding information to a JSON RPC response.
@@ -706,19 +710,19 @@ func (ed *EndpointsServer) finishRpcResponse(requestId string, isBatch bool, bod
 	return string(body)
 }
 
-func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest *ApiRequest, err RequestError) string {
+func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest *apiRequest, err RequestError) string {
 	var statusCode int
 	var body string
-	if origRequest.IsRpc() {
+	if origRequest.isRpc() {
 		// JSON RPC errors are returned with status 200 OK and the
 		// error details in the body.
 		statusCode = 200
-		_id, _ := origRequest.BodyJson["id"]
+		_id, _ := origRequest.bodyJson["id"]
 		id, ok := _id.(string)
 		if !ok {
 			// fixme: handle type assertion failure
 		}
-		body = ed.finishRpcResponse(id, origRequest.IsBatch, err.RpcError())
+		body = ed.finishRpcResponse(id, origRequest.isBatch, err.RpcError())
 	} else {
 		statusCode = err.StatusCode()
 		body = err.RestError()

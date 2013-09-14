@@ -80,17 +80,17 @@ func TestCors(t *testing.T) {
 	if 200 != status {
 		t.Fail()
 	}
-	if headers.Get(CORS_HEADER_ALLOW_ORIGIN) != "test.com" {
+	if headers.Get(corsHeaderAllowOrigin) != "test.com" {
 		t.Fail()
 	}
-	for _, header := range strings.Split(headers.Get(CorsAllowedMethods), ",") {
+	for _, header := range strings.Split(headers.Get(corsAllowedMethods), ",") {
 		if header == "GET" {
 			goto P
 		}
 	}
 	t.Fail()
 P:
-	if headers.Get(CORS_HEADER_ALLOW_HEADERS) != "Date,Expires" {
+	if headers.Get(corsHeaderAllowHeaders) != "Date,Expires" {
 		t.Fail()
 	}
 }

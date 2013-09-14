@@ -73,7 +73,7 @@ func TestHandleNonJsonSpiResponseCors(t *testing.T) {
 func checkCors(t *testing.T, requestHeaders http.Header, expectResponse bool,
 expectedOrigin, expectedAllowHeaders string, serverResponse *http.Response) string {
 	origRequest := buildApiRequest("/_ah/api/fake/path", "", requestHeaders)
-	spiRequest, err := origRequest.Copy()
+	spiRequest, err := origRequest.copy()
 	assert.NoError(t, err)
 
 	if serverResponse == nil {
@@ -94,15 +94,15 @@ expectedOrigin, expectedAllowHeaders string, serverResponse *http.Response) stri
 
 	headers := w.Header()
 	if expectResponse {
-		assert.Equal(t, headers.Get(CORS_HEADER_ALLOW_ORIGIN), expectedOrigin)
-		allowMethods := strings.Split(headers.Get(CORS_HEADER_ALLOW_METHODS), ",")
+		assert.Equal(t, headers.Get(corsHeaderAllowOrigin), expectedOrigin)
+		allowMethods := strings.Split(headers.Get(corsHeaderAllowMethods), ",")
 		sort.Strings(allowMethods)
-		assert.Equal(t, allowMethods, CorsAllowedMethods)
-		assert.Equal(t, headers.Get(CORS_HEADER_ALLOW_HEADERS), expectedAllowHeaders)
+		assert.Equal(t, allowMethods, corsAllowedMethods)
+		assert.Equal(t, headers.Get(corsHeaderAllowHeaders), expectedAllowHeaders)
 	} else {
-		assert.Empty(t, headers.Get(CORS_HEADER_ALLOW_ORIGIN))
-		assert.Empty(t, headers.Get(CORS_HEADER_ALLOW_METHODS))
-		assert.Empty(t, headers.Get(CORS_HEADER_ALLOW_HEADERS))
+		assert.Empty(t, headers.Get(corsHeaderAllowOrigin))
+		assert.Empty(t, headers.Get(corsHeaderAllowMethods))
+		assert.Empty(t, headers.Get(corsHeaderAllowHeaders))
 	}
 	return response
 }

@@ -71,7 +71,7 @@ func TestTransformJsonRpcRequest(t *testing.T) {
 	err = json.Unmarshal(body, &bodyJson)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedBody, bodyJson)
-	assert.Equal(t, "42", newRequest.RequestId)
+	assert.Equal(t, "42", newRequest.requestId)
 }
 
 // Takes body, query and path values from a rest request for testing.
@@ -84,7 +84,7 @@ expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestPa
 	}
 
 	testRequest := buildApiRequest("/_ah/api/test", "", nil)
-	testRequest.BodyJson = bodyJson
+	testRequest.bodyJson = bodyJson
 	body, err := json.Marshal(bodyJson)
 	if err != nil {
 		return err
@@ -97,9 +97,9 @@ expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestPa
 	if err != nil {
 		return err
 	}
-	if !reflect.DeepEqual(expected, transformedRequest.BodyJson) {
+	if !reflect.DeepEqual(expected, transformedRequest.bodyJson) {
 		return fmt.Errorf("JSON bodies do not match: %#v != %#v", expected,
-			transformedRequest.BodyJson)
+			transformedRequest.bodyJson)
 	}
 	var trBodyJson map[string]interface{}
 	body, err = ioutil.ReadAll(transformedRequest.Body)
@@ -110,9 +110,9 @@ expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestPa
 	if err != nil {
 		return err
 	}
-	if !reflect.DeepEqual(trBodyJson, transformedRequest.BodyJson) {
+	if !reflect.DeepEqual(trBodyJson, transformedRequest.bodyJson) {
 		return fmt.Errorf("Transformed JSON bodies do not match: %#v != %#v",
-			transformedRequest.BodyJson, trBodyJson)
+			transformedRequest.bodyJson, trBodyJson)
 	}
 	return nil
 }

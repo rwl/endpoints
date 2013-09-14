@@ -22,28 +22,28 @@ import (
 	"net/http"
 )
 
-const GET_REST_API = "apisdev.getRest"
-const GET_RPC_API = "apisdev.getRpc"
-const LIST_API = "apisdev.list"
+const getRestApi = "apisdev.getRest"
+const getRpcApi = "apisdev.getRpc"
+const listApi = "apisdev.list"
 
-var DiscoveryApiConfig = &endpoints.ApiDescriptor{
+var discoveryApiConfig = &endpoints.ApiDescriptor{
 	Name:    "discovery",
 	Version: "v1",
 	Methods: map[string]*endpoints.ApiMethod{
 		"discovery.apis.getRest": &endpoints.ApiMethod{
 			Path:       "apis/{api}/{version}/rest",
 			HttpMethod: "GET",
-			RosyMethod: GET_REST_API,
+			RosyMethod: getRestApi,
 		},
 		"discovery.apis.getRpc": &endpoints.ApiMethod{
 			Path:       "apis/{api}/{version}/rpc",
 			HttpMethod: "GET",
-			RosyMethod: GET_RPC_API,
+			RosyMethod: getRpcApi,
 		},
 		"discovery.apis.list": &endpoints.ApiMethod{
 			Path:       "apis",
 			HttpMethod: "GET",
-			RosyMethod: LIST_API,
+			RosyMethod: listApi,
 		},
 	},
 }
@@ -60,10 +60,10 @@ var DiscoveryApiConfig = &endpoints.ApiDescriptor{
 // discovery service to generate the discovery docs/directory from an .api
 // file/set of .api files.
 type DiscoveryService struct {
-	configManager *ApiConfigManager
+	configManager *apiConfigManager
 }
 
-func NewDiscoveryService(config_manager *ApiConfigManager) *DiscoveryService {
+func NewDiscoveryService(config_manager *apiConfigManager) *DiscoveryService {
 	return &DiscoveryService{config_manager}
 }
 
@@ -77,9 +77,9 @@ func sendSuccessResponse(response string, w http.ResponseWriter) string {
 
 // Sends back HTTP response with API directory. It will return
 // the discovery doc for the requested api/version.
-func (ds *DiscoveryService) getRpcOrRest(apiFormat ApiFormat, request *ApiRequest, w http.ResponseWriter) string {
-	api, ok := request.BodyJson["api"]
-	version, _ := request.BodyJson["version"]
+func (ds *DiscoveryService) getRpcOrRest(apiFormat apiFormat, request *apiRequest, w http.ResponseWriter) string {
+	api, ok := request.bodyJson["api"]
+	version, _ := request.bodyJson["version"]
 	apiStr, _ := api.(string)
 	versionStr, _ := version.(string)
 	lookupKey := lookupKey{apiStr, versionStr}
@@ -101,7 +101,7 @@ func (ds *DiscoveryService) getRpcOrRest(apiFormat ApiFormat, request *ApiReques
 func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 	apiConfigs := make([]string, 0)
 	for _, apiConfig := range ds.configManager.configs {
-		if apiConfig != DiscoveryApiConfig {
+		if apiConfig != discoveryApiConfig {
 			ac, err := json.Marshal(apiConfig)
 			if err != nil {
 				glog.Errorf("Failed to marshal API config: %v", apiConfig)
@@ -122,13 +122,13 @@ func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 
 // Returns the result of a discovery service request and false if the request
 // wasn't handled by DiscoveryService.
-func (ds *DiscoveryService) handleDiscoveryRequest(path string, request *ApiRequest, w http.ResponseWriter) (string, bool) {
+func (ds *DiscoveryService) handleDiscoveryRequest(path string, request *apiRequest, w http.ResponseWriter) (string, bool) {
 	switch path {
-	case GET_REST_API:
-		return ds.getRpcOrRest(REST, request, w), true
-	case GET_RPC_API:
-		return ds.getRpcOrRest(RPC, request, w), true
-	case LIST_API:
+	case getRestApi:
+		return ds.getRpcOrRest(rest, request, w), true
+	case getRpcApi:
+		return ds.getRpcOrRest(rpc, request, w), true
+	case listApi:
 		return ds.list(w), true
 	}
 	return "", false

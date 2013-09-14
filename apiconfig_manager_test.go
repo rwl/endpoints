@@ -23,21 +23,21 @@ import (
 )
 
 func TestParseApiConfigEmptyResponse(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 	configManager.parseApiConfigResponse("")
 	actualMethod := configManager.lookupRpcMethod("guestbook_api.get", "v1")
 	assert.Nil(t, actualMethod)
 }
 
 func TestParseApiConfigInvalidResponse(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 	configManager.parseApiConfigResponse(`{"name": "foo"}`)
 	actualMethod := configManager.lookupRpcMethod("guestbook_api.get", "v1")
 	assert.Nil(t, actualMethod)
 }
 
 func TestParseApiConfig(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 	fakeMethod := &endpoints.ApiMethod{
 		HttpMethod: "GET",
 		Path:       "greetings/{gid}",
@@ -60,7 +60,7 @@ func TestParseApiConfig(t *testing.T) {
 }
 
 func TestParseApiConfigOrderLength(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 	methods := map[string]*endpoints.ApiMethod {
 		"guestbook_api.foo.bar": &endpoints.ApiMethod{
 			HttpMethod: "GET",
@@ -291,7 +291,7 @@ func TestSortMethods2(t *testing.T) {
 }
 
 func TestParseApiConfigInvalidApiConfig(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 	fakeMethod := &endpoints.ApiMethod{
 		HttpMethod: "GET",
 		Path:       "greetings/{gid}",
@@ -315,7 +315,7 @@ func TestParseApiConfigInvalidApiConfig(t *testing.T) {
 
 // Test that the parsed API config has switched HTTPS to HTTP.
 func TestParseApiConfigConvertHttps(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 
 	descriptor := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
@@ -372,7 +372,7 @@ func TestDontConvertNonHttpsToHttp(t *testing.T) {
 }
 
 func TestSaveLookupRpcMethod(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 	// First attempt, guestbook.get does not exist
 	actualMethod := configManager.lookupRpcMethod("guestbook_api.get", "v1")
 	assert.Nil(t, actualMethod)
@@ -385,7 +385,7 @@ func TestSaveLookupRpcMethod(t *testing.T) {
 }
 
 func TestSaveLookupRestMethod(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 	// First attempt, guestbook.get does not exist
 	methodName, apiMethod, params := configManager.lookupRestMethod("guestbook_api/v1/greetings/i", "GET")
 	assert.Empty(t, methodName)
@@ -405,7 +405,7 @@ func TestSaveLookupRestMethod(t *testing.T) {
 }
 
 func TestTrailingSlashOptional(t *testing.T) {
-	configManager := NewApiConfigManager()
+	configManager := newApiConfigManager()
 	// Create a typical get resource URL.
 	fakeMethod := &endpoints.ApiMethod{
 		HttpMethod: "GET",
@@ -429,19 +429,19 @@ func TestTrailingSlashOptional(t *testing.T) {
 // Parameterized path tests.
 
 func TestInvalidVariableNameLeadingDigit(t *testing.T) {
-	matched := PathVariablePattern.MatchString("1abc")
+	matched := pathVariablePattern.MatchString("1abc")
 	assert.False(t, matched)
 }
 
 // Ensure users can not add variables starting with !
 // This is used for reserved variables (e.g. !name and !version)
 func TestInvalidVarNameLeadingExclamation(t *testing.T) {
-	matched := PathVariablePattern.MatchString("!abc")
+	matched := pathVariablePattern.MatchString("!abc")
 	assert.False(t, matched)
 }
 
 func TestValidVariableName(t *testing.T) {
-	assert.Equal(t, PathVariablePattern.FindString("AbC1"), "AbC1")
+	assert.Equal(t, pathVariablePattern.FindString("AbC1"), "AbC1")
 }
 
 // Assert that the given inbound request path does not match the

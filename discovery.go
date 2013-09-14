@@ -25,23 +25,23 @@ import (
 var (
 	// The endpoint host we're using to proxy discovery and static requests.
 	// Using separate constants to make it easier to change the discovery service.
-	DiscoveryProxyHost     = "https://webapis-discovery.appspot.com"
-	StaticProxyHost        = "https://webapis-discovery.appspot.com"
-	DiscoveryApiPathPrefix = "/_ah/api/discovery/v1/"
+	discoveryProxyHost     = "https://webapis-discovery.appspot.com"
+	staticProxyHost        = "https://webapis-discovery.appspot.com"
+	discoveryApiPathPrefix = "/_ah/api/discovery/v1/"
 )
 
-type ApiFormat string
+type apiFormat string
 
 const (
-	REST ApiFormat = "rest"
-	RPC  ApiFormat = "rpc"
+	rest apiFormat = "rest"
+	rpc  apiFormat = "rpc"
 )
 
 // Proxies GET requests to the discovery service API. Takes the URL path
 // relative to discovery service and the HTTP POST request body and returns
 // the HTTP response body or an error if it failed.
 func dispatchDiscoveryRequest(path, body string) (string, error) {
-	fullPath := DiscoveryProxyHost + DiscoveryApiPathPrefix + path
+	fullPath := discoveryProxyHost + discoveryApiPathPrefix + path
 	client := &http.Client{}
 
 	req, err := http.NewRequest("POST", fullPath, nil)
@@ -71,7 +71,7 @@ func dispatchDiscoveryRequest(path, body string) (string, error) {
 // Generates a discovery document from an API file. Takes the .api file
 // contents and the kind of discvoery doc requested and returns the discovery
 // doc as JSON string.
-func generateDiscoveryDoc(apiConfig *endpoints.ApiDescriptor, apiFormat ApiFormat) (string, error) {
+func generateDiscoveryDoc(apiConfig *endpoints.ApiDescriptor, apiFormat apiFormat) (string, error) {
 	path := "apis/generate/" + string(apiFormat)
 	requestMap := map[string]interface{}{"config": apiConfig}
 	requestBody, err := json.Marshal(requestMap)
@@ -96,7 +96,7 @@ func generateDiscoveryDirectory(apiConfigs []string) (string, error) {
 // domain and returns a Response from the static proxy host and the response
 // body.
 func getStaticFile(path string) (*http.Response, string, error) {
-	resp, err := http.Get(StaticProxyHost + path)
+	resp, err := http.Get(staticProxyHost + path)
 	if err != nil {
 		return nil, "", err
 	}
