@@ -57,7 +57,7 @@ type lookupKey struct {
 
 type restMethod struct {
 	compiledPathPattern *regexp.Regexp // A compiled regex to match against the incoming URL.
-	path                  string // The original path pattern (checked to prevent duplicates).
+	path                  string       // The original path pattern (checked to prevent duplicates).
 	methods               map[string]*methodInfo
 }
 

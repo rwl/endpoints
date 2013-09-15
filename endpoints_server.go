@@ -29,8 +29,8 @@ import (
 const defaultURL = "http://localhost:8080"
 
 var (
-	spiRootFormat     = "/_ah/spi/%s"
-	apiExplorerUrl    = "https://developers.google.com/apis-explorer/?base="
+	spiRootFormat  = "/_ah/spi/%s"
+	apiExplorerUrl = "https://developers.google.com/apis-explorer/?base="
 )
 
 var DefaultServer *EndpointsServer = NewEndpointsServer()
