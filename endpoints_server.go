@@ -19,11 +19,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
-	"github.com/golang/glog"
 	"net/http"
 	"strings"
+	"net/url"
 )
 
 const defaultURL = "http://localhost:8080"
@@ -40,21 +41,24 @@ type EndpointsServer struct {
 	configManager *apiConfigManager
 
 	// URL to which SPI requests should be dispatched.
-	URL string
+	url string
 }
 
 // NewEndpointsServer returns a new EndpointsServer that will dispatch
 // SPI requests to the given URL.
-func NewEndpointsServer(URL string) *EndpointsServer {
+func NewEndpointsServer(URL *url.URL) *EndpointsServer {
 	return newEndpointsServerConfig(newApiConfigManager(), URL)
 }
 
 func newEndpointsServer() *EndpointsServer {
-	return newEndpointsServerConfig(newApiConfigManager(), defaultURL)
+	u, _ := url.Parse(defaultURL)
+	return newEndpointsServerConfig(newApiConfigManager(), u)
 }
 
-func newEndpointsServerConfig(configManager *apiConfigManager, u string) *EndpointsServer {
-	return &EndpointsServer{configManager, u}
+func newEndpointsServerConfig(configManager *apiConfigManager, u *url.URL) *EndpointsServer {
+	s := &EndpointsServer{configManager: configManager}
+	s.SetURL(u)
+	return s
 }
 
 // Configures the server to handler API requests to the default paths.
@@ -84,12 +88,12 @@ func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) {
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
 	if err != nil {
-		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs error: " + err.Error())
+		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs error: "+err.Error())
 		return
 	}
 	err = ed.handleApiConfigResponse(apiConfigResponse)
 	if err != nil {
-		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs handling error: " + err.Error())
+		ed.failRequest(w, ar.Request, "BackendService.getApiConfigs handling error: "+err.Error())
 		return
 	}
 
@@ -141,7 +145,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 // Makes a call to the BackendService.getApiConfigs endpoint.
 func (ed *EndpointsServer) getApiConfigs() (*http.Response, error) {
 	req, err := http.NewRequest("POST",
-			ed.URL + "/_ah/spi/BackendService.getApiConfigs",
+		ed.url+"/_ah/spi/BackendService.getApiConfigs",
 		ioutil.NopCloser(bytes.NewBufferString("{}")))
 	if err != nil {
 		return nil, err
@@ -223,7 +227,7 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiReques
 	}
 
 	// Send the request to the user's SPI handlers.
-	url := ed.URL + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
+	url := ed.url + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
 	req, err := http.NewRequest("POST", url, spiRequest.Body)
 	if err != nil {
 		return "", err
@@ -503,8 +507,8 @@ func (ed *EndpointsServer) updateFromBody(destination map[string]interface{}, so
 // the current request that's been modified so it can be sent to the SPI.
 // The body is updated to include parameters from the URL.
 func (ed *EndpointsServer) transformRestRequest(origRequest *apiRequest,
-params map[string]string,
-methodParameters map[string]*endpoints.ApiRequestParamSpec) (*apiRequest, error) {
+	params map[string]string,
+	methodParameters map[string]*endpoints.ApiRequestParamSpec) (*apiRequest, error) {
 	request, err := origRequest.copy()
 	if err != nil {
 		return request, err
@@ -736,4 +740,29 @@ func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest
 	w.WriteHeader(statusCode)
 	fmt.Fprint(w, body)
 	return body
+}
+
+// Sets the URL for SPI dispatches to have the form http://ipaddr:port with
+// no trailing slash.
+func (ed *EndpointsServer) SetURL(u *url.URL) {
+	var buf bytes.Buffer
+	if u.Scheme != "" {
+		buf.WriteString(u.Scheme)
+		buf.WriteByte(':')
+	}
+	if u.Opaque != "" {
+		buf.WriteString(u.Opaque)
+	} else {
+		if u.Scheme != "" || u.Host != "" || u.User != nil {
+			buf.WriteString("//")
+			if u := u.User; u != nil {
+				buf.WriteString(u.String())
+				buf.WriteByte('@')
+			}
+			if h := u.Host; h != "" {
+				buf.WriteString(h)
+			}
+		}
+	}
+	ed.url = buf.String()
 }

@@ -56,7 +56,7 @@ func assertDispatchToSpi(t *testing.T, request *apiRequest, config *endpoints.Ap
 expectedSpiBodyJson map[string]interface{}) {
 	server := newMockEndpointsServer()
 	ts := prepareTestServer(t, config)
-	server.URL = ts.URL
+	server.url = ts.URL
 	defer ts.Close()
 
 	w := httptest.NewRecorder()
@@ -124,7 +124,7 @@ func TestDispatchInvalidPath(t *testing.T) {
 	}
 	request := buildRequest("/_ah/api/foo", "", nil)
 	ts := prepareTestServer(t, config)
-	server.URL = ts.URL
+	server.url = ts.URL
 	defer ts.Close()
 
 	w := httptest.NewRecorder()
@@ -168,7 +168,7 @@ func TestDispatchInvalidEnum(t *testing.T) {
 
 	request := buildRequest("/_ah/api/guestbook_api/v1/greetings/invalid_enum", "", nil)
 	ts := prepareTestServer(t, config)
-	server.URL = ts.URL
+	server.url = ts.URL
 	defer ts.Close()
 
 	server.ServeHTTP(w, request)
@@ -213,7 +213,7 @@ func TestDispatchSpiError(t *testing.T) {
 	}
 	request := buildApiRequest("/_ah/api/foo", "", nil)
 	ts := prepareTestServer(t, config)
-	server.URL = ts.URL
+	server.url = ts.URL
 	defer ts.Close()
 
 	w := httptest.NewRecorder()
@@ -276,7 +276,7 @@ func TestDispatchRpcError(t *testing.T) {
 		nil,
 	)
 	ts := prepareTestServer(t, config)
-	server.URL = ts.URL
+	server.url = ts.URL
 	defer ts.Close()
 
 	w := httptest.NewRecorder()
