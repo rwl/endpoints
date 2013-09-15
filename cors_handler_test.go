@@ -85,7 +85,7 @@ expectedOrigin, expectedAllowHeaders string, serverResponse *http.Response) stri
 		}
 	}
 
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 
 	response, err := server.handleSpiResponse(origRequest, spiRequest,

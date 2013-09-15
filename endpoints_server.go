@@ -33,32 +33,32 @@ var (
 	apiExplorerUrl = "https://developers.google.com/apis-explorer/?base="
 )
 
-var DefaultServer *EndpointsServer = NewEndpointsServer()
-
-func HandleHttp() {
-	DefaultServer.HandleHttp(nil)
-}
-
 // HTTP handler for requests to the built-in api-server handlers.
 type EndpointsServer struct {
 	// An apiConfigManager instance that allows a caller to set up an
 	// existing configuration for testing.
 	configManager *apiConfigManager
+
+	// URL to which SPI requests should be dispatched.
 	URL string
 }
 
-func NewEndpointsServer() *EndpointsServer {
+// NewEndpointsServer returns a new EndpointsServer that will dispatch
+// SPI requests to the given URL.
+func NewEndpointsServer(URL string) *EndpointsServer {
+	return newEndpointsServerConfig(newApiConfigManager(), URL)
+}
+
+func newEndpointsServer() *EndpointsServer {
 	return newEndpointsServerConfig(newApiConfigManager(), defaultURL)
 }
 
-func NewEndpointsServerURL(url string) *EndpointsServer {
-	return newEndpointsServerConfig(newApiConfigManager(), url)
+func newEndpointsServerConfig(configManager *apiConfigManager, u string) *EndpointsServer {
+	return &EndpointsServer{configManager, u}
 }
 
-func newEndpointsServerConfig(configManager *apiConfigManager, url string) *EndpointsServer {
-	return &EndpointsServer{configManager, url}
-}
-
+// Configures the server to handler API requests to the default paths.
+// If mux is not specified then http.DefaultServeMux is used.
 func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 	if mux == nil {
 		mux = http.DefaultServeMux

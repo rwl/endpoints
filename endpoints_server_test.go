@@ -110,7 +110,7 @@ expectedSpiBodyJson map[string]interface{}) {
 }
 
 func TestDispatchInvalidPath(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -139,7 +139,7 @@ func TestDispatchInvalidPath(t *testing.T) {
 }
 
 func TestDispatchInvalidEnum(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -359,7 +359,7 @@ func TestDispatchRest(t *testing.T) {
 }
 
 func TestExplorerRedirect(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 	request := buildRequest("/_ah/api/explorer", "", nil)
 	server.HandleApiExplorerRequest(w, request)
@@ -431,7 +431,7 @@ func TestExplorerRedirect(t *testing.T) {
 }*/
 
 func TestHandleNonJsonSpiResponse(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 	origRequest := buildApiRequest("/_ah/api/fake/path", "", nil)
 	spiRequest, err := origRequest.copy()
@@ -485,7 +485,7 @@ func TestLilyUsesMethodName(t *testing.T) {
 
 // Verify headers transformed, JsonRpc response transformed, written.
 func TestHandleSpiResponseJsonRpc(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 	origRequest := buildApiRequest(
 		"/_ah/api/rpc",
@@ -521,7 +521,7 @@ func TestHandleSpiResponseJsonRpc(t *testing.T) {
 
 // Verify that batch requests have an appropriate batch response.
 func TestHandleSpiResponseBatchJsonRpc(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 	origRequest := buildApiRequest(
 		"/_ah/api/rpc",
@@ -559,7 +559,7 @@ func TestHandleSpiResponseBatchJsonRpc(t *testing.T) {
 }
 
 func TestHandleSpiResponseRest(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 	origRequest := buildApiRequest("/_ah/api/test", "{}", nil)
 	spiRequest, err := origRequest.copy()
@@ -585,7 +585,7 @@ func TestHandleSpiResponseRest(t *testing.T) {
 
 // Verify the response is reformatted correctly.
 func TestTransformRestResponse(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	origResponse := `{"sample": "test", "value1": {"value2": 2}}`
 	expectedResponse := `{
   "sample": "test",
@@ -600,7 +600,7 @@ func TestTransformRestResponse(t *testing.T) {
 
 // Verify requestId inserted into the body, and body into body.result.
 func TestTransformJsonRpcResponseBatch(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	origRequest := buildApiRequest(
 		"/_ah/api/rpc",
 		`[{"params": {"sample": "body"}, "id": "42"}]`,
@@ -625,7 +625,7 @@ func TestTransformJsonRpcResponseBatch(t *testing.T) {
 }
 
 func TestLookupRpcMethodNoBody(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	origRequest := buildApiRequest("/_ah/api/rpc", "", nil)
 	assert.Nil(t, server.lookupRpcMethod(origRequest))
 }

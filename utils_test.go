@@ -87,7 +87,7 @@ type MockEndpointsServer struct {
 
 func newMockEndpointsServer() (*MockEndpointsServer) {
 	return &MockEndpointsServer{
-		EndpointsServer: NewEndpointsServer(),
+		EndpointsServer: newEndpointsServer(),
 	}
 }
 
@@ -141,7 +141,7 @@ type MockEndpointsServerSpi struct {
 
 func newMockEndpointsServerSpi() (*MockEndpointsServerSpi) {
 	return &MockEndpointsServerSpi{
-		EndpointsServer: NewEndpointsServer(),
+		EndpointsServer: newEndpointsServer(),
 	}
 }
 

@@ -29,7 +29,7 @@ import (
 
 // Verify path is method name after a request is transformed.
 func TestTransformRequest(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 
 	request := buildApiRequest("/_ah/api/test/{gid}", `{"sample": "body"}`,
 		nil)
@@ -55,7 +55,7 @@ func TestTransformRequest(t *testing.T) {
 
 // Verify requestId is extracted and body is scoped to body.params.
 func TestTransformJsonRpcRequest(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 
 	origRequest := buildApiRequest(
 		"/_ah/api/rpc",
@@ -120,7 +120,7 @@ expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestPa
 // Path only.
 
 func TestTransformRestRequestPathOnly(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"gid": "X"}
 	queryParameters := ""
 	bodyObject := map[string]interface{}{}
@@ -131,7 +131,7 @@ func TestTransformRestRequestPathOnly(t *testing.T) {
 }
 
 func TestTransformRestRequestPathOnlyMessageField(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"gid.val": "X"}
 	queryParameters := ""
 	bodyObject := map[string]interface{}{}
@@ -146,7 +146,7 @@ func TestTransformRestRequestPathOnlyMessageField(t *testing.T) {
 }
 
 func TestTransformRestRequestPathOnlyEnum(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	queryParameters := ""
 	bodyObject := map[string]interface{}{}
 	enumDescriptor := map[string]*endpoints.ApiEnumParamSpec{
@@ -182,7 +182,7 @@ func TestTransformRestRequestPathOnlyEnum(t *testing.T) {
 // Query only.
 
 func TestTransformRestRequestQueryOnly(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "foo=bar"
 	bodyObject := map[string]interface{}{}
@@ -193,7 +193,7 @@ func TestTransformRestRequestQueryOnly(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryOnlyMessageField(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "gid.val=X"
 	bodyObject := map[string]interface{}{}
@@ -208,7 +208,7 @@ func TestTransformRestRequestQueryOnlyMessageField(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryOnlyMultipleValuesNotRepeated(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "foo=bar&foo=baz"
 	bodyObject := map[string]interface{}{}
@@ -219,7 +219,7 @@ func TestTransformRestRequestQueryOnlyMultipleValuesNotRepeated(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryOnlyMultipleValuesRepeated(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "foo=bar&foo=baz"
 	bodyObject := map[string]interface{}{}
@@ -233,7 +233,7 @@ func TestTransformRestRequestQueryOnlyMultipleValuesRepeated(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryOnlyEnum(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	bodyObject := map[string]interface{}{}
 	enumDescriptor := map[string]*endpoints.ApiEnumParamSpec{
@@ -267,7 +267,7 @@ func TestTransformRestRequestQueryOnlyEnum(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryOnlyRepeatedEnum(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	bodyObject := map[string]interface{}{}
 	enumDescriptor := map[string]*endpoints.ApiEnumParamSpec{
@@ -305,7 +305,7 @@ func TestTransformRestRequestQueryOnlyRepeatedEnum(t *testing.T) {
 // Body only.
 
 func TestTransformRestRequestBodyOnly(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := ""
 	bodyObject := map[string]interface{}{"sample": "body"}
@@ -316,7 +316,7 @@ func TestTransformRestRequestBodyOnly(t *testing.T) {
 }
 
 func TestTransformRestRequestBodyOnlyAnyOldValue(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := ""
 	bodyObject := map[string]interface{}{
@@ -335,7 +335,7 @@ func TestTransformRestRequestBodyOnlyAnyOldValue(t *testing.T) {
 }
 
 func TestTransformRestRequestBodyOnlyMessageField(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := ""
 	bodyObject := map[string]interface{}{
@@ -354,7 +354,7 @@ func TestTransformRestRequestBodyOnlyMessageField(t *testing.T) {
 }
 
 func TestTransformRestRequestBodyOnlyEnum(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := ""
 	enumDescriptor := map[string]*endpoints.ApiEnumParamSpec{
@@ -384,7 +384,7 @@ func TestTransformRestRequestBodyOnlyEnum(t *testing.T) {
 // Path and query only.
 
 func TestTransformRestRequestPathQueryNoCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := "c=d"
 	bodyObject := map[string]interface{}{}
@@ -395,7 +395,7 @@ func TestTransformRestRequestPathQueryNoCollision(t *testing.T) {
 }
 
 func TestTransformRestRequestPathQueryCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := "a=d"
 	bodyObject := map[string]interface{}{}
@@ -406,7 +406,7 @@ func TestTransformRestRequestPathQueryCollision(t *testing.T) {
 }
 
 func TestTransformRestRequestPathQueryCollisionInRepeatedParam(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := "a=d&a=c"
 	bodyObject := map[string]interface{}{}
@@ -423,7 +423,7 @@ func TestTransformRestRequestPathQueryCollisionInRepeatedParam(t *testing.T) {
 // Path and body only.
 
 func TestTransformRestRequestPathBodyNoCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := ""
 	bodyObject := map[string]interface{}{"c": "d"}
@@ -434,7 +434,7 @@ func TestTransformRestRequestPathBodyNoCollision(t *testing.T) {
 }
 
 func TestTransformRestRequestPathBodyCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := ""
 	bodyObject := map[string]interface{}{"a": "d"}
@@ -445,7 +445,7 @@ func TestTransformRestRequestPathBodyCollision(t *testing.T) {
 }
 
 func TestTransformRestRequestPathBodyCollisionInRepeatedParam(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := ""
 	bodyObject := map[string]interface{}{"a": []interface{}{"d"}}
@@ -459,7 +459,7 @@ func TestTransformRestRequestPathBodyCollisionInRepeatedParam(t *testing.T) {
 }
 
 func TestTransformRestRequestPathBodyMessageFieldCooperative(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"gid.val1": "X"}
 	queryParameters := ""
 	bodyObject := map[string]interface{}{
@@ -479,7 +479,7 @@ func TestTransformRestRequestPathBodyMessageFieldCooperative(t *testing.T) {
 }
 
 func TestTransformRestRequestPathBodyMessageFieldCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"gid.val": "X"}
 	queryParameters := ""
 	bodyObject := map[string]interface{}{
@@ -500,7 +500,7 @@ func TestTransformRestRequestPathBodyMessageFieldCollision(t *testing.T) {
 // Query and body only.
 
 func TestTransformRestRequestQueryBodyNoCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "a=b"
 	bodyObject := map[string]interface{}{"c": "d"}
@@ -511,7 +511,7 @@ func TestTransformRestRequestQueryBodyNoCollision(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryBodyCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "a=b"
 	bodyObject := map[string]interface{}{"a": "d"}
@@ -522,7 +522,7 @@ func TestTransformRestRequestQueryBodyCollision(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryBodyCollisionInRepeatedParam(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "a=b"
 	bodyObject := map[string]interface{}{"a": []interface{}{"d"}}
@@ -536,7 +536,7 @@ func TestTransformRestRequestQueryBodyCollisionInRepeatedParam(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryBodyMessageFieldCooperative(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "gid.val1=X"
 	bodyObject := map[string]interface{}{
@@ -555,7 +555,7 @@ func TestTransformRestRequestQueryBodyMessageFieldCooperative(t *testing.T) {
 }
 
 func TestTransformRestRequestQueryBodyMessageFieldCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := make(map[string]string)
 	queryParameters := "gid.val=X"
 	bodyObject := map[string]interface{}{
@@ -576,7 +576,7 @@ func TestTransformRestRequestQueryBodyMessageFieldCollision(t *testing.T) {
 // Path, body and query.
 
 func TestTransformRestRequestPathQueryBodyNoCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := "c=d"
 	bodyObject := map[string]interface{}{"e": "f"}
@@ -587,7 +587,7 @@ func TestTransformRestRequestPathQueryBodyNoCollision(t *testing.T) {
 }
 
 func TestTransformRestRequestPathQueryBodyCollision(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := "a=d"
 	bodyObject := map[string]interface{}{"a": "f"}
@@ -598,7 +598,7 @@ func TestTransformRestRequestPathQueryBodyCollision(t *testing.T) {
 }
 
 func TestTransformRestRequestUnknownParameters(t *testing.T) {
-	server := NewEndpointsServer()
+	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
 	queryParameters := "c=d"
 	bodyObject := map[string]interface{}{"e": "f"}
