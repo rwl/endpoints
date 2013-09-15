@@ -59,12 +59,12 @@ var discoveryApiConfig = &endpoints.ApiDescriptor{
 // The discovery docs/directory are created by calling a cloud endpoint
 // discovery service to generate the discovery docs/directory from an .api
 // file/set of .api files.
-type DiscoveryService struct {
+type discoveryService struct {
 	configManager *apiConfigManager
 }
 
-func NewDiscoveryService(config_manager *apiConfigManager) *DiscoveryService {
-	return &DiscoveryService{config_manager}
+func newDiscoveryService(config_manager *apiConfigManager) *discoveryService {
+	return &discoveryService{config_manager}
 }
 
 // Sends an HTTP 200 json success response with the given body.
@@ -77,7 +77,7 @@ func sendSuccessResponse(response string, w http.ResponseWriter) string {
 
 // Sends back HTTP response with API directory. It will return
 // the discovery doc for the requested api/version.
-func (ds *DiscoveryService) getRpcOrRest(apiFormat apiFormat, request *apiRequest, w http.ResponseWriter) string {
+func (ds *discoveryService) getRpcOrRest(apiFormat apiFormat, request *apiRequest, w http.ResponseWriter) string {
 	api, ok := request.bodyJson["api"]
 	version, _ := request.bodyJson["version"]
 	apiStr, _ := api.(string)
@@ -98,7 +98,7 @@ func (ds *DiscoveryService) getRpcOrRest(apiFormat apiFormat, request *apiReques
 }
 
 // Sends HTTP response containing the API directory.
-func (ds *DiscoveryService) list(w http.ResponseWriter) string {
+func (ds *discoveryService) list(w http.ResponseWriter) string {
 	apiConfigs := make([]string, 0)
 	for _, apiConfig := range ds.configManager.configs {
 		if apiConfig != discoveryApiConfig {
@@ -121,8 +121,8 @@ func (ds *DiscoveryService) list(w http.ResponseWriter) string {
 }
 
 // Returns the result of a discovery service request and false if the request
-// wasn't handled by DiscoveryService.
-func (ds *DiscoveryService) handleDiscoveryRequest(path string, request *apiRequest, w http.ResponseWriter) (string, bool) {
+// wasn't handled by discoveryService.
+func (ds *discoveryService) handleDiscoveryRequest(path string, request *apiRequest, w http.ResponseWriter) (string, bool) {
 	switch path {
 	case getRestApi:
 		return ds.getRpcOrRest(rest, request, w), true

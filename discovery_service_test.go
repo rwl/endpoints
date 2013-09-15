@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func commonSetup() (*apiConfigManager, *apiRequest, *DiscoveryService) {
+func commonSetup() (*apiConfigManager, *apiRequest, *discoveryService) {
 	apiConfigMap := map[string]interface{}{"items": []string{apiConfigJson}}
 	apiConfigManager := newApiConfigManager()
 	apiConfig, _ := json.Marshal(apiConfigMap)
@@ -32,7 +32,7 @@ func commonSetup() (*apiConfigManager, *apiRequest, *DiscoveryService) {
 	apiRequest := buildApiRequest("/_ah/api/foo",
 		`{"api": "tictactoe", "version": "v1"}`, nil)
 
-	discovery := NewDiscoveryService(apiConfigManager)
+	discovery := newDiscoveryService(apiConfigManager)
 
 	return apiConfigManager, apiRequest, discovery
 }

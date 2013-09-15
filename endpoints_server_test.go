@@ -89,10 +89,10 @@ expectedSpiBodyJson map[string]interface{}) {
 		fmt.Fprint(w, "Test")
 	}))
 	defer ts2.Close()
-	orig := SpiRootFormat
-	SpiRootFormat = ts2.URL + SpiRootFormat
+	orig := spiRootFormat
+	spiRootFormat = ts2.URL + spiRootFormat
 	defer func() {
-		SpiRootFormat = orig
+		spiRootFormat = orig
 	}()
 
 	server.On(
@@ -232,7 +232,7 @@ func TestDispatchSpiError(t *testing.T) {
 		"callSpi",
 		mock.Anything,
 		request,
-	).Return("", NewBackendError(response))
+	).Return("", newBackendError(response))
 
 	server.serveHTTP(w, request)
 	server.Mock.AssertExpectations(t)
@@ -295,7 +295,7 @@ func TestDispatchRpcError(t *testing.T) {
 		"callSpi",
 		mock.Anything,
 		request,
-	).Return("", NewBackendError(response))
+	).Return("", newBackendError(response))
 
 	responseBody := server.serveHTTP(w, request)
 	server.Mock.AssertExpectations(t)

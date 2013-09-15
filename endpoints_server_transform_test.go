@@ -172,9 +172,9 @@ func TestTransformRestRequestPathOnlyEnum(t *testing.T) {
 		queryParameters, bodyObject, expectedBody, methodParams)
 
 	if assert.Error(t, err, "Bad enum should have caused failure.") {
-		enumError, ok := err.(*EnumRejectionError)
+		enumError, ok := err.(*enumRejectionError)
 		if assert.True(t, ok, "Bad enum should have caused failure.") {
-			assert.Equal(t, enumError.ParameterName, "gid")
+			assert.Equal(t, enumError.parameterName, "gid")
 		}
 	}
 }
@@ -259,9 +259,9 @@ func TestTransformRestRequestQueryOnlyEnum(t *testing.T) {
 		bodyObject, expected, methodParams)
 
 	if assert.Error(t, err, "Bad enum should have caused failure.") {
-		enumError, ok := err.(*EnumRejectionError)
+		enumError, ok := err.(*enumRejectionError)
 		if assert.True(t, ok, "Bad enum should have caused failure.") {
-			assert.Equal(t, enumError.ParameterName, "gid")
+			assert.Equal(t, enumError.parameterName, "gid")
 		}
 	}
 }
@@ -295,9 +295,9 @@ func TestTransformRestRequestQueryOnlyRepeatedEnum(t *testing.T) {
 		bodyObject, expected, methodParams)
 
 	if assert.Error(t, err, "Bad enum should have caused failure.") {
-		enumError, ok := err.(*EnumRejectionError)
+		enumError, ok := err.(*enumRejectionError)
 		if assert.True(t, ok, "Bad enum should have caused failure.") {
-			assert.Equal(t, enumError.ParameterName, "gid[2]")
+			assert.Equal(t, enumError.parameterName, "gid[2]")
 		}
 	}
 }

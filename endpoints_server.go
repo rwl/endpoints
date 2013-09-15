@@ -26,12 +26,11 @@ import (
 	"strings"
 )
 
-const DEFAULT_URL = "http://localhost:8080"
+const defaultURL = "http://localhost:8080"
 
 var (
-	ApiServingPattern = "_ah/api/.*" // Pattern for paths handled by this package.
-	SpiRootFormat     = "/_ah/spi/%s"
-	ApiExplorerUrl    = "https://developers.google.com/apis-explorer/?base="
+	spiRootFormat     = "/_ah/spi/%s"
+	apiExplorerUrl    = "https://developers.google.com/apis-explorer/?base="
 )
 
 var DefaultServer *EndpointsServer = NewEndpointsServer()
@@ -40,7 +39,7 @@ func HandleHttp() {
 	DefaultServer.HandleHttp(nil)
 }
 
-// Dispatcher that handles requests to the built-in apiserver handlers.
+// HTTP handler for requests to the built-in api-server handlers.
 type EndpointsServer struct {
 	// An apiConfigManager instance that allows a caller to set up an
 	// existing configuration for testing.
@@ -49,7 +48,7 @@ type EndpointsServer struct {
 }
 
 func NewEndpointsServer() *EndpointsServer {
-	return newEndpointsServerConfig(newApiConfigManager(), DEFAULT_URL)
+	return newEndpointsServerConfig(newApiConfigManager(), defaultURL)
 }
 
 func NewEndpointsServerURL(url string) *EndpointsServer {
@@ -64,7 +63,7 @@ func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 	if mux == nil {
 		mux = http.DefaultServeMux
 	}
-	r := NewRouter()
+	r := newRouter()
 	r.HandleFunc("/_ah/api/explorer", ed.HandleApiExplorerRequest)
 	r.HandleFunc("/_ah/api/static", ed.HandleApiStaticRequest)
 	r.HandleFunc("/_ah/api/", ed.ServeHTTP)
@@ -97,7 +96,7 @@ func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) {
 	// Call the service.
 	_, err = ed.callSpi(w, ar)
 	if err != nil {
-		reqErr, ok := err.(RequestError)
+		reqErr, ok := err.(requestError)
 		if ok {
 			ed.handleRequestError(w, ar, reqErr)
 			return
@@ -111,7 +110,7 @@ func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) {
 // Handler for requests to _ah/api/explorer.
 func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
 	baseUrl := fmt.Sprintf("http://%s/_ah/api", r.URL.Host)
-	redirectUrl := ApiExplorerUrl + baseUrl
+	redirectUrl := apiExplorerUrl + baseUrl
 	sendRedirectResponse(redirectUrl, w, r, nil)
 }
 
@@ -216,7 +215,7 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiReques
 
 	// Check if this SPI call is for the Discovery service. If so, route
 	// it to our Discovery handler.
-	discovery := NewDiscoveryService(ed.configManager)
+	discovery := newDiscoveryService(ed.configManager)
 	discoveryResponse, ok := discovery.handleDiscoveryRequest(spiRequest.URL.Path,
 		spiRequest, w)
 	if ok {
@@ -224,7 +223,7 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiReques
 	}
 
 	// Send the request to the user's SPI handlers.
-	url := ed.URL + fmt.Sprintf(SpiRootFormat, spiRequest.URL.Path)
+	url := ed.URL + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
 	req, err := http.NewRequest("POST", url, spiRequest.Body)
 	if err != nil {
 		return "", err
@@ -355,9 +354,9 @@ func (ed *EndpointsServer) transformRequest(origRequest *apiRequest, params map[
 // information specific to the field in question (This is retrieved from
 // request.Parameters in the method config.
 //
-// Returns an EnumRejectionError if the given value is not among the accepted
+// Returns an enumRejectionError if the given value is not among the accepted
 // enum values in the field parameter.
-func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
 	if fieldParameter == nil || fieldParameter.Enum == nil || len(fieldParameter.Enum) == 0 {
 		return nil
 	}
@@ -374,14 +373,14 @@ func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldPa
 			return nil
 		}
 	}
-	return NewEnumRejectionError(parameterName, value, enumValues)
+	return newEnumRejectionError(parameterName, value, enumValues)
 }
 
 // Recursively calls checkParameter on the values in the list.
 //
 // "[index-of-value]" is appended to the parameter name for
 // error reporting purposes.
-func (ed *EndpointsServer) checkParameters(parameterName string, values []string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+func (ed *EndpointsServer) checkParameters(parameterName string, values []string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
 	for index, element := range values {
 		parameterNameIndex := fmt.Sprintf("%s[%d]", parameterName, index)
 		err := ed.checkParameter(parameterNameIndex, element, fieldParameter)
@@ -402,7 +401,7 @@ func (ed *EndpointsServer) checkParameters(parameterName string, values []string
 // value to be used as enum for the parameter and a spec containing
 // information specific to the field in question (This is retrieved from
 // request.Parameters in the method config.
-func (ed *EndpointsServer) checkParameter(parameterName, value string, fieldParameter *endpoints.ApiRequestParamSpec) *EnumRejectionError {
+func (ed *EndpointsServer) checkParameter(parameterName, value string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
 	return ed.checkEnum(parameterName, value, fieldParameter)
 }
 
@@ -568,7 +567,7 @@ methodParameters map[string]*endpoints.ApiRequestParamSpec) (*apiRequest, error)
 
 		value := bodyJson[key]
 		valStr, ok := value.(string)
-		var enumErr *EnumRejectionError = nil
+		var enumErr *enumRejectionError = nil
 		if ok {
 			enumErr = ed.checkParameter(key, valStr, currentParameter)
 		} else if valStrArr, ok := value.([]string); ok {
@@ -656,10 +655,10 @@ func (ed *EndpointsServer) transformJsonrpcRequest(origRequest *apiRequest) (*ap
 
 // Returns an error if the response from the SPI was an error.
 //
-// Returns a BackendError if the response is an error.
+// Returns a backendError if the response is an error.
 func (ed *EndpointsServer) checkErrorResponse(response *http.Response) error {
 	if response.StatusCode >= 300 {
-		return NewBackendError(response)
+		return newBackendError(response)
 	}
 	return nil
 }
@@ -710,7 +709,7 @@ func (ed *EndpointsServer) finishRpcResponse(requestId string, isBatch bool, bod
 	return string(body)
 }
 
-func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest *apiRequest, err RequestError) string {
+func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest *apiRequest, err requestError) string {
 	var statusCode int
 	var body string
 	if origRequest.isRpc() {
@@ -722,10 +721,10 @@ func (ed *EndpointsServer) handleRequestError(w http.ResponseWriter, origRequest
 		if !ok {
 			// fixme: handle type assertion failure
 		}
-		body = ed.finishRpcResponse(id, origRequest.isBatch, err.RpcError())
+		body = ed.finishRpcResponse(id, origRequest.isBatch, err.rpcError())
 	} else {
-		statusCode = err.StatusCode()
-		body = err.RestError()
+		statusCode = err.statusCode()
+		body = err.restError()
 	}
 
 	//response_status = fmt.Sprintf("%d %s", status_code,

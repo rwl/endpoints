@@ -112,14 +112,14 @@ func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiRe
 
 	spiRequest, _ := ed.transformRequest(origRequest, params, methodConfig)
 
-	discovery := NewDiscoveryService(ed.configManager)
+	discovery := newDiscoveryService(ed.configManager)
 	discoveryResponse, ok := discovery.handleDiscoveryRequest(
 		spiRequest.URL.Path, spiRequest, w)
 	if ok {
 		return discoveryResponse, nil
 	}
 
-	url := fmt.Sprintf(SpiRootFormat, spiRequest.URL.Path)
+	url := fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
 	req, _ := http.NewRequest("POST", url, spiRequest.Body)
 	req.Header.Add("Content-Type", "application/json")
 	req.RemoteAddr = spiRequest.RemoteAddr
@@ -161,7 +161,7 @@ func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *apiReques
 	// Call the service.
 	body, err := ed.callSpi(w, ar)
 	if err != nil {
-		reqErr, ok := err.(RequestError)
+		reqErr, ok := err.(requestError)
 		if ok {
 			return ed.handleRequestError(w, ar, reqErr)
 		} else {

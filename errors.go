@@ -24,61 +24,61 @@ import (
 
 // Errors used in the local Cloud Endpoints server.
 
-type RequestError interface {
-	StatusCode() int
-	RpcError() map[string]interface{}
-	RestError() string
+type requestError interface {
+	statusCode() int
+	rpcError() map[string]interface{}
+	restError() string
 }
 
 // Base type for errors that happen while processing a request.
-type BaseRequestError struct {
-	statusCode int // HTTP status code number associated with this error.
+type baseRequestError struct {
+	code int // HTTP status code number associated with this error.
 
-	Message string // Text message explaining the error.
+	message string // Text message explaining the error.
 
 	// Error reason is a custom string in the Cloud Endpoints server. When
 	// possible, this should match the reason that the live server will
 	// generate, based on the error's status code.  If this is empty,
 	// the error formatter will attempt to generate a reason from the status
 	// code.
-	Reason string
+	reason string
 
-	Domain string // The string "global" by default.
+	domain string // The string "global" by default.
 
 	// Some errors have additional information. This provides a way for
 	// subclasses to provide that information.
-	ExtraFields map[string]interface{}
+	extraFields map[string]interface{}
 }
 
-func (re *BaseRequestError) StatusCode() int {
-	return re.statusCode
+func (re *baseRequestError) statusCode() int {
+	return re.code
 }
 
-func (re *BaseRequestError) Error() string {
-	return re.Message
+func (re *baseRequestError) Error() string {
+	return re.message
 }
 
 // Format this error into a JSON response.
-func (err *BaseRequestError) FormatError(errorListTag string) map[string]interface{} {
+func (err *baseRequestError) FormatError(errorListTag string) map[string]interface{} {
 	errorMap := map[string]interface{}{
-		"domain":  err.Domain,
-		"reason":  err.Reason,
-		"message": err.Message,
+		"domain":  err.domain,
+		"reason":  err.reason,
+		"message": err.message,
 	}
-	for k, v := range err.ExtraFields {
+	for k, v := range err.extraFields {
 		errorMap[k] = v
 	}
 	return map[string]interface{}{
 		"error": map[string]interface{}{
 			errorListTag: []map[string]interface{}{errorMap},
-			"code":       err.StatusCode(),
-			"message":    err.Message,
+			"code":       err.statusCode(),
+			"message":    err.message,
 		},
 	}
 }
 
 // Format this error into a response to a REST request.
-func (err *BaseRequestError) RestError() string {
+func (err *baseRequestError) restError() string {
 	errorJson := err.FormatError("errors")
 	rest, e := json.MarshalIndent(errorJson, "", "  ") // todo: sort keys
 	if e != nil {
@@ -89,46 +89,46 @@ func (err *BaseRequestError) RestError() string {
 }
 
 // Format this error into a response to a JSON RPC request.
-func (err *BaseRequestError) RpcError() map[string]interface{} {
+func (err *baseRequestError) rpcError() map[string]interface{} {
 	return err.FormatError("data")
 }
 
 // Request rejection exception for enum values.
-type EnumRejectionError struct {
-	BaseRequestError
-	ParameterName string   // The name of the enum parameter which had a value rejected.
-	Value         string   // The actual value passed in for the enum.
-	AllowedValues []string // List of strings allowed for the enum.
+type enumRejectionError struct {
+	baseRequestError
+	parameterName string   // The name of the enum parameter which had a value rejected.
+	value         string   // The actual value passed in for the enum.
+	allowedValues []string // List of strings allowed for the enum.
 }
 
-func NewEnumRejectionError(parameterName, value string, allowedValues []string) *EnumRejectionError {
-	return &EnumRejectionError{
-		BaseRequestError: BaseRequestError{
-			statusCode: 400,
-			Message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowedValues),
-			Reason:     "invalidParameter",
-			ExtraFields: map[string]interface{}{
+func newEnumRejectionError(parameterName, value string, allowedValues []string) *enumRejectionError {
+	return &enumRejectionError{
+		baseRequestError: baseRequestError{
+			code: 400,
+			message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowedValues),
+			reason:     "invalidParameter",
+			extraFields: map[string]interface{}{
 				"locationType": "parameter",
 				"location":     parameterName,
 			},
 		},
-		ParameterName: parameterName,
-		Value:         value,
-		AllowedValues: allowedValues,
+		parameterName: parameterName,
+		value:         value,
+		allowedValues: allowedValues,
 	}
 }
 
-func (err *EnumRejectionError) Error() string {
-	return err.Message
+func (err *enumRejectionError) Error() string {
+	return err.message
 }
 
 // Error returned when the backend SPI returns an error code.
-type BackendError struct {
-	BaseRequestError
-	ErrorInfo *ErrorInfo
+type backendError struct {
+	baseRequestError
+	errorInfo *errorInfo
 }
 
-func NewBackendError(response *http.Response) *BackendError {
+func newBackendError(response *http.Response) *backendError {
 	// Convert backend error status to whatever the live server would return.
 	errorInfo := getErrorInfo(response.StatusCode)
 
@@ -150,17 +150,17 @@ func NewBackendError(response *http.Response) *BackendError {
 		message = string(body)
 	}
 
-	return &BackendError{
-		BaseRequestError: BaseRequestError{
-			statusCode: errorInfo.HttpStatus,
-			Message:    message,
-			Reason:     errorInfo.Reason,
-			Domain:     errorInfo.Domain,
+	return &backendError{
+		baseRequestError: baseRequestError{
+			code: errorInfo.httpStatus,
+			message:    message,
+			reason:     errorInfo.reason,
+			domain:     errorInfo.domain,
 		},
-		ErrorInfo: errorInfo,
+		errorInfo: errorInfo,
 	}
 }
 
-func (err *BackendError) Error() string {
-	return err.Message
+func (err *backendError) Error() string {
+	return err.message
 }

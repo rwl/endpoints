@@ -19,25 +19,25 @@ import (
 	"strings"
 )
 
-type Route struct {
+type route struct {
 	pathPrefix string
 	handler func (http.ResponseWriter, *http.Request)
 }
 
-type Router struct {
-	routes []*Route
+type router struct {
+	routes []*route
 }
 
-func NewRouter() *Router {
-	return &Router{}
+func newRouter() *router {
+	return &router{}
 }
 
-func (h *Router) HandleFunc(pathPrefix string, handler func (http.ResponseWriter, *http.Request)) {
-	r := &Route{pathPrefix, handler}
+func (h *router) HandleFunc(pathPrefix string, handler func (http.ResponseWriter, *http.Request)) {
+	r := &route{pathPrefix, handler}
 	h.routes = append(h.routes, r)
 }
 
-func (h *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, route := range h.routes {
 		if strings.HasPrefix(r.URL.Path, route.pathPrefix) {
 			route.handler(w, r)
