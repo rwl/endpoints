@@ -20,6 +20,7 @@ import (
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
 	"net/http"
+	"bytes"
 )
 
 var (
@@ -44,7 +45,7 @@ func dispatchDiscoveryRequest(path, body string) (string, error) {
 	fullPath := discoveryProxyHost + discoveryApiPathPrefix + path
 	client := &http.Client{}
 
-	req, err := http.NewRequest("POST", fullPath, nil)
+	req, err := http.NewRequest("POST", fullPath, bytes.NewBufferString(body))
 	if err != nil {
 		return "", err
 	}
@@ -73,7 +74,11 @@ func dispatchDiscoveryRequest(path, body string) (string, error) {
 // doc as JSON string.
 func generateDiscoveryDoc(apiConfig *endpoints.ApiDescriptor, apiFormat apiFormat) (string, error) {
 	path := "apis/generate/" + string(apiFormat)
-	requestMap := map[string]interface{}{"config": apiConfig}
+	config, err := json.Marshal(apiConfig)
+	if err != nil {
+		return "", err
+	}
+	requestMap := map[string]interface{}{"config": string(config)}
 	requestBody, err := json.Marshal(requestMap)
 	if err != nil {
 		return "", err
