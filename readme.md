@@ -23,4 +23,8 @@ go test github.com/rwl/endpoint
   <img src="https://api.travis-ci.org/rwl/endpoint.png" alt="Build Status">
 </a>
 
-## Usage
+## Example
+
+A Greeting API example is available here:
+
+> [https://github.com/philips/endpoint-hello](https://github.com/philips/endpoint-hello)
