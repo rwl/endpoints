@@ -365,7 +365,7 @@ func TestExplorerRedirect(t *testing.T) {
 	server.HandleApiExplorerRequest(w, request)
 	header := make(http.Header)
 	//header.Set("Content-Length", "0")
-	location := "https://developers.google.com/apis-explorer/?base=http://localhost:42/_ah/api"
+	location := "https://developers.google.com/apis-explorer/?base=http://localhost:42/_ah/api/"
 	header.Set("Location", location)
 	body := fmt.Sprintf(`<a href="%s">Found</a>.
 
