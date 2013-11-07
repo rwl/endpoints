@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"github.com/rwl/go-endpoints/endpoints"
 )
 
 // Test that an error response still handles CORS headers.
@@ -89,7 +90,7 @@ expectedOrigin, expectedAllowHeaders string, serverResponse *http.Response) stri
 	w := httptest.NewRecorder()
 
 	response, err := server.handleSpiResponse(origRequest, spiRequest,
-		serverResponse, w)
+		serverResponse, &endpoints.ApiMethod{}, w)
 	assert.NoError(t, err)
 
 	headers := w.Header()

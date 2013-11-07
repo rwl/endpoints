@@ -228,6 +228,41 @@ func TestIncrementIntegers(t *testing.T) {
 	}
 }
 
+// Test sending and receiving a BytesField parameter.
+func TestEchoBytes(t *testing.T) {
+    value := "This is a test of a message encoded as a BytesField.01234\000\001"
+    bytesValue := base64.urlsafe_b64encode(value)
+    bodyJson := {"bytes_value": bytes_value}
+    body = json.dumps(body_json)
+    sendHeaders = {"content-type": "application/json"}
+    status, content, headers := fetchUrl("default", "POST",
+    	"/_ah/api/test_service/v1/echo_bytes", body, sendHeaders)
+    self.assertEqual(200, status)
+    self.assertEqual("application/json", headers["Content-Type"])
+
+    responseJson = json.loads(content)
+    assert.Equal(responseJson, bodyJson)
+    assert.Equal(value, base64.urlsafe_b64decode(body_json["bytes_value"]))
+}
+
+// Test that an empty response that should have an object returns 200.
+func TestEmptyTest(t *testing.T) {
+    status, content, headers := fetchUrl("default", "GET",
+    	"/_ah/api/test_service/v1/empty_test")
+    assert.Equal(200, status)
+    assert.Equal("2", headers["Content-Length"])
+    assert.Equal("{}", content)
+}
+
+// An empty response that should be empty should return 204.
+func TestEmptyResponse(t *testing.T) {
+    status, content, headers := fetchUrl("default", "GET",
+    	"/_ah/api/test_service/v1/empty_response")
+    assert.Equal(204, status)
+    assert.Equal("0", headers["Content-Length"])
+    assert.Equal("", content)
+}
+
 // Test that the discovery configuration looks right.
 func TestDiscoveryConfig(t *testing.T) {
 	status, content, headers := fetchUrl(

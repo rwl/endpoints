@@ -37,7 +37,7 @@ var pathVariablePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
 type apiConfigManager struct {
 	rpcMethods map[lookupKey]*endpoints.ApiMethod
 	restMethods    []*restMethod
-	configs         map[lookupKey]*endpoints.ApiDescriptor
+	_configs         map[lookupKey]*endpoints.ApiDescriptor
 	configLock     sync.Mutex
 }
 
@@ -45,7 +45,7 @@ func newApiConfigManager() *apiConfigManager {
 	return &apiConfigManager{
 		rpcMethods: make(map[lookupKey]*endpoints.ApiMethod),
 		restMethods:    make([]*restMethod, 0),
-		configs:         make(map[lookupKey]*endpoints.ApiDescriptor),
+		_configs:         make(map[lookupKey]*endpoints.ApiDescriptor),
 		configLock:     sync.Mutex{},
 	}
 }
@@ -79,6 +79,19 @@ func convertHttpsToHttp(config *endpoints.ApiDescriptor) {
 	if strings.HasPrefix(config.Root, "https://") {
 		config.Root = strings.Replace(config.Root, "https://", "http://", 1)
 	}
+}
+
+// Returns a map with the current configuration mappings.
+func (m *apiConfigManager) configs() map[lookupKey]*endpoints.ApiDescriptor {
+	cfg := make(map[lookupKey]*endpoints.ApiDescriptor)
+
+	m.configLock.Lock()
+	defer m.configLock.Unlock()
+
+	for k, v := range m._configs {
+		cfg[k] = v
+	}
+	return cfg
 }
 
 // Parses the JSON body of the getApiConfigs response and registers methods
@@ -211,6 +224,10 @@ func (m *apiConfigManager) lookupRestMethod(path, httpMethod string) (string, *e
 	return "", nil, nil
 }
 
+// Add the Discovery configuration to our list of configs.
+//
+// This should only be called with configLock. The code here assumes
+// the lock is held.
 func (m *apiConfigManager) addDiscoveryConfig() {
 	lookupKey := lookupKey{discoveryApiConfig.Name, discoveryApiConfig.Version}
 	m.configs[lookupKey] = discoveryApiConfig

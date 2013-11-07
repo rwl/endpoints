@@ -99,6 +99,7 @@ expectedSpiBodyJson map[string]interface{}) {
 		"handleSpiResponse",
 		mock.Anything, //OfType("*apiRequest"),
 		mock.Anything, //OfType("*apiRequest"),
+		mock.Anything, //OfType("*endpoints.ApiMethod"),
 		mock.Anything, //spi_response,
 		w,
 	).Return("Test", nil)
@@ -365,7 +366,7 @@ func TestExplorerRedirect(t *testing.T) {
 	server.HandleApiExplorerRequest(w, request)
 	header := make(http.Header)
 	//header.Set("Content-Length", "0")
-	location := "https://developers.google.com/apis-explorer/?base=http://localhost:42/_ah/api/"
+	location := "https://apis-explorer.appspot.com/apis-explorer/?base=http://localhost:42/_ah/api/"
 	header.Set("Location", location)
 	body := fmt.Sprintf(`<a href="%s">Found</a>.
 
@@ -444,7 +445,8 @@ func TestHandleNonJsonSpiResponse(t *testing.T) {
 		StatusCode: 200,
 		Status:     "200 OK",
 	}
-	server.handleSpiResponse(origRequest, spiRequest, spiResponse, w)
+	server.handleSpiResponse(origRequest, spiRequest, spiResponse,
+		&endpoints.ApiMethod{}, w)
 	errorJson := map[string]interface{}{
 		"error": map[string]interface{}{
 			"message": "Non-JSON reply: This is an invalid response.",
@@ -504,7 +506,7 @@ func TestHandleSpiResponseJsonRpc(t *testing.T) {
 	}
 
 	response, err := server.handleSpiResponse(origRequest, spiRequest,
-		spiResponse, w)
+		spiResponse, &endpoints.ApiMethod{}, w)
 	assert.NoError(t, err)
 
 	assert.Equal(t, w.Code, 200)
@@ -541,7 +543,7 @@ func TestHandleSpiResponseBatchJsonRpc(t *testing.T) {
 	}
 
 	response, err := server.handleSpiResponse(origRequest, spiRequest,
-		spiResponse, w)
+		spiResponse, &endpoints.ApiMethod{}, w)
 	assert.NoError(t, err)
 
 	assert.Equal(t, w.Code, 200)
@@ -574,7 +576,7 @@ func TestHandleSpiResponseRest(t *testing.T) {
 		Body:       ioutil.NopCloser(bytes.NewBuffer(body)),
 	}
 	_, err = server.handleSpiResponse(origRequest, spiRequest,
-		spiResponse, w)
+		spiResponse, &endpoints.ApiMethod{}, w)
 	assert.NoError(t, err)
 	header := http.Header{
 		"a":              []string{"b"},
@@ -672,4 +674,40 @@ func TestVerifyResponse(t *testing.T) {
 	assert.NoError(t, verifyResponse(response, 200, ""))
 	// Specified content type not matched
 	assert.Error(t, verifyResponse(response, 200, "a"))
+}
+
+// Test that checkEmptyResponse returns 204 for an empty response.
+func TestCheckEmptyResponse(t *testing.T) {
+	server := newEndpointsServer()
+	w := httptest.NewRecorder()
+	origRequest := buildApiRequest("/_ah/api/test", "{}", nil)
+	method_config := &endpoints.ApiMethod{
+		Response: ApiReqRespDescriptor{
+			Body: "empty",
+		},
+	}
+	emptyResponse := server.checkEmptyResponse(origRequest,
+		methodConfig, w)
+	header := http.Header{
+		"Content-Length": []string{"0"},
+	}
+	assertHttpMatchRecorder(t, w, 204, header, "")
+}
+
+// Test that check_empty_response returns None for a non-empty response.
+func TestCheckNonEmptyResponse(t *testing.T) {
+	server := newEndpointsServer()
+	w := httptest.NewRecorder()
+	origRequest := buildApiRequest("/_ah/api/test", "{}", nil)
+	method_config := &endpoints.ApiMethod{
+		Response: ApiReqRespDescriptor{
+			Body: "autoTemplate(backendResponse)",
+		},
+	}
+	emptyResponse := server.checkEmptyResponse(origRequest,
+		methodConfig, w)
+	assert.Empty(emptyResponse)
+	assert.Nil(w.Status)
+	assert.Nil(w.Headers)
+	assert.Nil(w.responseExcInfo)
 }

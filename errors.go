@@ -93,19 +93,20 @@ func (err *baseRequestError) rpcError() map[string]interface{} {
 	return err.FormatError("data")
 }
 
-// Request rejection exception for enum values.
-type enumRejectionError struct {
+// Base type for invalid parameter errors.
+// Embedding types only need to set the message attribute.
+type invalidParameterError struct {
 	baseRequestError
 	parameterName string   // The name of the enum parameter which had a value rejected.
-	value         string   // The actual value passed in for the enum.
-	allowedValues []string // List of strings allowed for the enum.
+	value         string   // The actual value passed in for the parameter.
+	typeName      string // Descriptive name of the data type expected.
 }
 
-func newEnumRejectionError(parameterName, value string, allowedValues []string) *enumRejectionError {
-	return &enumRejectionError{
+func newInvalidParameterError(parameterName, value string, typeName string) *invalidParameterError {
+	return &invalidParameterError{
 		baseRequestError: baseRequestError{
 			code: 400,
-			message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowedValues),
+			message:    fmt.Sprintf("Invalid %s value: %s", typeName, value),
 			reason:     "invalidParameter",
 			extraFields: map[string]interface{}{
 				"locationType": "parameter",
@@ -114,12 +115,27 @@ func newEnumRejectionError(parameterName, value string, allowedValues []string) 
 		},
 		parameterName: parameterName,
 		value:         value,
-		allowedValues: allowedValues,
+		typeName: typeName,
 	}
 }
 
-func (err *enumRejectionError) Error() string {
+func (err *invalidParameterError) Error() string {
 	return err.message
+}
+
+// Request rejection exception for enum values.
+type enumRejectionError struct {
+	invalidParameterError
+	allowedValues []string // Allowed values for the enum.
+}
+
+func newEnumRejectionError(newInvalidParameterError, value string, allowedValues []string) *enumRejectionError {
+	enumErr := &enumRejectionError{
+		newInvalidParameterError(newInvalidParameterError, value),
+		allowedValues,
+	}
+	enumErr.message = fmt.Sprintf("Invalid string value: %s. Allowed values: %s", value, allowedValues)
+	return enumErr
 }
 
 // Error returned when the backend SPI returns an error code.

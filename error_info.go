@@ -39,7 +39,7 @@ var errorMap = map[int]*errorInfo{
 	406: &errorInfo{404, 404, "unsupportedProtocol", "global"},
 	407: &errorInfo{404, 404, "unsupportedProtocol", "global"},
 	408: &errorInfo{503, -32099, "backendError", "global"},
-	409: &errorInfo{409, 409, "duplicate", "global"},
+	409: &errorInfo{409, 409, "conflict", "global"},
 	410: &errorInfo{410, 410, "deleted", "global"},
 	411: &errorInfo{404, 404, "unsupportedProtocol", "global"},
 	412: &errorInfo{412, 412, "conditionNotMet", "global"},

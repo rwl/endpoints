@@ -32,7 +32,7 @@ const defaultRoot = "/_ah/api/"
 
 var (
 	spiRootFormat  = "/_ah/spi/%s"
-	apiExplorerUrl = "https://developers.google.com/apis-explorer/?base="
+	apiExplorerUrl = "http://apis-explorer.appspot.com/apis-explorer/?base="
 )
 
 // HTTP handler for requests to the built-in api-server handlers.
@@ -247,11 +247,12 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiReques
 	if err != nil {
 		return "", err
 	}
-	return ed.handleSpiResponse(origRequest, spiRequest, resp, w)
+	return ed.handleSpiResponse(origRequest, spiRequest, resp,
+		methodConfig, w)
 }
 
 // Handle SPI response, transforming output as needed.
-func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest, response *http.Response, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) (string, error) {
 	respBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", err
@@ -278,6 +279,13 @@ func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest
 	if origRequest.isRpc() {
 		body, err = ed.transformJsonrpcResponse(spiRequest, string(respBody))
 	} else {
+		// Check if the response from the SPI was empty. Empty REST responses
+		// generate a HTTP 204.
+		emptyResponse := ed.checkEmptyResponse(origRequest, methodConfig, startResponse)
+		if empty_response != nil {
+			return emptyResponse, nil
+		}
+
 		body, err = ed.transformRestResponse(string(respBody))
 	}
 	if err != nil {
@@ -354,7 +362,7 @@ func (ed *EndpointsServer) transformRequest(origRequest *apiRequest, params map[
 	request.URL.Path = methodConfig.RosyMethod
 	return request, nil
 }
-
+/*
 // Checks if the parameter value is valid if an enum.
 //
 // If the parameter is not an enum, it does nothing. If it is, verifies that
@@ -387,7 +395,7 @@ func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldPa
 	}
 	return newEnumRejectionError(parameterName, value, enumValues)
 }
-
+*/
 // Recursively calls checkParameter on the values in the list.
 //
 // "[index-of-value]" is appended to the parameter name for
@@ -574,10 +582,12 @@ func (ed *EndpointsServer) transformRestRequest(origRequest *apiRequest,
 
 		// Order is important here. Parameter names are dot-delimited in
 		// parameters instead of nested in maps as a message field is, so
-		// we need to call checkParameter on them before calling
+		// we need to call transformParameterValue on them before calling
 		// addMessageField.
 
-		value := bodyJson[key]
+		bodyJson[key] = parameterConverter.transformParameterValue(key, bodyJson[key], currentParameter)
+
+		/*value := bodyJson[key]
 		valStr, ok := value.(string)
 		var enumErr *enumRejectionError = nil
 		if ok {
@@ -587,7 +597,7 @@ func (ed *EndpointsServer) transformRestRequest(origRequest *apiRequest,
 		} else {
 			panic(fmt.Sprintf("Param value not a string or string array: %v",
 				value))
-		}
+		}*/
 		if enumErr == nil {
 			// Remove the old key and try to convert to nested message value
 			delete(bodyJson, key)
@@ -673,6 +683,26 @@ func (ed *EndpointsServer) checkErrorResponse(response *http.Response) error {
 		return newBackendError(response)
 	}
 	return nil
+}
+
+// If the SPI response was empty, this returns a string containing the
+// response body that should be returned to the user.  If the SPI response
+// wasn't empty, this returns None, indicating that we should not exit early
+// with a 204.
+func (ed *EndpointsServer) checkEmptyResponse(origRequest, methodConfig, startResponse) string {
+	var responseConfig string
+	response, ok := method_config["response"]
+	if ok {
+		responseConfig, _ = response["body"]
+	}
+	if responseConfig == "empty" {
+		// The response to this function should be empty.  We should return a 204.
+		// Note that it's possible that the SPI returned something, but we'll
+		// ignore it.  This matches the behavior in the Endpoints server.
+		corsHandler := EndpointsDispatcher.__CheckCorsHeaders(orig_request)
+		return sendNoContentResponse(start_response, cors_handler)
+	}
+	return ""
 }
 
 // Translates an apiserving REST response so it's ready to return.
