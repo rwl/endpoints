@@ -28,6 +28,7 @@ import (
 )
 
 const defaultURL = "http://localhost:8080"
+const defaultRoot = "/_ah/api/"
 
 var (
 	spiRootFormat  = "/_ah/spi/%s"
@@ -40,23 +41,29 @@ type EndpointsServer struct {
 	// existing configuration for testing.
 	configManager *apiConfigManager
 
+	// Root path of the endpoints server.
+	root string
+
 	// URL to which SPI requests should be dispatched.
 	url string
 }
 
 // NewEndpointsServer returns a new EndpointsServer that will dispatch
 // SPI requests to the given URL.
-func NewEndpointsServer(URL *url.URL) *EndpointsServer {
-	return newEndpointsServerConfig(newApiConfigManager(), URL)
+func NewEndpointsServer(root string, URL *url.URL) *EndpointsServer {
+	return newEndpointsServerConfig(newApiConfigManager(), root, URL)
 }
 
 func newEndpointsServer() *EndpointsServer {
 	u, _ := url.Parse(defaultURL)
-	return newEndpointsServerConfig(newApiConfigManager(), u)
+	return newEndpointsServerConfig(newApiConfigManager(), "", u)
 }
 
-func newEndpointsServerConfig(configManager *apiConfigManager, u *url.URL) *EndpointsServer {
-	s := &EndpointsServer{configManager: configManager}
+func newEndpointsServerConfig(configManager *apiConfigManager, root string, u *url.URL) *EndpointsServer {
+	if root == "" {
+		root = defaultRoot
+	}
+	s := &EndpointsServer{configManager: configManager, root: root}
 	s.SetURL(u)
 	return s
 }
@@ -68,10 +75,10 @@ func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 		mux = http.DefaultServeMux
 	}
 	r := newRouter()
-	r.HandleFunc("/_ah/api/explorer", ed.HandleApiExplorerRequest)
-	r.HandleFunc("/_ah/api/static", ed.HandleApiStaticRequest)
-	r.HandleFunc("/_ah/api/", ed.ServeHTTP)
-	mux.Handle("/", r)
+	r.HandleFunc("/explorer", ed.HandleApiExplorerRequest)
+	r.HandleFunc("/static", ed.HandleApiStaticRequest)
+	r.HandleFunc("/", ed.ServeHTTP)
+	mux.Handle(ed.root, r)
 }
 
 // EndpointsServer implements the http.Handler interface.
@@ -111,14 +118,15 @@ func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) {
 	}
 }
 
-// Handler for requests to _ah/api/explorer.
+// Handler for requests to /explorer.
 func (ed *EndpointsServer) HandleApiExplorerRequest(w http.ResponseWriter, r *http.Request) {
-	baseUrl := fmt.Sprintf("http://%s/_ah/api", r.URL.Host)
+	b := url.URL{Scheme: "http", Host: r.URL.Host, Path: ed.root}
+	baseUrl := b.String()
 	redirectUrl := apiExplorerUrl + baseUrl
 	sendRedirectResponse(redirectUrl, w, r, nil)
 }
 
-// Handler for requests to _ah/api/static/.*.
+// Handler for requests to /static/.*.
 func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := newApiRequest(r)
 	if err != nil {
