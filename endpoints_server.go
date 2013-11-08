@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"github.com/golang/glog"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
@@ -75,8 +76,8 @@ func (ed *EndpointsServer) HandleHttp(mux *http.ServeMux) {
 		mux = http.DefaultServeMux
 	}
 	r := newRouter()
-	r.HandleFunc("/explorer", ed.HandleApiExplorerRequest)
-	r.HandleFunc("/static", ed.HandleApiStaticRequest)
+	r.HandleFunc(path.Join(ed.root, "/explorer"), ed.HandleApiExplorerRequest)
+	r.HandleFunc(path.Join(ed.root, "/static"), ed.HandleApiStaticRequest)
 	r.HandleFunc("/", ed.ServeHTTP)
 	mux.Handle(ed.root, r)
 }
