@@ -9,3 +9,6 @@ install:
   - go get github.com/stretchr/testify
   - go get github.com/golang/glog
   - go get github.com/rwl/go-endpoints/endpoints
+
+notifications:
+  email: false
