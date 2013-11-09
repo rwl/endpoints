@@ -20,7 +20,7 @@ go test github.com/rwl/endpoint
 ```
 
 <a href="https://travis-ci.org/rwl/endpoint" target="_blank">
-  <img src="https://api.travis-ci.org/rwl/endpoint.png" alt="Build Status">
+  <img src="https://api.travis-ci.org/rwl/endpoint.png?branch=master,go1" alt="Build Status">
 </a>
 
 ## Example
