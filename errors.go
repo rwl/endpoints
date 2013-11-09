@@ -17,8 +17,8 @@ package endpoint
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"github.com/golang/glog"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -97,16 +97,16 @@ func (err *baseRequestError) rpcError() map[string]interface{} {
 // Embedding types only need to set the message attribute.
 type invalidParameterError struct {
 	baseRequestError
-	parameterName string   // The name of the enum parameter which had a value rejected.
-	value         string   // The actual value passed in for the parameter.
+	parameterName string // The name of the enum parameter which had a value rejected.
+	value         string // The actual value passed in for the parameter.
 }
 
 func newInvalidParameterError(parameterName, value string) *invalidParameterError {
 	return &invalidParameterError{
 		baseRequestError: baseRequestError{
-			code: 400,
-			message:    fmt.Sprintf("Invalid value: %s", value),
-			reason:     "invalidParameter",
+			code:    400,
+			message: fmt.Sprintf("Invalid value: %s", value),
+			reason:  "invalidParameter",
 			extraFields: map[string]interface{}{
 				"locationType": "parameter",
 				"location":     parameterName,
@@ -124,7 +124,7 @@ func (err *invalidParameterError) Error() string {
 // Request rejection exception for basic types (int, bool).
 type basicTypeParameterError struct {
 	invalidParameterError
-	typeName      string // Descriptive name of the data type expected.
+	typeName string // Descriptive name of the data type expected.
 }
 
 func newBasicTypeParameterError(parameterName, value, typeName string) *basicTypeParameterError {
@@ -181,10 +181,10 @@ func newBackendError(response *http.Response) *backendError {
 
 	return &backendError{
 		baseRequestError: baseRequestError{
-			code: errorInfo.httpStatus,
-			message:    message,
-			reason:     errorInfo.reason,
-			domain:     errorInfo.domain,
+			code:    errorInfo.httpStatus,
+			message: message,
+			reason:  errorInfo.reason,
+			domain:  errorInfo.domain,
 		},
 		errorInfo: errorInfo,
 	}

@@ -17,29 +17,29 @@ package endpoint
 // Regression tests for Endpoints server.
 
 import (
-	"encoding/json"
-	"testing"
-	"net/http"
-	"strings"
-	"time"
-	"github.com/rwl/go-endpoints/endpoints"
-	"fmt"
-	"log"
-	"github.com/stretchr/testify/assert"
-	"net/http/httptest"
-	"path"
-	"io/ioutil"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"github.com/rwl/go-endpoints/endpoints"
+	"github.com/stretchr/testify/assert"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"path"
+	"strings"
+	"testing"
+	"time"
 )
 
-type VoidMessage struct {}
+type VoidMessage struct{}
 
 // Simple Endpoints request, for testing.
 type TestRequest struct {
-	Name string `json:"name"`
-	Number int `json:"number"`
+	Name   string `json:"name"`
+	Number int    `json:"number"`
 }
 
 // Simple Endpoints response with a text field.
@@ -54,10 +54,10 @@ type TestDateTime struct {
 
 // Simple Endpoints request/response with a few integer types.
 type TestIntegers struct {
-	VarInt32 int32 `json:"var_int32"`
-	VarInt64 int64 `json:"var_int64"`
+	VarInt32         int32   `json:"var_int32"`
+	VarInt64         int64   `json:"var_int64"`
 	VarRepeatedInt64 []int64 `json:"var_repeated_int64"`
-	VarUnsignedInt64 uint64 `json:"var_uint64"`
+	VarUnsignedInt64 uint64  `json:"var_uint64"`
 }
 
 // Simple Endpoints request/response with a bytes field.
@@ -86,7 +86,6 @@ func initTestApi(t *testing.T) *httptest.Server {
 	info = api.MethodByName("EmptyResponse").Info()
 	info.HttpMethod, info.Path = "GET", "empty_response"
 
-
 	// Some extra test methods in the test API.
 	extraMethods := &ExtraMethods{}
 	api, err = endpoints.RegisterService(extraMethods,
@@ -97,7 +96,6 @@ func initTestApi(t *testing.T) *httptest.Server {
 	info = api.MethodByName("Test").Info()
 	info.Name, info.HttpMethod, info.Path = "test", "GET", "test"
 
-
 	// Test a second API, same version, same path. Shouldn't collide.
 	secondService := &SecondService{}
 	api, err = endpoints.RegisterService(secondService,
@@ -106,7 +104,6 @@ func initTestApi(t *testing.T) *httptest.Server {
 
 	info = api.MethodByName("SecondTest").Info()
 	info.Name, info.HttpMethod, info.Path = "test_name", "GET", "test"
-
 
 	mux := http.NewServeMux()
 	ts := httptest.NewServer(mux)
@@ -181,7 +178,7 @@ func (s *TestService) EmptyResponse(_ *http.Request, _ *VoidMessage, _ *VoidMess
 
 //@my_api.api_class(resource_name='extraname', path='extrapath')
 // Additional test methods in the test API.
-type ExtraMethods struct {}
+type ExtraMethods struct{}
 
 //@endpoints.method(message_types.VoidMessage, TestResponse, http_method='GET', name='test', path='test', scopes=[])
 func (em *ExtraMethods) Test(_ *http.Request, _ *VoidMessage, resp *TestResponse) error {
@@ -191,14 +188,13 @@ func (em *ExtraMethods) Test(_ *http.Request, _ *VoidMessage, resp *TestResponse
 
 //@endpoints.api(name='second_service', version='v1')
 // Second test class for Cloud Endpoints.
-type SecondService struct {}
+type SecondService struct{}
 
 //@endpoints.method(message_types.VoidMessage, TestResponse, http_method='GET', name='test_name', path='test', scopes=[])
 func (ss *SecondService) SecondTest(_ *http.Request, _ *VoidMessage, resp *TestResponse) error {
 	resp.Text = "Second response"
 	return nil
 }
-
 
 // Test that a GET request to a REST API works.
 func TestRestGet(t *testing.T) {
@@ -224,7 +220,7 @@ func TestRestGet(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, textStr, "Test response")*/
 
-	expected := map[string]interface{} {"text": "Test response"}
+	expected := map[string]interface{}{"text": "Test response"}
 	assert.Equal(t, expected, responseJson)
 }
 
@@ -234,7 +230,7 @@ func TestRestPost(t *testing.T) {
 	defer ts.Close()
 
 	body, err := json.Marshal(map[string]interface{}{
-		"name": "MyName",
+		"name":   "MyName",
 		"number": 23,
 	})
 	assert.NoError(t, err)
@@ -258,7 +254,7 @@ func TestRestPost(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, textStr, "MyName 23")*/
 
-	expected := map[string]interface{} {"text": "MyName 23"}
+	expected := map[string]interface{}{"text": "MyName 23"}
 	assert.Equal(t, expected, responseJson)
 }
 
@@ -297,13 +293,13 @@ func TestRpc(t *testing.T) {
 	ts := initTestApi(t)
 	defer ts.Close()
 
-	body, err := json.Marshal([]map[string]interface{} {
-		map[string]interface{} {
+	body, err := json.Marshal([]map[string]interface{}{
+		map[string]interface{}{
 			"jsonrpc": "2.0",
-			"id": "gapiRpc",
-			"method": "testservice.t2name",
-			"params": map[string]interface{} {
-				"name": "MyName",
+			"id":      "gapiRpc",
+			"method":  "testservice.t2name",
+			"params": map[string]interface{}{
+				"name":   "MyName",
 				"number": 23,
 			},
 			"apiVersion": "v1",
@@ -344,9 +340,9 @@ func TestRpc(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, idStr, "gapiRpc")*/
 
-	assert.Equal(t, []map[string]interface{} {
-		map[string]interface{} {
-			"result": map[string]interface{} {
+	assert.Equal(t, []map[string]interface{}{
+		map[string]interface{}{
+			"result": map[string]interface{}{
 				"text": "MyName 23",
 			},
 			"id": "gapiRpc",
@@ -360,7 +356,7 @@ func TestEchoDatetimeMessage(t *testing.T) {
 	defer ts.Close()
 
 	body, err := json.Marshal(map[string]interface{}{
-		"milliseconds": "5000",
+		"milliseconds":     "5000",
 		"time_zone_offset": "60",
 	})
 	assert.NoError(t, err)
@@ -378,8 +374,8 @@ func TestEchoDatetimeMessage(t *testing.T) {
 	err = json.Unmarshal(content, &responseJson)
 	assert.NoError(t, err)
 
-	expected := map[string]interface{} {
-		"milliseconds": "5000",
+	expected := map[string]interface{}{
+		"milliseconds":     "5000",
 		"time_zone_offset": "60",
 	}
 	assert.Equal(t, expected, responseJson)
@@ -390,7 +386,7 @@ func TestEchoDatetimeField(t *testing.T) {
 	ts := initTestApi(t)
 	defer ts.Close()
 
-	bodyJson := map[string]interface{} {
+	bodyJson := map[string]interface{}{
 		"date": "2013-03-13T15:29:37.883000+08:00",
 	}
 	body, err := json.Marshal(bodyJson)
@@ -458,10 +454,10 @@ func TestEchoBytes(t *testing.T) {
 	ts := initTestApi(t)
 	defer ts.Close()
 
-    value := []byte("This is a test of a message encoded as a BytesField.01234\000\001")
-    bytesValue := base64.URLEncoding.EncodeToString(value)
-    bodyJson := map[string]interface{} {"bytes_value": bytesValue}
-    body, err := json.Marshal(bodyJson)
+	value := []byte("This is a test of a message encoded as a BytesField.01234\000\001")
+	bytesValue := base64.URLEncoding.EncodeToString(value)
+	bodyJson := map[string]interface{}{"bytes_value": bytesValue}
+	body, err := json.Marshal(bodyJson)
 	assert.NoError(t, err)
 
 	resp, err := http.Post(path.Join(ts.URL, "/_ah/api/test_service/v1/echo_bytes"),
@@ -477,10 +473,10 @@ func TestEchoBytes(t *testing.T) {
 	err = json.Unmarshal(content, &responseJson)
 	assert.NoError(t, err)
 
-    assert.Equal(t, responseJson, bodyJson)
+	assert.Equal(t, responseJson, bodyJson)
 	dec, err := base64.URLEncoding.DecodeString(bytesValue)
 	assert.NoError(t, err)
-    assert.Equal(t, value, dec)
+	assert.Equal(t, value, dec)
 }
 
 // Test that an empty response that should have an object returns 200.
@@ -491,13 +487,13 @@ func TestEmptyTest(t *testing.T) {
 	resp, err := http.Get(path.Join(ts.URL,
 		"/_ah/api/test_service/v1/empty_test"))
 
-    assert.Equal(t, 200, resp.StatusCode)
-    assert.Equal(t, "2", resp.Header.Get("Content-Length"))
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, "2", resp.Header.Get("Content-Length"))
 
 	content, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
 
-    assert.Equal(t, "{}", string(content))
+	assert.Equal(t, "{}", string(content))
 }
 
 // An empty response that should be empty should return 204.
@@ -508,13 +504,13 @@ func TestEmptyResponse(t *testing.T) {
 	resp, err := http.Get(path.Join(ts.URL,
 		"/_ah/api/test_service/v1/empty_response"))
 
-    assert.Equal(t, 204, resp.StatusCode)
+	assert.Equal(t, 204, resp.StatusCode)
 	assert.Equal(t, "0", resp.Header.Get("Content-Length"))
 
 	content, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
 
-    assert.Equal(t, "", string(content))
+	assert.Equal(t, "", string(content))
 }
 
 // Test that the discovery configuration looks right.
@@ -568,12 +564,12 @@ func TestMulticlassRpc(t *testing.T) {
 	ts := initTestApi(t)
 	defer ts.Close()
 
-	body, err := json.Marshal([]map[string]interface{} {
-		map[string]interface{} {
-			"jsonrpc": "2.0",
-			"id": "gapiRpc",
-			"method": "testservice.extraname.test",
-			"params": make(map[string]interface{}),
+	body, err := json.Marshal([]map[string]interface{}{
+		map[string]interface{}{
+			"jsonrpc":    "2.0",
+			"id":         "gapiRpc",
+			"method":     "testservice.extraname.test",
+			"params":     make(map[string]interface{}),
 			"apiVersion": "v1",
 		},
 	})
@@ -590,9 +586,9 @@ func TestMulticlassRpc(t *testing.T) {
 
 	var responseJson map[string]interface{}
 	err = json.Unmarshal(content, &responseJson)
-	expected := []map[string]interface{} {
-		map[string]interface{} {
-			"result": map[string]interface{} {
+	expected := []map[string]interface{}{
+		map[string]interface{}{
+			"result": map[string]interface{}{
 				"text": "Extra test response",
 			},
 			"id": "gapiRpc",

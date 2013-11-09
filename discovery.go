@@ -15,12 +15,12 @@
 package endpoint
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
 	"net/http"
-	"bytes"
 )
 
 var (

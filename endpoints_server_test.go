@@ -53,7 +53,7 @@ func prepareTestServer(t *testing.T, config *endpoints.ApiDescriptor) *httptest.
 
 // Assert that dispatching a request to the SPI works.
 func assertDispatchToSpi(t *testing.T, request *apiRequest, config *endpoints.ApiDescriptor, spiPath string,
-expectedSpiBodyJson map[string]interface{}) {
+	expectedSpiBodyJson map[string]interface{}) {
 	server := newMockEndpointsServer()
 	ts := prepareTestServer(t, config)
 	server.url = ts.URL
@@ -224,9 +224,9 @@ func TestDispatchSpiError(t *testing.T) {
 		Status:     "404 Not Found",
 		StatusCode: 404,
 		Body: ioutil.NopCloser(
-		bytes.NewBufferString(
-		`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
-		),
+			bytes.NewBufferString(
+				`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
+			),
 		),
 	}
 	server.On(
@@ -287,9 +287,9 @@ func TestDispatchRpcError(t *testing.T) {
 		Status:     "404 Not Found",
 		StatusCode: 404,
 		Body: ioutil.NopCloser(
-		bytes.NewBufferString(
-		`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
-		),
+			bytes.NewBufferString(
+				`{"state": "APPLICATION_ERROR", "error_message": "Test error"}`,
+			),
 		),
 	}
 	server.On(
@@ -567,8 +567,8 @@ func TestHandleSpiResponseRest(t *testing.T) {
 	spiRequest, err := origRequest.copy()
 	assert.NoError(t, err)
 	body, _ := json.MarshalIndent(map[string]interface{}{
-			"some": "response",
-		}, "", "  ")
+		"some": "response",
+	}, "", "  ")
 	spiResponse := &http.Response{
 		Status:     "200 OK",
 		StatusCode: 200,
@@ -686,7 +686,7 @@ func TestCheckEmptyResponse(t *testing.T) {
 			Body: "empty",
 		},
 	}
-	/*emptyResponse := */server.checkEmptyResponse(origRequest,
+	/*emptyResponse := */ server.checkEmptyResponse(origRequest,
 		methodConfig, w)
 	header := http.Header{
 		"Content-Length": []string{"0"},

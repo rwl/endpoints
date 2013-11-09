@@ -19,13 +19,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
 	"github.com/golang/glog"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"net/url"
+	"path"
+	"strings"
 )
 
 const defaultURL = "http://localhost:8080"

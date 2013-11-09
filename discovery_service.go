@@ -17,8 +17,8 @@ package endpoint
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/golang/glog"
+	"github.com/rwl/go-endpoints/endpoints"
 	"net/http"
 )
 

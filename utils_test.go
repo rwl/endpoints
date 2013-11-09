@@ -16,15 +16,15 @@ package endpoint
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/golang/glog"
+	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
-	"github.com/golang/glog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"fmt"
 )
 
 // Build an apiRequest for the given path and body.
@@ -57,7 +57,7 @@ func buildRequest(url, body string, httpHeaders http.Header) *http.Request {
 
 // Test that the headers and body match.
 func assertHttpMatch(t *testing.T, response *http.Response, expectedStatus int,
-expectedHeaders http.Header, expectedBody string) {
+	expectedHeaders http.Header, expectedBody string) {
 	assert.Equal(t, expectedStatus, response.StatusCode)
 
 	// Verify that headers match. Order shouldn't matter.
@@ -70,7 +70,7 @@ expectedHeaders http.Header, expectedBody string) {
 
 // Test that the headers and body match.
 func assertHttpMatchRecorder(t *testing.T, recorder *httptest.ResponseRecorder,
-expectedStatus int, expectedHeaders http.Header, expectedBody string) {
+	expectedStatus int, expectedHeaders http.Header, expectedBody string) {
 	assert.Equal(t, expectedStatus, recorder.Code)
 
 	// Verify that headers match. Order shouldn't matter.
@@ -85,7 +85,7 @@ type MockEndpointsServer struct {
 	*EndpointsServer
 }
 
-func newMockEndpointsServer() (*MockEndpointsServer) {
+func newMockEndpointsServer() *MockEndpointsServer {
 	return &MockEndpointsServer{
 		EndpointsServer: newEndpointsServer(),
 	}
@@ -129,7 +129,7 @@ func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiRe
 }
 
 func (ed *MockEndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest,
-response *http.Response, w http.ResponseWriter) (string, error) {
+	response *http.Response, w http.ResponseWriter) (string, error) {
 	args := ed.Mock.Called(origRequest, spiRequest, response, w)
 	return args.String(0), args.Error(1)
 }
@@ -139,7 +139,7 @@ type MockEndpointsServerSpi struct {
 	*EndpointsServer
 }
 
-func newMockEndpointsServerSpi() (*MockEndpointsServerSpi) {
+func newMockEndpointsServerSpi() *MockEndpointsServerSpi {
 	return &MockEndpointsServerSpi{
 		EndpointsServer: newEndpointsServer(),
 	}
@@ -151,11 +151,11 @@ func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *apiReques
 	// call the back end.
 	apiConfigResponse, err := ed.getApiConfigs()
 	if err != nil {
-		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: " + err.Error())
+		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
 	}
 	err = ed.handleApiConfigResponse(apiConfigResponse)
 	if err != nil {
-		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: " + err.Error())
+		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
 	}
 
 	// Call the service.

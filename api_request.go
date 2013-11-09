@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"github.com/golang/glog"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -45,8 +45,8 @@ type apiRequest struct {
 
 func newApiRequest(r *http.Request) (*apiRequest, error) {
 	ar := &apiRequest{
-		Request:  r,
-		isBatch: false,
+		Request:     r,
+		isBatch:     false,
 		relativeUrl: r.URL.Path,
 	}
 
@@ -113,11 +113,11 @@ func (ar *apiRequest) copy() (*apiRequest, error) {
 	bodyCopy := ioutil.NopCloser(bytes.NewBuffer(body))
 
 	urlCopy := &url.URL{
-		Scheme: ar.URL.Scheme,
-		Opaque: ar.URL.Opaque,
-		User: ar.URL.User,
-		Host: ar.URL.Host,
-		Path: ar.URL.Path,
+		Scheme:   ar.URL.Scheme,
+		Opaque:   ar.URL.Opaque,
+		User:     ar.URL.User,
+		Host:     ar.URL.Host,
+		Path:     ar.URL.Path,
 		RawQuery: ar.URL.RawQuery,
 		Fragment: ar.URL.Fragment,
 	}
@@ -152,10 +152,10 @@ func (ar *apiRequest) copy() (*apiRequest, error) {
 	}
 
 	return &apiRequest{
-		Request:    request,
-		isBatch:   ar.isBatch,
-		bodyJson:  ar.bodyJson,
-		requestId: ar.requestId,
+		Request:     request,
+		isBatch:     ar.isBatch,
+		bodyJson:    ar.bodyJson,
+		requestId:   ar.requestId,
 		relativeUrl: ar.relativeUrl,
 	}, nil
 }

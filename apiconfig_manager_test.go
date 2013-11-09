@@ -61,7 +61,7 @@ func TestParseApiConfig(t *testing.T) {
 
 func TestParseApiConfigOrderLength(t *testing.T) {
 	configManager := newApiConfigManager()
-	methods := map[string]*endpoints.ApiMethod {
+	methods := map[string]*endpoints.ApiMethod{
 		"guestbook_api.foo.bar": &endpoints.ApiMethod{
 			HttpMethod: "GET",
 			Path:       "greetings/{gid}",
@@ -116,32 +116,32 @@ func TestParseApiConfigOrderLength(t *testing.T) {
 }
 
 func TestSortMethods1(t *testing.T) {
-	methods := map[string]*endpoints.ApiMethod {
-		"name1" : &endpoints.ApiMethod{
+	methods := map[string]*endpoints.ApiMethod{
+		"name1": &endpoints.ApiMethod{
 			HttpMethod: "POST",
 			Path:       "greetings",
 		},
-		"name2" : &endpoints.ApiMethod{
+		"name2": &endpoints.ApiMethod{
 			HttpMethod: "GET",
 			Path:       "greetings",
 		},
-		"name3" : &endpoints.ApiMethod{
+		"name3": &endpoints.ApiMethod{
 			HttpMethod: "GET",
 			Path:       "short/but/many/constants",
 		},
-		"name4" : &endpoints.ApiMethod{
+		"name4": &endpoints.ApiMethod{
 			HttpMethod: "",
 			Path:       "greetings",
 		},
-		"name5" : &endpoints.ApiMethod{
+		"name5": &endpoints.ApiMethod{
 			HttpMethod: "GET",
 			Path:       "greetings/{gid}",
 		},
-		"name6" : &endpoints.ApiMethod{
+		"name6": &endpoints.ApiMethod{
 			HttpMethod: "PUT",
 			Path:       "greetings/{gid}",
 		},
-		"name7" : &endpoints.ApiMethod{
+		"name7": &endpoints.ApiMethod{
 			HttpMethod: "GET",
 			Path:       "a/b/{var}/{var2}",
 		},
@@ -203,7 +203,7 @@ func TestSortMethods1(t *testing.T) {
 }
 
 func TestSortMethods2(t *testing.T) {
-	methods := map[string]*endpoints.ApiMethod {
+	methods := map[string]*endpoints.ApiMethod{
 		"name1": &endpoints.ApiMethod{
 			HttpMethod: "GET",
 			Path:       "abcdefghi",
@@ -236,7 +236,7 @@ func TestSortMethods2(t *testing.T) {
 	sortedMethods := sortMethods(methods)
 
 	// Single-part paths should be sorted by path name, http_method.
-	expectedMethods := []*methodInfo {
+	expectedMethods := []*methodInfo{
 		&methodInfo{
 			"name1",
 			&endpoints.ApiMethod{

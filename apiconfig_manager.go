@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/golang/glog"
+	"github.com/rwl/go-endpoints/endpoints"
 	"regexp"
 	"strings"
 	"sync"
@@ -35,30 +35,30 @@ var pathVariablePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
 //
 // Manages loading api configs and method lookup.
 type apiConfigManager struct {
-	rpcMethods map[lookupKey]*endpoints.ApiMethod
-	restMethods    []*restMethod
-	_configs         map[lookupKey]*endpoints.ApiDescriptor
-	configLock     sync.Mutex
+	rpcMethods  map[lookupKey]*endpoints.ApiMethod
+	restMethods []*restMethod
+	_configs    map[lookupKey]*endpoints.ApiDescriptor
+	configLock  sync.Mutex
 }
 
 func newApiConfigManager() *apiConfigManager {
 	return &apiConfigManager{
-		rpcMethods: make(map[lookupKey]*endpoints.ApiMethod),
-		restMethods:    make([]*restMethod, 0),
-		_configs:         make(map[lookupKey]*endpoints.ApiDescriptor),
-		configLock:     sync.Mutex{},
+		rpcMethods:  make(map[lookupKey]*endpoints.ApiMethod),
+		restMethods: make([]*restMethod, 0),
+		_configs:    make(map[lookupKey]*endpoints.ApiDescriptor),
+		configLock:  sync.Mutex{},
 	}
 }
 
 type lookupKey struct {
-	methodName  string
-	version     string
+	methodName string
+	version    string
 }
 
 type restMethod struct {
 	compiledPathPattern *regexp.Regexp // A compiled regex to match against the incoming URL.
-	path                  string       // The original path pattern (checked to prevent duplicates).
-	methods               map[string]*methodInfo
+	path                string         // The original path pattern (checked to prevent duplicates).
+	methods             map[string]*methodInfo
 }
 
 type methodInfo struct {
@@ -259,7 +259,7 @@ func fromSafePathParamName(safeParameter string) (string, error) {
 	}
 	safeParameterAsBase32 := safeParameter[1:]
 
-	paddingLength := -len(safeParameterAsBase32)%8
+	paddingLength := -len(safeParameterAsBase32) % 8
 	if paddingLength < 0 {
 		paddingLength = paddingLength + 8
 	}
@@ -297,7 +297,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 	}
 	replacements := make([]string, len(idxs)/2)
 	for i := 0; i < len(idxs); i += 2 {
-		varName := ppp[idxs[i] + 1 : idxs[i + 1] - 1]
+		varName := ppp[idxs[i]+1 : idxs[i+1]-1]
 		ok := pathVariablePattern.MatchString(varName)
 		var replaced string
 		if !ok {
@@ -312,7 +312,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 	for i := 0; i < len(idxs); i += 2 {
 		pattern.WriteString(ppp[start:idxs[i]])
 		pattern.WriteString(replacements[i/2])
-		start = idxs[i + 1]
+		start = idxs[i+1]
 	}
 	pattern.WriteString(ppp[start:])
 

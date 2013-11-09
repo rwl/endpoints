@@ -17,6 +17,7 @@ package endpoint
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -24,7 +25,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"github.com/rwl/go-endpoints/endpoints"
 )
 
 // Test that an error response still handles CORS headers.
@@ -72,7 +72,7 @@ func TestHandleNonJsonSpiResponseCors(t *testing.T) {
 //
 // Returns the body of the response that would be sent.
 func checkCors(t *testing.T, requestHeaders http.Header, expectResponse bool,
-expectedOrigin, expectedAllowHeaders string, serverResponse *http.Response) string {
+	expectedOrigin, expectedAllowHeaders string, serverResponse *http.Response) string {
 	origRequest := buildApiRequest("/_ah/api/fake/path", "", requestHeaders)
 	spiRequest, err := origRequest.copy()
 	assert.NoError(t, err)

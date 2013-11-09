@@ -1,14 +1,13 @@
-
 package endpoint
 
 import (
-	"github.com/rwl/go-endpoints/endpoints"
-	"strings"
 	"fmt"
+	"github.com/rwl/go-endpoints/endpoints"
 	"strconv"
+	"strings"
 )
 
-var booleanValues map[string]bool = map[string]bool {
+var booleanValues map[string]bool = map[string]bool{
 	"1": true, "true": true, "0": false, "false": false,
 }
 
@@ -17,7 +16,6 @@ var booleanValues map[string]bool = map[string]bool {
 // Parameter values that appear in the URL and the query string are usually
 // converted to native types before being passed to the SPI. This code handles
 // that conversion and some validation.
-
 
 // Checks if the parameter value is valid if an enum.
 //
@@ -35,9 +33,9 @@ var booleanValues map[string]bool = map[string]bool {
 // Returns an enumRejectionError if the given value is not among the accepted
 // enum values in the field parameter.
 func checkEnum(parameterName string, value string, parameterConfig *endpoints.ApiRequestParamSpec) error {
-//	if parameterConfig == nil || parameterConfig.Enum == nil || len(parameterConfig.Enum) == 0 {
-//		return nil
-//	}
+	//	if parameterConfig == nil || parameterConfig.Enum == nil || len(parameterConfig.Enum) == 0 {
+	//		return nil
+	//	}
 
 	enumValues := make([]string, 0)
 	for _, enum := range parameterConfig.Enum {
@@ -53,7 +51,6 @@ func checkEnum(parameterName string, value string, parameterConfig *endpoints.Ap
 	}
 	return newEnumRejectionError(parameterName, value, enumValues)
 }
-
 
 // Checks if a boolean value is valid.
 //
@@ -141,19 +138,19 @@ func convertFloat64(value string) (interface{}, error) {
 // Note that the 'enum' entry is special cased. Enums have 'type': 'string',
 // so we have special case code to recognize them and use the 'enum' map
 // entry.
-var paramConversions map[string]*paramConverter = map[string]*paramConverter {
+var paramConversions map[string]*paramConverter = map[string]*paramConverter{
 	"boolean": &paramConverter{checkBoolean, convertBoolean, "boolean"},
-	"int32": &paramConverter{nil, convertInt, "integer"},
-	"uint32": &paramConverter{nil, convertUnsignedInt, "integer"},
-	"float": &paramConverter{nil, convertFloat32, "float"},
-	"double": &paramConverter{nil, convertFloat64, "double"},
-	"enum": &paramConverter{checkEnum, nil, ""},
+	"int32":   &paramConverter{nil, convertInt, "integer"},
+	"uint32":  &paramConverter{nil, convertUnsignedInt, "integer"},
+	"float":   &paramConverter{nil, convertFloat32, "float"},
+	"double":  &paramConverter{nil, convertFloat64, "double"},
+	"enum":    &paramConverter{checkEnum, nil, ""},
 }
 
 type paramConverter struct {
 	validator func(string, string, *endpoints.ApiRequestParamSpec) error
 	converter func(string) (interface{}, error)
-	typeName string
+	typeName  string
 }
 
 // Get information needed to convert the given parameter to its SPI type.

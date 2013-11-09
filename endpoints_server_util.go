@@ -15,9 +15,9 @@
 package endpoint
 
 import (
-	"net/http"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
 func sendNotFoundResponse(w http.ResponseWriter, corsHandler corsHandler) string {

@@ -21,7 +21,7 @@ import (
 
 type route struct {
 	pathPrefix string
-	handler func (http.ResponseWriter, *http.Request)
+	handler    func(http.ResponseWriter, *http.Request)
 }
 
 type router struct {
@@ -32,7 +32,7 @@ func newRouter() *router {
 	return &router{}
 }
 
-func (h *router) HandleFunc(pathPrefix string, handler func (http.ResponseWriter, *http.Request)) {
+func (h *router) HandleFunc(pathPrefix string, handler func(http.ResponseWriter, *http.Request)) {
 	r := &route{pathPrefix, handler}
 	h.routes = append(h.routes, r)
 }

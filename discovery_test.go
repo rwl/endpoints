@@ -18,10 +18,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"github.com/stretchr/testify/assert"
 )
 
 var apiConfigMap endpoints.ApiDescriptor
