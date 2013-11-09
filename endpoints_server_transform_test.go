@@ -23,7 +23,6 @@ import (
 	"testing"
 	"github.com/stretchr/testify/assert"
 	"reflect"
-	"net/url"
 )
 
 // Tests that only hit the request transformation functions.
@@ -662,6 +661,7 @@ func TestTypeConversions(t *testing.T) {
 
 // Verify that invalid parameter values for basic types raise errors.
 func TestInvalidConversions(t *testing.T) {
+	server := newEndpointsServer()
 	types := []string{"int32", "uint32", "boolean", "float", "double"}
 	for _, typeName := range types {
 		paramName := fmt.Sprintf("%s_val", typeName)
@@ -671,15 +671,15 @@ func TestInvalidConversions(t *testing.T) {
 		bodyObject := make(map[string]interface{})
 		expected := make(map[string]interface{})
 		methodParams := map[string]*endpoints.ApiRequestParamSpec{
-			param_name: &endpoints.ApiRequestParamSpec{Type: typeName},
+			paramName: &endpoints.ApiRequestParamSpec{Type: typeName},
 		}
-	}
-	err := transformRestRequest(server, pathParameters, queryParameters,
-		bodyObject, expected, methodParams)
-	e, ok := err.(BasicTypeParameterError)
-	if !ok {
-		t.Failf("Bad %s value should have caused failure.", typeName)
-	} else {
-		assert.Equal(t, e.ParameterName, paramName)
+		err := transformRestRequest(server, pathParameters, queryParameters,
+			bodyObject, expected, methodParams)
+		e, ok := err.(*basicTypeParameterError)
+		if !ok {
+			t.Fatalf("Bad %s value should have caused failure.", typeName)
+		} else {
+			assert.Equal(t, e.parameterName, paramName)
+		}
 	}
 }

@@ -282,8 +282,8 @@ func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest
 	} else {
 		// Check if the response from the SPI was empty. Empty REST responses
 		// generate a HTTP 204.
-		emptyResponse := ed.checkEmptyResponse(origRequest, methodConfig, startResponse)
-		if empty_response != nil {
+		emptyResponse := ed.checkEmptyResponse(origRequest, methodConfig, w)
+		if emptyResponse != "" {
 			return emptyResponse, nil
 		}
 
@@ -362,68 +362,6 @@ func (ed *EndpointsServer) transformRequest(origRequest *apiRequest, params map[
 	}
 	request.URL.Path = methodConfig.RosyMethod
 	return request, nil
-}
-/*
-// Checks if the parameter value is valid if an enum.
-//
-// If the parameter is not an enum, it does nothing. If it is, verifies that
-// its value is valid.
-//
-// Takes the name of the parameter (Which is either just a variable name or
-// the name with the index appended. For example "var" or "var[2]".), the
-// value to be used as enum for the parameter and a spec containing
-// information specific to the field in question (This is retrieved from
-// request.Parameters in the method config.
-//
-// Returns an enumRejectionError if the given value is not among the accepted
-// enum values in the field parameter.
-func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
-	if fieldParameter == nil || fieldParameter.Enum == nil || len(fieldParameter.Enum) == 0 {
-		return nil
-	}
-
-	enumValues := make([]string, 0)
-	for _, enum := range fieldParameter.Enum {
-		if enum.BackendVal != "" {
-			enumValues = append(enumValues, enum.BackendVal)
-		}
-	}
-
-	for _, ev := range enumValues {
-		if value == ev {
-			return nil
-		}
-	}
-	return newEnumRejectionError(parameterName, value, enumValues)
-}
-*/
-// Recursively calls checkParameter on the values in the list.
-//
-// "[index-of-value]" is appended to the parameter name for
-// error reporting purposes.
-func (ed *EndpointsServer) checkParameters(parameterName string, values []string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
-	for index, element := range values {
-		parameterNameIndex := fmt.Sprintf("%s[%d]", parameterName, index)
-		err := ed.checkParameter(parameterNameIndex, element, fieldParameter)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Checks if the parameter value is valid against all parameter rules.
-//
-// Currently only checks if value adheres to enum rule, but more checks may be
-// added.
-//
-// Takes the name of the parameter (Which is either just a variable name or
-// the name with the index appended. For example "var" or "var[2]".), the
-// value to be used as enum for the parameter and a spec containing
-// information specific to the field in question (This is retrieved from
-// request.Parameters in the method config.
-func (ed *EndpointsServer) checkParameter(parameterName, value string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
-	return ed.checkEnum(parameterName, value, fieldParameter)
 }
 
 // Converts a . delimitied field name to a message field in parameters.
@@ -585,27 +523,16 @@ func (ed *EndpointsServer) transformRestRequest(origRequest *apiRequest,
 		// parameters instead of nested in maps as a message field is, so
 		// we need to call transformParameterValue on them before calling
 		// addMessageField.
-
-		bodyJson[key] = parameterConverter.transformParameterValue(key, bodyJson[key], currentParameter)
-
-		/*value := bodyJson[key]
-		valStr, ok := value.(string)
-		var enumErr *enumRejectionError = nil
-		if ok {
-			enumErr = ed.checkParameter(key, valStr, currentParameter)
-		} else if valStrArr, ok := value.([]string); ok {
-			enumErr = ed.checkParameters(key, valStrArr, currentParameter)
-		} else {
-			panic(fmt.Sprintf("Param value not a string or string array: %v",
-				value))
-		}*/
-		if enumErr == nil {
-			// Remove the old key and try to convert to nested message value
-			delete(bodyJson, key)
-			ed.addMessageField(key, value, bodyJson)
-		} else {
-			return request, enumErr
+		bodyJson[key], err = transformParameterValue(key, bodyJson[key],
+			currentParameter)
+		if err != nil {
+			return request, err
 		}
+
+		// Remove the old key and try to convert to nested message value
+		messageValue := bodyJson[key]
+		delete(bodyJson, key)
+		ed.addMessageField(key, messageValue, bodyJson)
 	}
 
 	// Add in values from the body of the request.
@@ -690,18 +617,13 @@ func (ed *EndpointsServer) checkErrorResponse(response *http.Response) error {
 // response body that should be returned to the user.  If the SPI response
 // wasn't empty, this returns None, indicating that we should not exit early
 // with a 204.
-func (ed *EndpointsServer) checkEmptyResponse(origRequest, methodConfig, startResponse) string {
-	var responseConfig string
-	response, ok := method_config["response"]
-	if ok {
-		responseConfig, _ = response["body"]
-	}
-	if responseConfig == "empty" {
+func (ed *EndpointsServer) checkEmptyResponse(origRequest *apiRequest, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) string {
+	if methodConfig.Response.Body == "empty" {
 		// The response to this function should be empty.  We should return a 204.
 		// Note that it's possible that the SPI returned something, but we'll
 		// ignore it.  This matches the behavior in the Endpoints server.
-		corsHandler := EndpointsDispatcher.__CheckCorsHeaders(orig_request)
-		return sendNoContentResponse(start_response, cors_handler)
+		corsHandler := newCheckCorsHeaders(origRequest.Request)
+		return sendNoContentResponse(w, corsHandler)
 	}
 	return ""
 }

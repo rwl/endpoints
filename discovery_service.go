@@ -83,7 +83,7 @@ func (ds *discoveryService) getRpcOrRest(apiFormat apiFormat, request *apiReques
 	apiStr, _ := api.(string)
 	versionStr, _ := version.(string)
 	lookupKey := lookupKey{apiStr, versionStr}
-	apiConfig, ok := ds.configManager.configs[lookupKey]
+	apiConfig, ok := ds.configManager.configs()[lookupKey]
 	if !ok {
 		glog.Infof("No discovery doc for version %s of api %s", version, api)
 		return sendNotFoundResponse(w, nil)
@@ -100,7 +100,7 @@ func (ds *discoveryService) getRpcOrRest(apiFormat apiFormat, request *apiReques
 // Sends HTTP response containing the API directory.
 func (ds *discoveryService) list(w http.ResponseWriter) string {
 	apiConfigs := make([]string, 0)
-	for _, apiConfig := range ds.configManager.configs {
+	for _, apiConfig := range ds.configManager.configs() {
 		if apiConfig != discoveryApiConfig {
 			ac, err := json.Marshal(apiConfig)
 			if err != nil {

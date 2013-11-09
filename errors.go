@@ -99,14 +99,13 @@ type invalidParameterError struct {
 	baseRequestError
 	parameterName string   // The name of the enum parameter which had a value rejected.
 	value         string   // The actual value passed in for the parameter.
-	typeName      string // Descriptive name of the data type expected.
 }
 
-func newInvalidParameterError(parameterName, value string, typeName string) *invalidParameterError {
+func newInvalidParameterError(parameterName, value string) *invalidParameterError {
 	return &invalidParameterError{
 		baseRequestError: baseRequestError{
 			code: 400,
-			message:    fmt.Sprintf("Invalid %s value: %s", typeName, value),
+			message:    fmt.Sprintf("Invalid value: %s", value),
 			reason:     "invalidParameter",
 			extraFields: map[string]interface{}{
 				"locationType": "parameter",
@@ -115,12 +114,26 @@ func newInvalidParameterError(parameterName, value string, typeName string) *inv
 		},
 		parameterName: parameterName,
 		value:         value,
-		typeName: typeName,
 	}
 }
 
 func (err *invalidParameterError) Error() string {
 	return err.message
+}
+
+// Request rejection exception for basic types (int, bool).
+type basicTypeParameterError struct {
+	invalidParameterError
+	typeName      string // Descriptive name of the data type expected.
+}
+
+func newBasicTypeParameterError(parameterName, value, typeName string) *basicTypeParameterError {
+	paramError := &basicTypeParameterError{
+		*newInvalidParameterError(parameterName, value),
+		typeName,
+	}
+	paramError.message = fmt.Sprintf("Invalid %s value: %s", typeName, value)
+	return paramError
 }
 
 // Request rejection exception for enum values.
@@ -129,9 +142,9 @@ type enumRejectionError struct {
 	allowedValues []string // Allowed values for the enum.
 }
 
-func newEnumRejectionError(newInvalidParameterError, value string, allowedValues []string) *enumRejectionError {
+func newEnumRejectionError(parameterName, value string, allowedValues []string) *enumRejectionError {
 	enumErr := &enumRejectionError{
-		newInvalidParameterError(newInvalidParameterError, value),
+		*newInvalidParameterError(parameterName, value),
 		allowedValues,
 	}
 	enumErr.message = fmt.Sprintf("Invalid string value: %s. Allowed values: %s", value, allowedValues)

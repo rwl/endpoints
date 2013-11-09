@@ -681,12 +681,12 @@ func TestCheckEmptyResponse(t *testing.T) {
 	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 	origRequest := buildApiRequest("/_ah/api/test", "{}", nil)
-	method_config := &endpoints.ApiMethod{
-		Response: ApiReqRespDescriptor{
+	methodConfig := &endpoints.ApiMethod{
+		Response: endpoints.ApiReqRespDescriptor{
 			Body: "empty",
 		},
 	}
-	emptyResponse := server.checkEmptyResponse(origRequest,
+	/*emptyResponse := */server.checkEmptyResponse(origRequest,
 		methodConfig, w)
 	header := http.Header{
 		"Content-Length": []string{"0"},
@@ -699,15 +699,15 @@ func TestCheckNonEmptyResponse(t *testing.T) {
 	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 	origRequest := buildApiRequest("/_ah/api/test", "{}", nil)
-	method_config := &endpoints.ApiMethod{
-		Response: ApiReqRespDescriptor{
+	methodConfig := &endpoints.ApiMethod{
+		Response: endpoints.ApiReqRespDescriptor{
 			Body: "autoTemplate(backendResponse)",
 		},
 	}
 	emptyResponse := server.checkEmptyResponse(origRequest,
 		methodConfig, w)
-	assert.Empty(emptyResponse)
-	assert.Nil(w.Status)
-	assert.Nil(w.Headers)
-	assert.Nil(w.responseExcInfo)
+	assert.Empty(t, emptyResponse)
+	assert.Nil(t, w.Code)
+	assert.Nil(t, w.Header())
+	//assert.Nil(t, w.responseExcInfo)
 }

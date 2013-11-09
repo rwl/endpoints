@@ -333,8 +333,8 @@ func TestParseApiConfigConvertHttps(t *testing.T) {
 	configManager.parseApiConfigResponse(string(items))
 
 	key := lookupKey{"guestbook_api", "X"}
-	assert.Equal(t, "http://localhost/_ah/spi", configManager.configs[key].Adapter.Bns)
-	assert.Equal(t, "http://localhost/_ah/api", configManager.configs[key].Root)
+	assert.Equal(t, "http://localhost/_ah/spi", configManager.configs()[key].Adapter.Bns)
+	assert.Equal(t, "http://localhost/_ah/api", configManager.configs()[key].Root)
 }
 
 // Test that the convertHttpsToHttp function works.

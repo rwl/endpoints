@@ -14,7 +14,7 @@ func TestSendRedirectResponse(t *testing.T) {
 		Method: "GET",
 		URL: &url.URL{Path: "/"},
 	}
-	response := sendRedirectResponse("http://www.google.com", w, r, nil)
+	/*response := */sendRedirectResponse("http://www.google.com", w, r, nil)
 
 	header := http.Header{
 		"Location": []string{"http://www.google.com"},
@@ -25,7 +25,7 @@ func TestSendRedirectResponse(t *testing.T) {
 
 func TestSendNoContentResponse(t *testing.T) {
 	w := httptest.NewRecorder()
-	response := sendNoContentResponse(w, nil)
+	/*response := */sendNoContentResponse(w, nil)
 	header := http.Header{
 		"Content-Length": []string{"0"},
 	}

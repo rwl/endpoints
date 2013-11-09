@@ -131,11 +131,11 @@ func (m *apiConfigManager) parseApiConfigResponse(body string) error {
 		} else {
 			lookupKey := lookupKey{config.Name, config.Version}
 			convertHttpsToHttp(config)
-			m.configs[lookupKey] = config
+			m.configs()[lookupKey] = config
 		}
 	}
 
-	for _, config := range m.configs {
+	for _, config := range m.configs() {
 		name := config.Name
 		version := config.Version
 		sortedMethods := sortMethods(config.Methods)
@@ -230,7 +230,7 @@ func (m *apiConfigManager) lookupRestMethod(path, httpMethod string) (string, *e
 // the lock is held.
 func (m *apiConfigManager) addDiscoveryConfig() {
 	lookupKey := lookupKey{discoveryApiConfig.Name, discoveryApiConfig.Version}
-	m.configs[lookupKey] = discoveryApiConfig
+	m._configs[lookupKey] = discoveryApiConfig
 }
 
 // Takes a string containing the parameter matched from the URL template and
