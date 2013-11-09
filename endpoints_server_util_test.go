@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"strings"
 )
 
 func TestSendRedirectResponse(t *testing.T) {
@@ -13,20 +14,32 @@ func TestSendRedirectResponse(t *testing.T) {
 		Method: "GET",
 		URL:    &url.URL{Path: "/"},
 	}
-	/*response := */ sendRedirectResponse("http://www.google.com", w, r, nil)
+	urlStr := "http://www.google.com"
+	/*response :=*/ sendRedirectResponse(urlStr, w, r, nil)
 
 	header := http.Header{
 		"Location":       []string{"http://www.google.com"},
 		"Content-Length": []string{"0"},
 	}
-	assertHttpMatchRecorder(t, w, 302, header, "")
+	note := "<a href=\"" + htmlReplacer.Replace(urlStr) + "\">" +
+			http.StatusText(302) + "</a>.\n\n"
+
+	assertHttpMatchRecorder(t, w, 302, header, note)
 }
 
 func TestSendNoContentResponse(t *testing.T) {
 	w := httptest.NewRecorder()
-	/*response := */ sendNoContentResponse(w, nil)
+	/*response :=*/ sendNoContentResponse(w, nil)
 	header := http.Header{
 		"Content-Length": []string{"0"},
 	}
 	assertHttpMatchRecorder(t, w, 204, header, "")
 }
+
+var htmlReplacer = strings.NewReplacer(
+	"&", "&amp;",
+	"<", "&lt;",
+	">", "&gt;",
+	`"`, "&#34;",
+	"'", "&#39;",
+)
