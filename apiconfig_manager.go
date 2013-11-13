@@ -108,8 +108,8 @@ func (m *apiConfigManager) parseApiConfigResponse(body string) error {
 
 	m.configLock.Lock()
 	defer m.configLock.Unlock()
-
 	m.addDiscoveryConfig()
+
 	items, ok := responseObj["items"]
 	if !ok {
 		return errors.New(`BackendService.getApiConfigs response missing "items" key.`)
@@ -131,11 +131,11 @@ func (m *apiConfigManager) parseApiConfigResponse(body string) error {
 		} else {
 			lookupKey := lookupKey{config.Name, config.Version}
 			convertHttpsToHttp(config)
-			m.configs()[lookupKey] = config
+			m._configs[lookupKey] = config
 		}
 	}
 
-	for _, config := range m.configs() {
+	for _, config := range m._configs {
 		name := config.Name
 		version := config.Version
 		sortedMethods := sortMethods(config.Methods)

@@ -125,12 +125,12 @@ func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiRe
 	req.RemoteAddr = spiRequest.RemoteAddr
 	client := &http.Client{}
 	resp, _ := client.Do(req)
-	return ed.handleSpiResponse(origRequest, spiRequest, resp, w)
+	return ed.handleSpiResponse(origRequest, spiRequest, resp, methodConfig, w)
 }
 
 func (ed *MockEndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest,
-	response *http.Response, w http.ResponseWriter) (string, error) {
-	args := ed.Mock.Called(origRequest, spiRequest, response, w)
+	response *http.Response, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) (string, error) {
+	args := ed.Mock.Called(origRequest, spiRequest, methodConfig, response, w)
 	return args.String(0), args.Error(1)
 }
 
