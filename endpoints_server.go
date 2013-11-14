@@ -87,6 +87,7 @@ func (ed *EndpointsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ar, err := newApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	ed.serveHTTP(w, ar)
 }
@@ -132,6 +133,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 	request, err := newApiRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	response, body, err := getStaticFile(request.relativeUrl)
@@ -148,6 +150,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 		glog.Errorf("Discovery API proxy failed on %s with %d. Details: %s",
 			request.relativeUrl, response.StatusCode, body)
 		http.Error(w, body, response.StatusCode)
+		return
 	}
 }
 
