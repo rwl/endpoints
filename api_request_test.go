@@ -92,6 +92,18 @@ func TestParseMultipleValues(t *testing.T) {
 	assert.Empty(t, request.requestId)
 }
 
+func TestBadBody(t *testing.T) {
+	req := buildRequest(
+		"/_ah/api/rpc",
+		`[{"params": {"sample": "body`,
+		nil,
+	)
+	_, err := newApiRequest(req)
+	if err == nil {
+		t.Fatalf("Expected an error!")
+	}
+}
+
 func TestIsRPC(t *testing.T) {
 	request := buildApiRequest("/_ah/api/rpc", "", nil)
 	assert.Equal(t, "rpc", request.URL.Path)
