@@ -94,7 +94,7 @@ func newApiRequest(r *http.Request) (*apiRequest, error) {
 		bodyBytes, err := json.Marshal(ar.bodyJson)
 		ar.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 		if err != nil {
-			return ar, err
+			return nil, err
 		}
 	} else {
 		ar.bodyJson = bodyJson
