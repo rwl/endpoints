@@ -500,6 +500,9 @@ func (ed *EndpointsServer) transformRestRequest(origRequest *apiRequest,
 	// and would be replaced with "a".
 	for key, _ := range bodyJson {
 		currentParameter, ok := methodParameters[key]
+		if !ok {
+			currentParameter = &endpoints.ApiRequestParamSpec{}
+		}
 		repeated := false
 		if ok {
 			repeated = currentParameter.Repeated

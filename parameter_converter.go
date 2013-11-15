@@ -213,6 +213,18 @@ func transformParameterValue(parameterName string, value interface{}, parameterC
 		}
 		return converted, nil
 	}
+	if arrVal, ok := value.([]string); ok {
+		converted := make([]interface{}, 0, len(arrVal))
+		for index, element := range arrVal {
+			paramName := fmt.Sprintf("%s[%d]", parameterName, index)
+			c, err := transformParameterValue(paramName, element, parameterConfig)
+			if err != nil {
+				return value, err
+			}
+			converted = append(converted, c)
+		}
+		return converted, nil
+	}
 	if strVal, ok := value.(string); ok {
 		// Validate and convert the parameter value.
 		entry := getParameterConversionEntry(parameterConfig)

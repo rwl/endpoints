@@ -365,8 +365,8 @@ func TestExplorerRedirect(t *testing.T) {
 	request := buildRequest("/_ah/api/explorer", "", nil)
 	server.HandleApiExplorerRequest(w, request)
 	header := make(http.Header)
-	//header.Set("Content-Length", "0")
-	location := "https://apis-explorer.appspot.com/apis-explorer/?base=http://localhost:42/_ah/api/"
+	header.Set("Content-Length", "0")
+	location := "http://apis-explorer.appspot.com/apis-explorer/?base=http://localhost:42/_ah/api/"
 	header.Set("Location", location)
 	body := fmt.Sprintf(`<a href="%s">Found</a>.
 
@@ -707,7 +707,7 @@ func TestCheckNonEmptyResponse(t *testing.T) {
 	emptyResponse := server.checkEmptyResponse(origRequest,
 		methodConfig, w)
 	assert.Empty(t, emptyResponse)
-	assert.Nil(t, w.Code)
-	assert.Nil(t, w.Header())
+	assert.Equal(t, w.Code, 200)
+	assert.Equal(t, len(w.Header()), 0)
 	//assert.Nil(t, w.responseExcInfo)
 }
