@@ -15,12 +15,12 @@
 package endpoint
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
 	"net/http"
-	"bytes"
 )
 
 var (
@@ -100,7 +100,7 @@ func generateDiscoveryDirectory(apiConfigs []string) (string, error) {
 // Returns static content via a GET request. Takes the URL path after the
 // domain and returns a Response from the static proxy host and the response
 // body.
-func getStaticFile(path string) (*http.Response, string, error) {
+var getStaticFile = func(path string) (*http.Response, string, error) {
 	resp, err := http.Get(staticProxyHost + path)
 	if err != nil {
 		return nil, "", err

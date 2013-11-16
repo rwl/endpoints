@@ -34,10 +34,10 @@ type corsHandler interface {
 
 // Track information about CORS headers and our response to them.
 type checkCorsHeaders struct {
-	allowCorsRequest     bool
-	origin               string
-	corsRequestMethod    string
-	corsRequestHeaders   string
+	allowCorsRequest   bool
+	origin             string
+	corsRequestMethod  string
+	corsRequestHeaders string
 }
 
 func newCheckCorsHeaders(request *http.Request) *checkCorsHeaders {

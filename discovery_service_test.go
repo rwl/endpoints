@@ -17,10 +17,10 @@ package endpoint
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"github.com/stretchr/testify/assert"
 )
 
 func commonSetup() (*apiConfigManager, *apiRequest, *discoveryService) {

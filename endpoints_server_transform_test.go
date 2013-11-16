@@ -19,10 +19,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
-	"io/ioutil"
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"reflect"
+	"testing"
 )
 
 // Tests that only hit the request transformation functions.
@@ -41,7 +41,7 @@ func TestTransformRequest(t *testing.T) {
 	newRequest, err := server.transformRequest(request, params, methodConfig)
 	expectedBody := map[string]interface{}{
 		"sample": "body",
-		"gid": "X",
+		"gid":    "X",
 	}
 	assert.NoError(t, err)
 	body, err := ioutil.ReadAll(newRequest.Body)
@@ -76,8 +76,8 @@ func TestTransformJsonRpcRequest(t *testing.T) {
 
 // Takes body, query and path values from a rest request for testing.
 func transformRestRequest(server *EndpointsServer, pathParameters map[string]string,
-queryParameters string, bodyJson map[string]interface{},
-expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestParamSpec) error {
+	queryParameters string, bodyJson map[string]interface{},
+	expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestParamSpec) error {
 
 	if methodParams == nil {
 		methodParams = make(map[string]*endpoints.ApiRequestParamSpec)
@@ -111,6 +111,10 @@ expected map[string]interface{}, methodParams map[string]*endpoints.ApiRequestPa
 		return err
 	}
 	if !reflect.DeepEqual(trBodyJson, transformedRequest.bodyJson) {
+		for k, v := range trBodyJson {
+			vv := transformedRequest.bodyJson[k]
+			fmt.Printf("%#v (%T)  -  %#v (%T)\n", v, v, vv, vv)
+		}
 		return fmt.Errorf("Transformed JSON bodies do not match: %#v != %#v",
 			transformedRequest.bodyJson, trBodyJson)
 	}
@@ -600,6 +604,8 @@ func TestTransformRestRequestPathQueryBodyCollision(t *testing.T) {
 func TestTransformRestRequestUnknownParameters(t *testing.T) {
 	server := newEndpointsServer()
 	pathParameters := map[string]string{"a": "b"}
+	//queryParameters := url.Values{}
+	//queryParameters.Set("c", "d")
 	queryParameters := "c=d"
 	bodyObject := map[string]interface{}{"e": "f"}
 	expected := map[string]interface{}{"a": "b", "c": "d", "e": "f"}
@@ -610,4 +616,74 @@ func TestTransformRestRequestUnknownParameters(t *testing.T) {
 	err := transformRestRequest(server, pathParameters, queryParameters,
 		bodyObject, expected, methodParams)
 	assert.NoError(t, err)
+}
+
+// Other tests.
+
+// FIXME: Verify that type conversion matches prod.
+/*func TestTypeConversions(t *testing.T) {
+	server := newEndpointsServer()
+	pathParameters := map[string]string{
+		"int32_val":      "1",
+		"uint32_val":     "2",
+		"int64_val":      "3",
+		"uint64_val":     "4",
+		"true_bool_val":  "true",
+		"false_bool_val": "FALSE",
+	}
+	//queryParameters := url.Values{}
+	//queryParameters.Set("float_val", "5.25")
+	//queryParameters.Set("double_val", "6.5")
+	queryParameters := "float_val=5.25&double_val=6.5"
+	bodyObject := map[string]interface{}{"int_body_val": "7"}
+	expected := map[string]interface{}{
+		"int32_val":      1,
+		"uint32_val":     uint(2),
+		"int64_val":      "3",
+		"uint64_val":     "4",
+		"true_bool_val":  true,
+		"false_bool_val": false,
+		"float_val":      float32(5.25),
+		"double_val":     float64(6.5),
+		"int_body_val":   "7",
+	}
+	methodParams := map[string]*endpoints.ApiRequestParamSpec{
+		"int32_val":      &endpoints.ApiRequestParamSpec{Type: "int32"},
+		"uint32_val":     &endpoints.ApiRequestParamSpec{Type: "uint32"},
+		"int64_val":      &endpoints.ApiRequestParamSpec{Type: "int64"},
+		"uint64_val":     &endpoints.ApiRequestParamSpec{Type: "uint64"},
+		"true_bool_val":  &endpoints.ApiRequestParamSpec{Type: "boolean"},
+		"false_bool_val": &endpoints.ApiRequestParamSpec{Type: "boolean"},
+		"float_val":      &endpoints.ApiRequestParamSpec{Type: "float"},
+		"double_val":     &endpoints.ApiRequestParamSpec{Type: "double"},
+		"int_body_val":   &endpoints.ApiRequestParamSpec{Type: "int32"},
+	}
+	err := transformRestRequest(server, pathParameters, queryParameters,
+		bodyObject, expected, methodParams)
+	assert.NoError(t, err)
+}*/
+
+// Verify that invalid parameter values for basic types raise errors.
+func TestInvalidConversions(t *testing.T) {
+	server := newEndpointsServer()
+	types := []string{"int32", "uint32", "boolean", "float", "double"}
+	for _, typeName := range types {
+		paramName := fmt.Sprintf("%s_val", typeName)
+		pathParameters := map[string]string{paramName: "invalid"}
+		//queryParameters := url.Values{}
+		queryParameters := ""
+		bodyObject := make(map[string]interface{})
+		expected := make(map[string]interface{})
+		methodParams := map[string]*endpoints.ApiRequestParamSpec{
+			paramName: &endpoints.ApiRequestParamSpec{Type: typeName},
+		}
+		err := transformRestRequest(server, pathParameters, queryParameters,
+			bodyObject, expected, methodParams)
+		e, ok := err.(*basicTypeParameterError)
+		if !ok {
+			t.Fatalf("Bad %s value should have caused failure.", typeName)
+		} else {
+			assert.Equal(t, e.parameterName, paramName)
+		}
+	}
 }

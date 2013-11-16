@@ -15,9 +15,9 @@
 package endpoint
 
 import (
-	"net/http"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
 func sendNotFoundResponse(w http.ResponseWriter, corsHandler corsHandler) string {
@@ -67,6 +67,16 @@ func sendRedirectResponse(redirectLocation string, w http.ResponseWriter, r *htt
 	if corsHandler != nil {
 		corsHandler.updateHeaders(w.Header())
 	}
+	w.Header().Set("Content-Length", "0")
 	http.Redirect(w, r, redirectLocation, http.StatusFound)
+	return ""
+}
+
+func sendNoContentResponse(w http.ResponseWriter, corsHandler corsHandler) string {
+	if corsHandler != nil {
+		corsHandler.updateHeaders(w.Header())
+	}
+	w.Header().Set("Content-Length", "0")
+	w.WriteHeader(http.StatusNoContent)
 	return ""
 }

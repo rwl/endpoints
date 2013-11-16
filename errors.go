@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"github.com/golang/glog"
+	"log"
 	"net/http"
 )
 
@@ -82,7 +82,7 @@ func (err *baseRequestError) restError() string {
 	errorJson := err.FormatError("errors")
 	rest, e := json.MarshalIndent(errorJson, "", "  ") // todo: sort keys
 	if e != nil {
-		glog.Errorf("Problem formatting error as REST response: %s", e.Error())
+		log.Printf("Problem formatting error as REST response: %s", e.Error())
 		return e.Error()
 	}
 	return string(rest)
@@ -93,20 +93,20 @@ func (err *baseRequestError) rpcError() map[string]interface{} {
 	return err.FormatError("data")
 }
 
-// Request rejection exception for enum values.
-type enumRejectionError struct {
+// Base type for invalid parameter errors.
+// Embedding types only need to set the message attribute.
+type invalidParameterError struct {
 	baseRequestError
-	parameterName string   // The name of the enum parameter which had a value rejected.
-	value         string   // The actual value passed in for the enum.
-	allowedValues []string // List of strings allowed for the enum.
+	parameterName string // The name of the enum parameter which had a value rejected.
+	value         string // The actual value passed in for the parameter.
 }
 
-func newEnumRejectionError(parameterName, value string, allowedValues []string) *enumRejectionError {
-	return &enumRejectionError{
+func newInvalidParameterError(parameterName, value string) *invalidParameterError {
+	return &invalidParameterError{
 		baseRequestError: baseRequestError{
-			code: 400,
-			message:    fmt.Sprintf("Invalid string value: %s. Allowed values: %v", value, allowedValues),
-			reason:     "invalidParameter",
+			code:    400,
+			message: fmt.Sprintf("Invalid value: %s", value),
+			reason:  "invalidParameter",
 			extraFields: map[string]interface{}{
 				"locationType": "parameter",
 				"location":     parameterName,
@@ -114,12 +114,41 @@ func newEnumRejectionError(parameterName, value string, allowedValues []string) 
 		},
 		parameterName: parameterName,
 		value:         value,
-		allowedValues: allowedValues,
 	}
 }
 
-func (err *enumRejectionError) Error() string {
+func (err *invalidParameterError) Error() string {
 	return err.message
+}
+
+// Request rejection exception for basic types (int, bool).
+type basicTypeParameterError struct {
+	invalidParameterError
+	typeName string // Descriptive name of the data type expected.
+}
+
+func newBasicTypeParameterError(parameterName, value, typeName string) *basicTypeParameterError {
+	paramError := &basicTypeParameterError{
+		*newInvalidParameterError(parameterName, value),
+		typeName,
+	}
+	paramError.message = fmt.Sprintf("Invalid %s value: %s", typeName, value)
+	return paramError
+}
+
+// Request rejection exception for enum values.
+type enumRejectionError struct {
+	invalidParameterError
+	allowedValues []string // Allowed values for the enum.
+}
+
+func newEnumRejectionError(parameterName, value string, allowedValues []string) *enumRejectionError {
+	enumErr := &enumRejectionError{
+		*newInvalidParameterError(parameterName, value),
+		allowedValues,
+	}
+	enumErr.message = fmt.Sprintf("Invalid string value: %s. Allowed values: %s", value, allowedValues)
+	return enumErr
 }
 
 // Error returned when the backend SPI returns an error code.
@@ -152,10 +181,10 @@ func newBackendError(response *http.Response) *backendError {
 
 	return &backendError{
 		baseRequestError: baseRequestError{
-			code: errorInfo.httpStatus,
-			message:    message,
-			reason:     errorInfo.reason,
-			domain:     errorInfo.domain,
+			code:    errorInfo.httpStatus,
+			message: message,
+			reason:  errorInfo.reason,
+			domain:  errorInfo.domain,
 		},
 		errorInfo: errorInfo,
 	}

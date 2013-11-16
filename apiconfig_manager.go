@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
-	"github.com/golang/glog"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -35,30 +35,30 @@ var pathVariablePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z_.\d]*`)
 //
 // Manages loading api configs and method lookup.
 type apiConfigManager struct {
-	rpcMethods map[lookupKey]*endpoints.ApiMethod
-	restMethods    []*restMethod
-	configs         map[lookupKey]*endpoints.ApiDescriptor
-	configLock     sync.Mutex
+	rpcMethods  map[lookupKey]*endpoints.ApiMethod
+	restMethods []*restMethod
+	_configs    map[lookupKey]*endpoints.ApiDescriptor
+	configLock  sync.Mutex
 }
 
 func newApiConfigManager() *apiConfigManager {
 	return &apiConfigManager{
-		rpcMethods: make(map[lookupKey]*endpoints.ApiMethod),
-		restMethods:    make([]*restMethod, 0),
-		configs:         make(map[lookupKey]*endpoints.ApiDescriptor),
-		configLock:     sync.Mutex{},
+		rpcMethods:  make(map[lookupKey]*endpoints.ApiMethod),
+		restMethods: make([]*restMethod, 0),
+		_configs:    make(map[lookupKey]*endpoints.ApiDescriptor),
+		configLock:  sync.Mutex{},
 	}
 }
 
 type lookupKey struct {
-	methodName  string
-	version     string
+	methodName string
+	version    string
 }
 
 type restMethod struct {
 	compiledPathPattern *regexp.Regexp // A compiled regex to match against the incoming URL.
-	path                  string       // The original path pattern (checked to prevent duplicates).
-	methods               map[string]*methodInfo
+	path                string         // The original path pattern (checked to prevent duplicates).
+	methods             map[string]*methodInfo
 }
 
 type methodInfo struct {
@@ -81,6 +81,19 @@ func convertHttpsToHttp(config *endpoints.ApiDescriptor) {
 	}
 }
 
+// Returns a map with the current configuration mappings.
+func (m *apiConfigManager) configs() map[lookupKey]*endpoints.ApiDescriptor {
+	cfg := make(map[lookupKey]*endpoints.ApiDescriptor)
+
+	m.configLock.Lock()
+	defer m.configLock.Unlock()
+
+	for k, v := range m._configs {
+		cfg[k] = v
+	}
+	return cfg
+}
+
 // Parses the JSON body of the getApiConfigs response and registers methods
 // for dispatch.
 //
@@ -95,8 +108,8 @@ func (m *apiConfigManager) parseApiConfigResponse(body string) error {
 
 	m.configLock.Lock()
 	defer m.configLock.Unlock()
-
 	m.addDiscoveryConfig()
+
 	items, ok := responseObj["items"]
 	if !ok {
 		return errors.New(`BackendService.getApiConfigs response missing "items" key.`)
@@ -114,15 +127,15 @@ func (m *apiConfigManager) parseApiConfigResponse(body string) error {
 		var config *endpoints.ApiDescriptor
 		err := json.Unmarshal([]byte(apiConfigJsonStr), &config)
 		if err != nil {
-			glog.Errorf("Can not parse API config: %s", apiConfigJsonStr)
+			log.Printf("Can not parse API config: %s", apiConfigJsonStr)
 		} else {
 			lookupKey := lookupKey{config.Name, config.Version}
 			convertHttpsToHttp(config)
-			m.configs[lookupKey] = config
+			m._configs[lookupKey] = config
 		}
 	}
 
-	for _, config := range m.configs {
+	for _, config := range m._configs {
 		name := config.Name
 		version := config.Version
 		sortedMethods := sortMethods(config.Methods)
@@ -194,7 +207,7 @@ func (m *apiConfigManager) lookupRestMethod(path, httpMethod string) (string, *e
 				rm.compiledPathPattern.FindStringSubmatch(path),
 			)
 			if err != nil {
-				glog.Errorf("Error extracting path [%s] parameters: %s",
+				log.Printf("Error extracting path [%s] parameters: %s",
 					path, err.Error())
 				continue
 			}
@@ -203,17 +216,21 @@ func (m *apiConfigManager) lookupRestMethod(path, httpMethod string) (string, *e
 			if ok {
 				return method.methodName, method.apiMethod, params
 			} else {
-				glog.Infof("No %s method found for path: %s", httpMethod, path)
+				log.Printf("No %s method found for path: %s", httpMethod, path)
 			}
 		}
 	}
-	glog.Infof("No endpoint found for path: %s", path)
+	log.Printf("No endpoint found for path: %s", path)
 	return "", nil, nil
 }
 
+// Add the Discovery configuration to our list of configs.
+//
+// This should only be called with configLock. The code here assumes
+// the lock is held.
 func (m *apiConfigManager) addDiscoveryConfig() {
 	lookupKey := lookupKey{discoveryApiConfig.Name, discoveryApiConfig.Version}
-	m.configs[lookupKey] = discoveryApiConfig
+	m._configs[lookupKey] = discoveryApiConfig
 }
 
 // Takes a string containing the parameter matched from the URL template and
@@ -242,7 +259,7 @@ func fromSafePathParamName(safeParameter string) (string, error) {
 	}
 	safeParameterAsBase32 := safeParameter[1:]
 
-	paddingLength := -len(safeParameterAsBase32)%8
+	paddingLength := -len(safeParameterAsBase32) % 8
 	if paddingLength < 0 {
 		paddingLength = paddingLength + 8
 	}
@@ -280,7 +297,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 	}
 	replacements := make([]string, len(idxs)/2)
 	for i := 0; i < len(idxs); i += 2 {
-		varName := ppp[idxs[i] + 1 : idxs[i + 1] - 1]
+		varName := ppp[idxs[i]+1 : idxs[i+1]-1]
 		ok := pathVariablePattern.MatchString(varName)
 		var replaced string
 		if !ok {
@@ -295,7 +312,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 	for i := 0; i < len(idxs); i += 2 {
 		pattern.WriteString(ppp[start:idxs[i]])
 		pattern.WriteString(replacements[i/2])
-		start = idxs[i + 1]
+		start = idxs[i+1]
 	}
 	pattern.WriteString(ppp[start:])
 
@@ -310,7 +327,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 //
 // (methodName, version) => method.
 func (m *apiConfigManager) saveRpcMethod(methodName, version string, method *endpoints.ApiMethod) {
-	glog.Infof("Registering RPC method: %s %s %s %s", methodName, version, method.HttpMethod, method.Path)
+	//log.Printf("Registering RPC method: %s %s %s %s", methodName, version, method.HttpMethod, method.Path)
 	m.rpcMethods[lookupKey{methodName, version}] = method
 }
 
@@ -354,10 +371,10 @@ func (m *apiConfigManager) saveRestMethod(methodName, apiName, version string, m
 	}
 	compiledPattern, err = compilePathPattern(pathPattern)
 	if err != nil {
-		glog.Errorln(err.Error()) // todo: handle error
+		log.Printf(err.Error()) // fixme: handle error
 		return
 	}
-	glog.Infof("Registering REST method: %s %s %s %s", apiName, version, methodName, pathPattern)
+	//log.Printf("Registering REST method: %s %s %s %s", apiName, version, methodName, pathPattern)
 	m.restMethods = append(m.restMethods,
 		&restMethod{
 			compiledPattern,

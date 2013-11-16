@@ -19,22 +19,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
-	"github.com/golang/glog"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
+	"log"
 	"net/http"
-	"strings"
 	"net/url"
+	"path"
+	"strings"
 )
 
 const defaultURL = "http://localhost:8080"
 const defaultRoot = "/_ah/api/"
+const spiRootFormat  = "/_ah/spi/%s"
 
-var (
-	spiRootFormat  = "/_ah/spi/%s"
-	apiExplorerUrl = "https://developers.google.com/apis-explorer/?base="
-)
+var apiExplorerUrl = "http://apis-explorer.appspot.com/apis-explorer/?base="
 
 // HTTP handler for requests to the built-in api-server handlers.
 type EndpointsServer struct {
@@ -107,7 +105,7 @@ func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) {
 	}
 
 	// Call the service.
-	_, err = ed.callSpi(w, ar)
+	_, err = callSpi(ed, w, ar)
 	if err != nil {
 		reqErr, ok := err.(requestError)
 		if ok {
@@ -137,6 +135,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 	}
 
 	response, body, err := getStaticFile(request.relativeUrl)
+
 	//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
@@ -145,11 +144,15 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 		// we're forwarding.  There may be other problematic headers, so we strip
 		// off everything but Content-Type.
 		w.Header().Add("Content-Type", response.Header.Get("Content-Type"))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
 		fmt.Fprintf(w, body)
 	} else {
-		glog.Errorf("Discovery API proxy failed on %s with %d. Details: %s",
+		log.Printf("Discovery API proxy failed on %s with %d. Details: %s",
 			request.relativeUrl, response.StatusCode, body)
-		http.Error(w, body, response.StatusCode)
+		w.Header().Add("Content-Type", response.Header.Get("Content-Type"))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+		w.WriteHeader(response.StatusCode)
+		fmt.Fprint(w, body)
 		return
 	}
 }
@@ -209,7 +212,7 @@ func (ed *EndpointsServer) handleApiConfigResponse(apiConfigResponse *http.Respo
 }
 
 // Generate SPI call (from earlier-saved request).
-func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiRequest) (string, error) {
+var callSpi = func(ed *EndpointsServer, w http.ResponseWriter, origRequest *apiRequest) (string, error) {
 	var methodConfig *endpoints.ApiMethod
 	var params map[string]string
 	if origRequest.isRpc() {
@@ -239,7 +242,8 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiReques
 	}
 
 	// Send the request to the user's SPI handlers.
-	url := ed.url + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
+	url := buildSpiUrl(ed, spiRequest)
+
 	req, err := http.NewRequest("POST", url, spiRequest.Body)
 	if err != nil {
 		return "", err
@@ -251,11 +255,16 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiReques
 	if err != nil {
 		return "", err
 	}
-	return ed.handleSpiResponse(origRequest, spiRequest, resp, w)
+	return handleSpiResponse(ed, origRequest, spiRequest, resp,
+		methodConfig, w)
+}
+
+var buildSpiUrl = func(ed *EndpointsServer, spiRequest *apiRequest) string {
+	return ed.url + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
 }
 
 // Handle SPI response, transforming output as needed.
-func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest, response *http.Response, w http.ResponseWriter) (string, error) {
+var handleSpiResponse = func(ed *EndpointsServer, origRequest, spiRequest *apiRequest, response *http.Response, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) (string, error) {
 	respBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", err
@@ -282,6 +291,13 @@ func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest
 	if origRequest.isRpc() {
 		body, err = ed.transformJsonrpcResponse(spiRequest, string(respBody))
 	} else {
+		// Check if the response from the SPI was empty. Empty REST responses
+		// generate a HTTP 204.
+		emptyResponse := ed.checkEmptyResponse(origRequest, methodConfig, w)
+		if emptyResponse {
+			return "", nil
+		}
+
 		body, err = ed.transformRestResponse(string(respBody))
 	}
 	if err != nil {
@@ -359,68 +375,6 @@ func (ed *EndpointsServer) transformRequest(origRequest *apiRequest, params map[
 	return request, nil
 }
 
-// Checks if the parameter value is valid if an enum.
-//
-// If the parameter is not an enum, it does nothing. If it is, verifies that
-// its value is valid.
-//
-// Takes the name of the parameter (Which is either just a variable name or
-// the name with the index appended. For example "var" or "var[2]".), the
-// value to be used as enum for the parameter and a spec containing
-// information specific to the field in question (This is retrieved from
-// request.Parameters in the method config.
-//
-// Returns an enumRejectionError if the given value is not among the accepted
-// enum values in the field parameter.
-func (ed *EndpointsServer) checkEnum(parameterName string, value string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
-	if fieldParameter == nil || fieldParameter.Enum == nil || len(fieldParameter.Enum) == 0 {
-		return nil
-	}
-
-	enumValues := make([]string, 0)
-	for _, enum := range fieldParameter.Enum {
-		if enum.BackendVal != "" {
-			enumValues = append(enumValues, enum.BackendVal)
-		}
-	}
-
-	for _, ev := range enumValues {
-		if value == ev {
-			return nil
-		}
-	}
-	return newEnumRejectionError(parameterName, value, enumValues)
-}
-
-// Recursively calls checkParameter on the values in the list.
-//
-// "[index-of-value]" is appended to the parameter name for
-// error reporting purposes.
-func (ed *EndpointsServer) checkParameters(parameterName string, values []string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
-	for index, element := range values {
-		parameterNameIndex := fmt.Sprintf("%s[%d]", parameterName, index)
-		err := ed.checkParameter(parameterNameIndex, element, fieldParameter)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Checks if the parameter value is valid against all parameter rules.
-//
-// Currently only checks if value adheres to enum rule, but more checks may be
-// added.
-//
-// Takes the name of the parameter (Which is either just a variable name or
-// the name with the index appended. For example "var" or "var[2]".), the
-// value to be used as enum for the parameter and a spec containing
-// information specific to the field in question (This is retrieved from
-// request.Parameters in the method config.
-func (ed *EndpointsServer) checkParameter(parameterName, value string, fieldParameter *endpoints.ApiRequestParamSpec) *enumRejectionError {
-	return ed.checkEnum(parameterName, value, fieldParameter)
-}
-
 // Converts a . delimitied field name to a message field in parameters.
 //
 // This adds the field to the params map, broken out so that message
@@ -451,7 +405,7 @@ func (ed *EndpointsServer) addMessageField(fieldName string, value interface{}, 
 	if ok {
 		subParams, ok = _subParams.(map[string]interface{})
 		if !ok {
-			glog.Errorf("Problem accessing sub-params: %#v", _subParams)
+			log.Printf("Problem accessing sub-params: %#v", _subParams)
 		}
 	} else {
 		subParams = make(map[string]interface{})
@@ -557,6 +511,9 @@ func (ed *EndpointsServer) transformRestRequest(origRequest *apiRequest,
 	// and would be replaced with "a".
 	for key, _ := range bodyJson {
 		currentParameter, ok := methodParameters[key]
+		if !ok {
+			currentParameter = &endpoints.ApiRequestParamSpec{}
+		}
 		repeated := false
 		if ok {
 			repeated = currentParameter.Repeated
@@ -578,27 +535,18 @@ func (ed *EndpointsServer) transformRestRequest(origRequest *apiRequest,
 
 		// Order is important here. Parameter names are dot-delimited in
 		// parameters instead of nested in maps as a message field is, so
-		// we need to call checkParameter on them before calling
+		// we need to call transformParameterValue on them before calling
 		// addMessageField.
+		bodyJson[key], err = transformParameterValue(key, bodyJson[key],
+			currentParameter)
+		if err != nil {
+			return request, err
+		}
 
-		value := bodyJson[key]
-		valStr, ok := value.(string)
-		var enumErr *enumRejectionError = nil
-		if ok {
-			enumErr = ed.checkParameter(key, valStr, currentParameter)
-		} else if valStrArr, ok := value.([]string); ok {
-			enumErr = ed.checkParameters(key, valStrArr, currentParameter)
-		} else {
-			panic(fmt.Sprintf("Param value not a string or string array: %v",
-				value))
-		}
-		if enumErr == nil {
-			// Remove the old key and try to convert to nested message value
-			delete(bodyJson, key)
-			ed.addMessageField(key, value, bodyJson)
-		} else {
-			return request, enumErr
-		}
+		// Remove the old key and try to convert to nested message value
+		messageValue := bodyJson[key]
+		delete(bodyJson, key)
+		ed.addMessageField(key, messageValue, bodyJson)
 	}
 
 	// Add in values from the body of the request.
@@ -677,6 +625,22 @@ func (ed *EndpointsServer) checkErrorResponse(response *http.Response) error {
 		return newBackendError(response)
 	}
 	return nil
+}
+
+// If the SPI response was empty, this returns a string containing the
+// response body that should be returned to the user.  If the SPI response
+// wasn't empty, this returns None, indicating that we should not exit early
+// with a 204.
+func (ed *EndpointsServer) checkEmptyResponse(origRequest *apiRequest, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) bool {
+	if methodConfig.Response.Body == "empty" {
+		// The response to this function should be empty.  We should return a 204.
+		// Note that it's possible that the SPI returned something, but we'll
+		// ignore it.  This matches the behavior in the Endpoints server.
+		corsHandler := newCheckCorsHeaders(origRequest.Request)
+		sendNoContentResponse(w, corsHandler)
+		return true
+	}
+	return false
 }
 
 // Translates an apiserving REST response so it's ready to return.
