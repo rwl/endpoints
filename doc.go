@@ -13,7 +13,8 @@
 // limitations under the License.
 
 /*
-Package endpoint implements a Google Cloud Endpoints server.
+package endpoints_server
+ implements a Google Cloud Endpoints server.
 
 The server does simple transforms on requests that come in to /_ah/api
 and then re-dispatches them to /_ah/spi.  It does not do any authentication,
@@ -23,4 +24,5 @@ In addition, the server loads api configs from
 /_ah/spi/BackendService.getApiConfigs prior to each call, in case the
 configuration has changed.
 */
-package endpoint
+package endpoints_server
+

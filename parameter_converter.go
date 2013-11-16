@@ -1,4 +1,5 @@
-package endpoint
+package endpoints_server
+
 
 import (
 	"fmt"

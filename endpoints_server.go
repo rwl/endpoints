@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package endpoint
+package endpoints_server
+
 
 import (
 	"bytes"
@@ -30,7 +31,7 @@ import (
 
 const defaultURL = "http://localhost:8080"
 const defaultRoot = "/_ah/api/"
-const spiRootFormat  = "/_ah/spi/%s"
+const spiRootFormat = "/_ah/spi/%s"
 
 var apiExplorerUrl = "http://apis-explorer.appspot.com/apis-explorer/?base="
 
