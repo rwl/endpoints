@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -54,7 +53,15 @@ func prepareTestServer(t *testing.T, config *endpoints.ApiDescriptor) *httptest.
 // Assert that dispatching a request to the SPI works.
 func assertDispatchToSpi(t *testing.T, request *apiRequest, config *endpoints.ApiDescriptor, spiPath string,
 	expectedSpiBodyJson map[string]interface{}) {
-	server := newMockEndpointsServer()
+	server := newEndpointsServer()
+	orig := handleSpiResponse
+	defer func() {
+		handleSpiResponse = orig
+	}()
+	handleSpiResponse = func(ed *EndpointsServer, origRequest, spiRequest *apiRequest, response *http.Response, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) (string, error) {
+		fmt.Fprint(w, "Test")
+		return "Test", nil
+	}
 	ts := prepareTestServer(t, config)
 	server.url = ts.URL
 	defer ts.Close()
@@ -85,29 +92,17 @@ func assertDispatchToSpi(t *testing.T, request *apiRequest, config *endpoints.Ap
 		body, _ := ioutil.ReadAll(r.Body)
 		assert.Equal(t, string(body), string(spiBody))
 		assert.Equal(t, r.Header.Get("Content-Type"), "application/json")
-
-		fmt.Fprint(w, "Test")
 	}))
 	defer ts2.Close()
-	orig := spiRootFormat
-	spiRootFormat = ts2.URL + spiRootFormat
-	defer func() {
-		spiRootFormat = orig
-	}()
 
-	server.On(
-		"handleSpiResponse",
-		mock.Anything, //OfType("*apiRequest"),
-		mock.Anything, //OfType("*apiRequest"),
-		mock.Anything, //OfType("*endpoints.ApiMethod"),
-		mock.Anything, //spi_response,
-		w,
-	).Return("Test", nil)
+	buildSpiUrl = func(ed *EndpointsServer, spiRequest *apiRequest) string {
+		return ts2.URL + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
+	}
 
-	response := server.serveHTTP(w, request)
-	server.Mock.AssertExpectations(t)
-
-	assert.Equal(t, "Test", response)
+	server.serveHTTP(w, request)
+	response, err := ioutil.ReadAll(w.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, "Test", string(response))
 }
 
 func TestDispatchInvalidPath(t *testing.T) {
@@ -130,8 +125,10 @@ func TestDispatchInvalidPath(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
+	mux := http.NewServeMux()
+	server.HandleHttp(mux)
+	mux.ServeHTTP(w, request)
 	server.HandleHttp(nil)
-	http.DefaultServeMux.ServeHTTP(w, request)
 
 	header := make(http.Header)
 	header.Set("Content-Type", "text/plain")
@@ -200,7 +197,7 @@ func TestDispatchInvalidEnum(t *testing.T) {
 
 // Check the error response if the SPI returns an error.
 func TestDispatchSpiError(t *testing.T) {
-	server := newMockEndpointsServerSpi()
+	server := newEndpointsServer()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -229,14 +226,16 @@ func TestDispatchSpiError(t *testing.T) {
 			),
 		),
 	}
-	server.On(
-		"callSpi",
-		mock.Anything,
-		request,
-	).Return("", newBackendError(response))
+	orig := callSpi
+	defer func() {
+		callSpi = orig
+	}()
+	callSpi = func(ed *EndpointsServer, w http.ResponseWriter, origRequest *apiRequest) (string, error) {
+		assert.Equal(t, origRequest, request)
+		return "", newBackendError(response)
+	}
 
 	server.serveHTTP(w, request)
-	server.Mock.AssertExpectations(t)
 
 	expectedResponse := `{
   "error": {
@@ -259,7 +258,7 @@ func TestDispatchSpiError(t *testing.T) {
 
 // Test than an RPC call that returns an error is handled properly.
 func TestDispatchRpcError(t *testing.T) {
-	server := newMockEndpointsServerSpi()
+	server := newEndpointsServer()
 	config := &endpoints.ApiDescriptor{
 		Name:    "guestbook_api",
 		Version: "v1",
@@ -292,14 +291,18 @@ func TestDispatchRpcError(t *testing.T) {
 			),
 		),
 	}
-	server.On(
-		"callSpi",
-		mock.Anything,
-		request,
-	).Return("", newBackendError(response))
+	orig := callSpi
+	defer func() {
+		callSpi = orig
+	}()
+	callSpi = func(ed *EndpointsServer, w http.ResponseWriter, origRequest *apiRequest) (string, error) {
+		assert.Equal(t, origRequest, request)
+		return "", newBackendError(response)
+	}
 
-	responseBody := server.serveHTTP(w, request)
-	server.Mock.AssertExpectations(t)
+	/*responseBody := */ server.serveHTTP(w, request)
+	responseBody, err := ioutil.ReadAll(w.Body)
+	assert.NoError(t, err)
 
 	expectedResponse := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -317,7 +320,7 @@ func TestDispatchRpcError(t *testing.T) {
 	}
 	assert.Equal(t, w.Code, 200)
 	var responseJson interface{}
-	err := json.Unmarshal([]byte(responseBody), &responseJson)
+	err = json.Unmarshal(responseBody, &responseJson)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedResponse, responseJson)
 }
@@ -374,62 +377,78 @@ func TestExplorerRedirect(t *testing.T) {
 	assertHttpMatchRecorder(t, w, 302, header, body)
 }
 
-/*func TestStaticExistingFile(t *testing.T) {
+func TestStaticExistingFile(t *testing.T) {
 	relativeUrl := "/_ah/api/static/proxy.html"
 
 	w := httptest.NewRecorder()
+	server := newEndpointsServer()
 
-	// Set up mocks for the call to DiscoveryApiProxy.get_static_file.
-	discoveryApi := &MockDiscoveryApiProxy{}
-	server := newEndpointsServerConfig(
-		&http.Client{},
-		newApiConfigManager(),
-		discoveryApi,
-	)
 	testBody := "test body"
-	discoveryApi.On(
-		"getStaticFile",
-		relativeUrl,
-	).Return(mock.Anything, //staticResponse,
-		test_body, nil)
+	staticResponse := &http.Response{
+		Status:        "200 OK",
+		StatusCode:    200,
+		Header:        http.Header{"Content-Type": []string{"test/type"}},
+		ContentLength: int64(len(testBody)),
+		Body:          ioutil.NopCloser(bytes.NewBufferString(testBody)),
+	}
+	orig := getStaticFile
+	defer func() {
+		getStaticFile = orig
+	}()
+	getStaticFile = func(path string) (*http.Response, string, error) {
+		assert.Equal(t, path, relativeUrl)
+		return staticResponse, testBody, nil
+	}
 
 	// Make sure the dispatch works as expected.
-	request := buildApiRequest(relativeUrl, "", nil)
-	response := server.dispatch(request, w)
-	server.Mock.AssertExpectations(t)
+	request := buildRequest(relativeUrl, "", nil)
 
-	header := new(Header)
+	mux := http.NewServeMux()
+	server.HandleHttp(mux)
+	mux.ServeHTTP(w, request)
+
+	header := make(http.Header)
 	header.Set("Content-Length", fmt.Sprintf("%d", len(testBody)))
 	header.Set("Content-Type", "test/type")
-	assert_http_match(t, response, 200, header, testBody)
-}*/
+	assertHttpMatchRecorder(t, w, 200, header, testBody)
+}
 
-/*func TestStaticNonExistingFile(t *testing.T) {
+func TestStaticNonExistingFile(t *testing.T) {
 	relativeUrl := "/_ah/api/static/blah.html"
 
-	// Set up mocks for the call to getStaticFile.
-	discoveryApi = mox.CreateMock(DiscoveryApiProxy)
-	mox.StubOutWithMock(discoveryApiProxy, "DiscoveryApiProxy")
-	discoveryApiProxy.DiscoveryApiProxy().AndReturn(discoveryApi)
-	staticResponse = mox.CreateMock(httplib.HTTPResponse)
-	staticResponse.status = 404
-	staticResponse.reason = "Not Found"
-	staticResponse.Headers().AndReturn(map[string]string{"Content-Type": "test/type"})
-	testBody = "No Body"
-	getStaticFile(relativeUrl).AndReturn(staticResponse, testBody)
+	w := httptest.NewRecorder()
+	server := newEndpointsServer()
+
+	testBody := "No Body"
+	staticResponse := &http.Response{
+		Status:        "404 Not Found",
+		StatusCode:    404,
+		Header:        http.Header{"Content-Type": []string{"test/type"}},
+		ContentLength: int64(len(testBody)),
+		Body:          ioutil.NopCloser(bytes.NewBufferString(testBody)),
+	}
+
+	orig := getStaticFile
+	defer func() {
+		getStaticFile = orig
+	}()
+	getStaticFile = func(path string) (*http.Response, string, error) {
+		assert.Equal(t, path, relativeUrl)
+		return staticResponse, testBody, nil
+	}
 
 	// Make sure the dispatch works as expected.
-	request = buildApiRequest(relativeUrl, "", nil)
-	mox.ReplayAll()
-	response = server.dispatch(request, self.start_response)
-	mox.VerifyAll()
+	request := buildRequest(relativeUrl, "", nil)
 
-	response := "".join(response)
-	header := new(Header)
+	mux := http.NewServeMux()
+	server.HandleHttp(mux)
+	mux.ServeHTTP(w, request)
+
+	header := make(http.Header)
 	header.Set("Content-Length", fmt.Sprintf("%d", len(testBody)))
 	header.Set("Content-Type", "test/type")
-	assertHttpMatch(t, response, 404, header, testBody)
-}*/
+	assertHttpMatchRecorder(t, w, 404, header, testBody)
+}
 
 func TestHandleNonJsonSpiResponse(t *testing.T) {
 	server := newEndpointsServer()
@@ -445,7 +464,7 @@ func TestHandleNonJsonSpiResponse(t *testing.T) {
 		StatusCode: 200,
 		Status:     "200 OK",
 	}
-	server.handleSpiResponse(origRequest, spiRequest, spiResponse,
+	handleSpiResponse(server, origRequest, spiRequest, spiResponse,
 		&endpoints.ApiMethod{}, w)
 	errorJson := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -505,7 +524,7 @@ func TestHandleSpiResponseJsonRpc(t *testing.T) {
 		Body:       ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
 	}
 
-	response, err := server.handleSpiResponse(origRequest, spiRequest,
+	response, err := handleSpiResponse(server, origRequest, spiRequest,
 		spiResponse, &endpoints.ApiMethod{}, w)
 	assert.NoError(t, err)
 
@@ -542,7 +561,7 @@ func TestHandleSpiResponseBatchJsonRpc(t *testing.T) {
 		Body:       ioutil.NopCloser(bytes.NewBufferString(`{"some": "response"}`)),
 	}
 
-	response, err := server.handleSpiResponse(origRequest, spiRequest,
+	response, err := handleSpiResponse(server, origRequest, spiRequest,
 		spiResponse, &endpoints.ApiMethod{}, w)
 	assert.NoError(t, err)
 
@@ -575,7 +594,7 @@ func TestHandleSpiResponseRest(t *testing.T) {
 		Header:     http.Header{"a": []string{"b"}},
 		Body:       ioutil.NopCloser(bytes.NewBuffer(body)),
 	}
-	_, err = server.handleSpiResponse(origRequest, spiRequest,
+	_, err = handleSpiResponse(server, origRequest, spiRequest,
 		spiResponse, &endpoints.ApiMethod{}, w)
 	assert.NoError(t, err)
 	header := http.Header{

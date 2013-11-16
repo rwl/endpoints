@@ -89,7 +89,7 @@ func checkCors(t *testing.T, requestHeaders http.Header, expectResponse bool,
 	server := newEndpointsServer()
 	w := httptest.NewRecorder()
 
-	response, err := server.handleSpiResponse(origRequest, spiRequest,
+	response, err := handleSpiResponse(server, origRequest, spiRequest,
 		serverResponse, &endpoints.ApiMethod{}, w)
 	assert.NoError(t, err)
 

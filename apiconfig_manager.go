@@ -327,7 +327,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 //
 // (methodName, version) => method.
 func (m *apiConfigManager) saveRpcMethod(methodName, version string, method *endpoints.ApiMethod) {
-	log.Printf("Registering RPC method: %s %s %s %s", methodName, version, method.HttpMethod, method.Path)
+	//log.Printf("Registering RPC method: %s %s %s %s", methodName, version, method.HttpMethod, method.Path)
 	m.rpcMethods[lookupKey{methodName, version}] = method
 }
 
@@ -374,7 +374,7 @@ func (m *apiConfigManager) saveRestMethod(methodName, apiName, version string, m
 		log.Printf(err.Error()) // fixme: handle error
 		return
 	}
-	log.Printf("Registering REST method: %s %s %s %s", apiName, version, methodName, pathPattern)
+	//log.Printf("Registering REST method: %s %s %s %s", apiName, version, methodName, pathPattern)
 	m.restMethods = append(m.restMethods,
 		&restMethod{
 			compiledPattern,

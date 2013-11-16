@@ -17,9 +17,7 @@ package endpoint
 import (
 	"bytes"
 	"fmt"
-	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -78,101 +76,4 @@ func assertHttpMatchRecorder(t *testing.T, recorder *httptest.ResponseRecorder,
 
 	// Convert the body to a string.
 	assert.Equal(t, expectedBody, recorder.Body.String())
-}
-
-type MockEndpointsServer struct {
-	mock.Mock
-	*EndpointsServer
-}
-
-func newMockEndpointsServer() *MockEndpointsServer {
-	return &MockEndpointsServer{
-		EndpointsServer: newEndpointsServer(),
-	}
-}
-
-// fixme: mock handleSpiResponse without duplicating serveHTTP
-func (ed *MockEndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) string {
-	apiConfigResponse, _ := ed.getApiConfigs()
-	ed.handleApiConfigResponse(apiConfigResponse)
-	body, _ := ed.callSpi(w, ar)
-	return body
-}
-
-// fixme: mock handleSpiResponse without duplicating callSpi
-func (ed *MockEndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiRequest) (string, error) {
-	var methodConfig *endpoints.ApiMethod
-	var params map[string]string
-	if origRequest.isRpc() {
-		methodConfig = ed.lookupRpcMethod(origRequest)
-		params = nil
-	} else {
-		methodConfig, params = ed.lookupRestMethod(origRequest)
-	}
-
-	spiRequest, _ := ed.transformRequest(origRequest, params, methodConfig)
-
-	discovery := newDiscoveryService(ed.configManager)
-	discoveryResponse, ok := discovery.handleDiscoveryRequest(
-		spiRequest.URL.Path, spiRequest, w)
-	if ok {
-		return discoveryResponse, nil
-	}
-
-	url := fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
-	req, _ := http.NewRequest("POST", url, spiRequest.Body)
-	req.Header.Add("Content-Type", "application/json")
-	req.RemoteAddr = spiRequest.RemoteAddr
-	client := &http.Client{}
-	resp, _ := client.Do(req)
-	return ed.handleSpiResponse(origRequest, spiRequest, resp, methodConfig, w)
-}
-
-func (ed *MockEndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest,
-	response *http.Response, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) (string, error) {
-	args := ed.Mock.Called(origRequest, spiRequest, methodConfig, response, w)
-	return args.String(0), args.Error(1)
-}
-
-type MockEndpointsServerSpi struct {
-	mock.Mock
-	*EndpointsServer
-}
-
-func newMockEndpointsServerSpi() *MockEndpointsServerSpi {
-	return &MockEndpointsServerSpi{
-		EndpointsServer: newEndpointsServer(),
-	}
-}
-
-// fixme: mock callSpi without duplicating serveHTTP
-func (ed *MockEndpointsServerSpi) serveHTTP(w http.ResponseWriter, ar *apiRequest) string {
-	// Get API configuration first.  We need this so we know how to
-	// call the back end.
-	apiConfigResponse, err := ed.getApiConfigs()
-	if err != nil {
-		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
-	}
-	err = ed.handleApiConfigResponse(apiConfigResponse)
-	if err != nil {
-		return ed.failRequest(w, ar.Request, "BackendService.getApiConfigs Error: "+err.Error())
-	}
-
-	// Call the service.
-	body, err := ed.callSpi(w, ar)
-	if err != nil {
-		reqErr, ok := err.(requestError)
-		if ok {
-			return ed.handleRequestError(w, ar, reqErr)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return body
-		}
-	}
-	return body
-}
-
-func (ed *MockEndpointsServerSpi) callSpi(w http.ResponseWriter, origRequest *apiRequest) (string, error) {
-	args := ed.Mock.Called(w, origRequest)
-	return args.String(0), args.Error(1)
 }

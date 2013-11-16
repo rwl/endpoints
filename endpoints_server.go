@@ -30,11 +30,9 @@ import (
 
 const defaultURL = "http://localhost:8080"
 const defaultRoot = "/_ah/api/"
+const spiRootFormat  = "/_ah/spi/%s"
 
-var (
-	spiRootFormat  = "/_ah/spi/%s"
-	apiExplorerUrl = "http://apis-explorer.appspot.com/apis-explorer/?base="
-)
+var apiExplorerUrl = "http://apis-explorer.appspot.com/apis-explorer/?base="
 
 // HTTP handler for requests to the built-in api-server handlers.
 type EndpointsServer struct {
@@ -106,7 +104,7 @@ func (ed *EndpointsServer) serveHTTP(w http.ResponseWriter, ar *apiRequest) {
 	}
 
 	// Call the service.
-	_, err = ed.callSpi(w, ar)
+	_, err = callSpi(ed, w, ar)
 	if err != nil {
 		reqErr, ok := err.(requestError)
 		if ok {
@@ -135,6 +133,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 	}
 
 	response, body, err := getStaticFile(request.relativeUrl)
+
 	//	status_string := fmt.Sprintf("%d %s", response.status, response.reason)
 	if err == nil && response.StatusCode == 200 {
 		// Some of the headers that come back from the server can't be passed
@@ -143,11 +142,15 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 		// we're forwarding.  There may be other problematic headers, so we strip
 		// off everything but Content-Type.
 		w.Header().Add("Content-Type", response.Header.Get("Content-Type"))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
 		fmt.Fprintf(w, body)
 	} else {
 		log.Printf("Discovery API proxy failed on %s with %d. Details: %s",
 			request.relativeUrl, response.StatusCode, body)
-		http.Error(w, body, response.StatusCode)
+		w.Header().Add("Content-Type", response.Header.Get("Content-Type"))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(body)))
+		w.WriteHeader(response.StatusCode)
+		fmt.Fprint(w, body)
 	}
 }
 
@@ -206,7 +209,7 @@ func (ed *EndpointsServer) handleApiConfigResponse(apiConfigResponse *http.Respo
 }
 
 // Generate SPI call (from earlier-saved request).
-func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiRequest) (string, error) {
+var callSpi = func(ed *EndpointsServer, w http.ResponseWriter, origRequest *apiRequest) (string, error) {
 	var methodConfig *endpoints.ApiMethod
 	var params map[string]string
 	if origRequest.isRpc() {
@@ -236,7 +239,8 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiReques
 	}
 
 	// Send the request to the user's SPI handlers.
-	url := ed.url + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
+	url := buildSpiUrl(ed, spiRequest)
+
 	req, err := http.NewRequest("POST", url, spiRequest.Body)
 	if err != nil {
 		return "", err
@@ -248,12 +252,16 @@ func (ed *EndpointsServer) callSpi(w http.ResponseWriter, origRequest *apiReques
 	if err != nil {
 		return "", err
 	}
-	return ed.handleSpiResponse(origRequest, spiRequest, resp,
+	return handleSpiResponse(ed, origRequest, spiRequest, resp,
 		methodConfig, w)
 }
 
+var buildSpiUrl = func(ed *EndpointsServer, spiRequest *apiRequest) string {
+	return ed.url + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
+}
+
 // Handle SPI response, transforming output as needed.
-func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest, response *http.Response, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) (string, error) {
+var handleSpiResponse = func(ed *EndpointsServer, origRequest, spiRequest *apiRequest, response *http.Response, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) (string, error) {
 	respBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", err
