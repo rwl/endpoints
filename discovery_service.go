@@ -17,9 +17,9 @@ package endpoint
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/rwl/go-endpoints/endpoints"
 	"net/http"
+	"log"
 )
 
 const getRestApi = "apisdev.getRest"
@@ -85,13 +85,13 @@ func (ds *discoveryService) getRpcOrRest(apiFormat apiFormat, request *apiReques
 	lookupKey := lookupKey{apiStr, versionStr}
 	apiConfig, ok := ds.configManager.configs()[lookupKey]
 	if !ok {
-		glog.Infof("No discovery doc for version %s of api %s", version, api)
+		log.Printf("No discovery doc for version %s of api %s", version, api)
 		return sendNotFoundResponse(w, nil)
 	}
 	doc, err := generateDiscoveryDoc(apiConfig, apiFormat)
 	if err != nil {
 		errorMsg := fmt.Sprintf(`Failed to convert .api to discovery doc for version "%s" of api "%s": %s`, version, api, err.Error())
-		glog.Error(errorMsg)
+		log.Println(errorMsg)
 		return sendErrorResponse(errorMsg, w, nil)
 	}
 	return sendSuccessResponse(doc, w)
@@ -104,7 +104,7 @@ func (ds *discoveryService) list(w http.ResponseWriter) string {
 		if apiConfig != discoveryApiConfig {
 			ac, err := json.Marshal(apiConfig)
 			if err != nil {
-				glog.Errorf("Failed to marshal API config: %v", apiConfig)
+				log.Printf("Failed to marshal API config: %v", apiConfig)
 				return sendNotFoundResponse(w, nil)
 			}
 			apiConfigs = append(apiConfigs, string(ac))
@@ -112,7 +112,7 @@ func (ds *discoveryService) list(w http.ResponseWriter) string {
 	}
 	directory, err := generateDiscoveryDirectory(apiConfigs)
 	if err != nil {
-		glog.Errorf("Failed to get API directory: %s", err.Error())
+		log.Printf("Failed to get API directory: %s", err.Error())
 		// By returning a 404, code explorer still works if you select the
 		// API in the URL
 		return sendNotFoundResponse(w, nil)

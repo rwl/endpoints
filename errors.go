@@ -17,9 +17,9 @@ package endpoint
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"net/http"
+	"log"
 )
 
 // Errors used in the local Cloud Endpoints server.
@@ -82,7 +82,7 @@ func (err *baseRequestError) restError() string {
 	errorJson := err.FormatError("errors")
 	rest, e := json.MarshalIndent(errorJson, "", "  ") // todo: sort keys
 	if e != nil {
-		glog.Errorf("Problem formatting error as REST response: %s", e.Error())
+		log.Printf("Problem formatting error as REST response: %s", e.Error())
 		return e.Error()
 	}
 	return string(rest)

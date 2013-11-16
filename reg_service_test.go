@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"fmt"
-	"github.com/golang/glog"
 	"strconv"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"log"
 )
 
 type VoidMessage struct{}
@@ -89,7 +89,7 @@ func (s *TestService) EchoDateMessage(_ *http.Request, req *TimeMessage, resp *T
 
 func (s *TestService) EchoDatetimeField(_ *http.Request, req *TestDateTime, resp *TestDateTime) error {
 	// Make sure we can access the fields of the datetime object.
-	glog.Infof("Year %d, Month %d", req.Date.Year(), req.Date.Month())
+	log.Printf("Year %d, Month %d", req.Date.Year(), req.Date.Month())
 	resp.Date = req.Date
 	return nil
 }
@@ -110,7 +110,7 @@ func (s *TestService) IncrementIntegers(_ *http.Request, req *TestIntegers, resp
 }
 
 func (s *TestService) EchoBytes(_ *http.Request, req *TestBytes, resp *TestBytes) error {
-	glog.Infof("Found bytes: %s", string(req.BytesValue))
+	log.Printf("Found bytes: %s", string(req.BytesValue))
 	resp.BytesValue = req.BytesValue
 	return nil
 }

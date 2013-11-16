@@ -20,11 +20,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/rwl/go-endpoints/endpoints"
 	"regexp"
 	"strings"
 	"sync"
+	"log"
 )
 
 const pathValuePattern = `[^:/?#\[\]{}]*`
@@ -127,7 +127,7 @@ func (m *apiConfigManager) parseApiConfigResponse(body string) error {
 		var config *endpoints.ApiDescriptor
 		err := json.Unmarshal([]byte(apiConfigJsonStr), &config)
 		if err != nil {
-			glog.Errorf("Can not parse API config: %s", apiConfigJsonStr)
+			log.Printf("Can not parse API config: %s", apiConfigJsonStr)
 		} else {
 			lookupKey := lookupKey{config.Name, config.Version}
 			convertHttpsToHttp(config)
@@ -207,7 +207,7 @@ func (m *apiConfigManager) lookupRestMethod(path, httpMethod string) (string, *e
 				rm.compiledPathPattern.FindStringSubmatch(path),
 			)
 			if err != nil {
-				glog.Errorf("Error extracting path [%s] parameters: %s",
+				log.Printf("Error extracting path [%s] parameters: %s",
 					path, err.Error())
 				continue
 			}
@@ -216,11 +216,11 @@ func (m *apiConfigManager) lookupRestMethod(path, httpMethod string) (string, *e
 			if ok {
 				return method.methodName, method.apiMethod, params
 			} else {
-				glog.Infof("No %s method found for path: %s", httpMethod, path)
+				log.Printf("No %s method found for path: %s", httpMethod, path)
 			}
 		}
 	}
-	glog.Infof("No endpoint found for path: %s", path)
+	log.Printf("No endpoint found for path: %s", path)
 	return "", nil, nil
 }
 
@@ -327,7 +327,7 @@ func compilePathPattern(ppp string) (*regexp.Regexp, error) {
 //
 // (methodName, version) => method.
 func (m *apiConfigManager) saveRpcMethod(methodName, version string, method *endpoints.ApiMethod) {
-	glog.Infof("Registering RPC method: %s %s %s %s", methodName, version, method.HttpMethod, method.Path)
+	log.Printf("Registering RPC method: %s %s %s %s", methodName, version, method.HttpMethod, method.Path)
 	m.rpcMethods[lookupKey{methodName, version}] = method
 }
 
@@ -371,10 +371,10 @@ func (m *apiConfigManager) saveRestMethod(methodName, apiName, version string, m
 	}
 	compiledPattern, err = compilePathPattern(pathPattern)
 	if err != nil {
-		glog.Errorln(err.Error()) // todo: handle error
+		log.Printf(err.Error()) // fixme: handle error
 		return
 	}
-	glog.Infof("Registering REST method: %s %s %s %s", apiName, version, methodName, pathPattern)
+	log.Printf("Registering REST method: %s %s %s %s", apiName, version, methodName, pathPattern)
 	m.restMethods = append(m.restMethods,
 		&restMethod{
 			compiledPattern,

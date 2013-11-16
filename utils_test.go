@@ -17,7 +17,6 @@ package endpoint
 import (
 	"bytes"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -25,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"log"
 )
 
 // Build an apiRequest for the given path and body.
@@ -32,7 +32,7 @@ func buildApiRequest(url, body string, httpHeaders http.Header) *apiRequest {
 	req := buildRequest(url, body, httpHeaders)
 	apiRequest, err := newApiRequest(req)
 	if err != nil {
-		glog.Fatal(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	return apiRequest
@@ -43,7 +43,7 @@ func buildRequest(url, body string, httpHeaders http.Header) *http.Request {
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:42%s", url),
 		ioutil.NopCloser(bytes.NewBufferString(body)))
 	if err != nil {
-		glog.Fatal(err.Error())
+		log.Fatal(err.Error())
 	}
 	req.Header.Set("Content-Type", "application/json")
 

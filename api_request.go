@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
+	"log"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -87,9 +87,9 @@ func newApiRequest(r *http.Request) (*apiRequest, error) {
 			return nil, errors.New("Batch request has zero parts")
 		case 1:
 		default:
-			glog.Errorf(`Batch requests with more than 1 element aren't supported. Only the first element will be handled. Found %d elements.`, n)
+			log.Printf(`Batch requests with more than 1 element aren't supported. Only the first element will be handled. Found %d elements.`, n)
 		}
-		glog.Info("Converting batch request to single request.")
+		log.Println("Converting batch request to single request.")
 		ar.bodyJson = bodyJsonArray[0]
 		bodyBytes, err := json.Marshal(ar.bodyJson)
 		ar.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))

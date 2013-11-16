@@ -19,13 +19,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"log"
 )
 
 const defaultURL = "http://localhost:8080"
@@ -145,7 +145,7 @@ func (ed *EndpointsServer) HandleApiStaticRequest(w http.ResponseWriter, r *http
 		w.Header().Add("Content-Type", response.Header.Get("Content-Type"))
 		fmt.Fprintf(w, body)
 	} else {
-		glog.Errorf("Discovery API proxy failed on %s with %d. Details: %s",
+		log.Printf("Discovery API proxy failed on %s with %d. Details: %s",
 			request.relativeUrl, response.StatusCode, body)
 		http.Error(w, body, response.StatusCode)
 	}
@@ -394,7 +394,7 @@ func (ed *EndpointsServer) addMessageField(fieldName string, value interface{}, 
 	if ok {
 		subParams, ok = _subParams.(map[string]interface{})
 		if !ok {
-			glog.Errorf("Problem accessing sub-params: %#v", _subParams)
+			log.Printf("Problem accessing sub-params: %#v", _subParams)
 		}
 	} else {
 		subParams = make(map[string]interface{})
