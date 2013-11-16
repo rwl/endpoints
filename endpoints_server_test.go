@@ -95,9 +95,13 @@ func assertDispatchToSpi(t *testing.T, request *apiRequest, config *endpoints.Ap
 	}))
 	defer ts2.Close()
 
+	save := buildSpiUrl
 	buildSpiUrl = func(ed *EndpointsServer, spiRequest *apiRequest) string {
 		return ts2.URL + fmt.Sprintf(spiRootFormat, spiRequest.URL.Path)
 	}
+	defer func() {
+		buildSpiUrl = save
+	}()
 
 	server.serveHTTP(w, request)
 	response, err := ioutil.ReadAll(w.Body)

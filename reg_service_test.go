@@ -193,7 +193,7 @@ func initTestApi(t *testing.T) *httptest.Server {
 	if err != nil {
 		panic(err.Error())
 	}
-	server := NewEndpointsServer("", u)
+	server := NewEndpointsServer(u)
 	server.HandleHttp(mux)
 
 	return ts

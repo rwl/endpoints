@@ -11,8 +11,6 @@ To install simply run:
 go get github.com/rwl/endpoints_server
 ```
 
-## Test
-
 To run the tests execute:
 
 ```
@@ -23,8 +21,8 @@ go test github.com/rwl/endpoints_server
   <img src="https://api.travis-ci.org/rwl/endpoints_server.png?branch=master,go1" alt="Build Status">
 </a>
 
-## Example
+## Usage
 
-A Greeting API example is available here:
+Documentation and examples are available at:
 
-> [https://github.com/philips/endpoint-hello](https://github.com/philips/endpoint-hello)
+> [http://godoc.org/github.com/rwl/endpoints_server](http://godoc.org/github.com/rwl/endpoints_server)
