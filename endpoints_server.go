@@ -14,7 +14,6 @@
 
 package endpoints_server
 
-
 import (
 	"bytes"
 	"encoding/json"
@@ -50,7 +49,11 @@ type EndpointsServer struct {
 
 // NewEndpointsServer returns a new EndpointsServer that will dispatch
 // SPI requests to the given URL.
-func NewEndpointsServer(root string, URL *url.URL) *EndpointsServer {
+func NewEndpointsServer(URL *url.URL) *EndpointsServer {
+	return newEndpointsServerConfig(newApiConfigManager(), "", URL)
+}
+
+func NewEndpointsServerRoot(root string, URL *url.URL) *EndpointsServer {
 	return newEndpointsServerConfig(newApiConfigManager(), root, URL)
 }
 
