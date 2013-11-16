@@ -1,6 +1,5 @@
 package endpoints_server
 
-
 import (
 	"net/http"
 	"net/http/httptest"

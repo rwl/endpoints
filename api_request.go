@@ -14,7 +14,6 @@
 
 package endpoints_server
 
-
 import (
 	"bytes"
 	"encoding/json"

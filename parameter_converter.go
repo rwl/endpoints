@@ -1,6 +1,5 @@
 package endpoints_server
 
-
 import (
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"

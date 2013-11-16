@@ -1,7 +1,6 @@
 // Test service for regression testing of Cloud Endpoints support.
 package endpoints_server
 
-
 import (
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"

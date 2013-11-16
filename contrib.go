@@ -4,7 +4,6 @@
 
 package endpoints_server
 
-
 import "fmt"
 
 // braceIndices returns the first level curly brace indices from a string.

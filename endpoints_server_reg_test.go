@@ -14,7 +14,6 @@
 
 package endpoints_server
 
-
 // Regression tests for Endpoints server.
 
 import (

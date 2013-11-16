@@ -14,7 +14,6 @@
 
 package endpoints_server
 
-
 import (
 	"github.com/rwl/go-endpoints/endpoints"
 	"sort"

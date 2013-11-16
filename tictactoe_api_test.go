@@ -14,7 +14,6 @@
 
 package endpoints_server
 
-
 const apiConfigJson = `
 {
   "extends" : "thirdParty.api",

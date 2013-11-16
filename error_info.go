@@ -14,7 +14,6 @@
 
 package endpoints_server
 
-
 // Mapping of error codes.
 //
 // Provides functionality to convert HTTP error codes from the SPI to
