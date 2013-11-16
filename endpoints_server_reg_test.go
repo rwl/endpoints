@@ -59,7 +59,7 @@ func TestRestPost(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	resp, err := http.Post(ts.URL + "/_ah/api/test_service/v1/t2path",
+	resp, err := http.Post(ts.URL+"/_ah/api/test_service/v1/t2path",
 		"application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	assert.Equal(t, resp.StatusCode, 200)
@@ -84,7 +84,7 @@ func TestCors(t *testing.T) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET",
-			ts.URL + "/_ah/api/test_service/v1/test", nil)
+		ts.URL+"/_ah/api/test_service/v1/test", nil)
 
 	req.Header.Set("Origin", "test.com")
 	req.Header.Set("Access-control-request-method", "GET")
@@ -125,7 +125,7 @@ func TestRpc(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	resp, err := http.Post(ts.URL + "/_ah/api/rpc",
+	resp, err := http.Post(ts.URL+"/_ah/api/rpc",
 		"application-rpc", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	assert.Equal(t, resp.StatusCode, 200)
@@ -159,7 +159,7 @@ func TestEchoDatetimeMessage(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	resp, err := http.Post(ts.URL + "/_ah/api/test_service/v1/echodatemessage",
+	resp, err := http.Post(ts.URL+"/_ah/api/test_service/v1/echodatemessage",
 		"application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	assert.Equal(t, resp.StatusCode, 200)
@@ -190,7 +190,7 @@ func TestEchoDatetimeField(t *testing.T) {
 	body, err := json.Marshal(bodyJson)
 	assert.NoError(t, err)
 
-	resp, err := http.Post(ts.URL + "/_ah/api/test_service/v1/echodatetimefield",
+	resp, err := http.Post(ts.URL+"/_ah/api/test_service/v1/echodatetimefield",
 		"application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	assert.Equal(t, resp.StatusCode, 200)
@@ -222,7 +222,7 @@ func TestIncrementIntegers(t *testing.T) {
 	body, err := json.Marshal(bodyJson)
 	assert.NoError(t, err)
 
-	resp, err := http.Post(ts.URL + "/_ah/api/test_service/v1/incrementintegers",
+	resp, err := http.Post(ts.URL+"/_ah/api/test_service/v1/incrementintegers",
 		"application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	assert.Equal(t, resp.StatusCode, 200)
@@ -258,7 +258,7 @@ func TestEchoBytes(t *testing.T) {
 	body, err := json.Marshal(bodyJson)
 	assert.NoError(t, err)
 
-	resp, err := http.Post(ts.URL + "/_ah/api/test_service/v1/echobytes",
+	resp, err := http.Post(ts.URL+"/_ah/api/test_service/v1/echobytes",
 		"application/json", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	assert.Equal(t, resp.StatusCode, 200)

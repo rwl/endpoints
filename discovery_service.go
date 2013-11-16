@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
-	"net/http"
 	"log"
+	"net/http"
 )
 
 const getRestApi = "apisdev.getRest"

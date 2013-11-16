@@ -21,10 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
-	"log"
 )
 
 const pathValuePattern = `[^:/?#\[\]{}]*`

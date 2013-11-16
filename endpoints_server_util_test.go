@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"testing"
 	"strings"
+	"testing"
 )
 
 func TestSendRedirectResponse(t *testing.T) {
@@ -22,7 +22,7 @@ func TestSendRedirectResponse(t *testing.T) {
 		"Content-Length": []string{"0"},
 	}
 	note := "<a href=\"" + htmlReplacer.Replace(urlStr) + "\">" +
-			http.StatusText(302) + "</a>.\n\n"
+		http.StatusText(302) + "</a>.\n\n"
 
 	assertHttpMatchRecorder(t, w, 302, header, note)
 }

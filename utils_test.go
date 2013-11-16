@@ -21,10 +21,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"log"
 )
 
 // Build an apiRequest for the given path and body.

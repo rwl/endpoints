@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"log"
+	"net/http"
 )
 
 // Errors used in the local Cloud Endpoints server.

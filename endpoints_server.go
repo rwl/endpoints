@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
-	"log"
 )
 
 const defaultURL = "http://localhost:8080"

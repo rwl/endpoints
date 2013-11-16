@@ -2,22 +2,22 @@
 package endpoint
 
 import (
-	"time"
-	"github.com/rwl/go-endpoints/endpoints"
-	"net/http/httptest"
-	"net/http"
-	"net/url"
 	"fmt"
-	"strconv"
+	"github.com/rwl/go-endpoints/endpoints"
 	"github.com/stretchr/testify/assert"
-	"testing"
 	"log"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strconv"
+	"testing"
+	"time"
 )
 
 type VoidMessage struct{}
 
 type TimeMessage struct {
-	Milliseconds int `json:"milliseconds"`
+	Milliseconds   int `json:"milliseconds"`
 	TimeZoneOffset int `json:"time_zone_offset"`
 }
 
@@ -94,18 +94,17 @@ func (s *TestService) EchoDatetimeField(_ *http.Request, req *TestDateTime, resp
 	return nil
 }
 
-
 func (s *TestService) IncrementIntegers(_ *http.Request, req *TestIntegers, resp *TestIntegers) error {
 	resp.VarInt32 = req.VarInt32 + 1
 	val, _ := req.VarInt64.Int64()
-	resp.VarInt64 = Int64(fmt.Sprintf("%d", val + 1))
+	resp.VarInt64 = Int64(fmt.Sprintf("%d", val+1))
 	resp.VarRepeatedInt64 = make([]Int64, len(req.VarRepeatedInt64))
 	for i, v := range req.VarRepeatedInt64 {
 		val, _ = v.Int64()
-		resp.VarRepeatedInt64[i] = Int64(fmt.Sprintf("%d", val + 1))
+		resp.VarRepeatedInt64[i] = Int64(fmt.Sprintf("%d", val+1))
 	}
 	uval, _ := req.VarUnsignedInt64.Int64()
-	resp.VarUnsignedInt64 = UInt64(fmt.Sprintf("%d", uval + 1))
+	resp.VarUnsignedInt64 = UInt64(fmt.Sprintf("%d", uval+1))
 	return nil
 }
 
