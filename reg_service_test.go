@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	"strconv"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
-
-var ts *httptest.Server
 
 type VoidMessage struct{}
 
@@ -67,31 +67,26 @@ type TestBytes struct {
 type TestService struct {
 }
 
-//@endpoints.method(message_types.VoidMessage, TestResponse, http_method='GET', scopes=[])
 func (s *TestService) Test(_ *http.Request, _ *VoidMessage, resp *TestResponse) error {
 	resp.Text = "Test response"
 	return nil
 }
 
-//@endpoints.method(message_types.VoidMessage, TestResponse, http_method='GET', scopes=[])
 func (s *TestService) EmptyTest(_ *http.Request, _ *VoidMessage, _ *TestResponse) error {
 	return nil
 }
 
-//@endpoints.method(TestRequest, TestResponse, http_method='POST', name='t2name', path='t2path', scopes=[])
 func (s *TestService) Environ(_ *http.Request, req *TestRequest, resp *TestResponse) error {
 	resp.Text = fmt.Sprintf("%s %d", req.Name, req.Number)
 	return nil
 }
 
-//@endpoints.method(message_types.DateTimeMessage, message_types.DateTimeMessage, http_method='POST', name='echodtmsg', scopes=[])
 func (s *TestService) EchoDateMessage(_ *http.Request, req *TimeMessage, resp *TimeMessage) error {
 	resp.Milliseconds = req.Milliseconds
 	resp.TimeZoneOffset = req.TimeZoneOffset
 	return nil
 }
 
-//@endpoints.method(TestDateTime, TestDateTime, http_method='POST', name='echodtfield', path='echo_dt_field', scopes=[])
 func (s *TestService) EchoDatetimeField(_ *http.Request, req *TestDateTime, resp *TestDateTime) error {
 	// Make sure we can access the fields of the datetime object.
 	glog.Infof("Year %d, Month %d", req.Date.Year(), req.Date.Month())
@@ -99,7 +94,7 @@ func (s *TestService) EchoDatetimeField(_ *http.Request, req *TestDateTime, resp
 	return nil
 }
 
-//@endpoints.method(TestIntegers, TestIntegers, http_method='POST', scopes=[])
+
 func (s *TestService) IncrementIntegers(_ *http.Request, req *TestIntegers, resp *TestIntegers) error {
 	resp.VarInt32 = req.VarInt32 + 1
 	val, _ := req.VarInt64.Int64()
@@ -114,19 +109,16 @@ func (s *TestService) IncrementIntegers(_ *http.Request, req *TestIntegers, resp
 	return nil
 }
 
-//@endpoints.method(TestBytes, TestBytes, scopes=[])
 func (s *TestService) EchoBytes(_ *http.Request, req *TestBytes, resp *TestBytes) error {
 	glog.Infof("Found bytes: %s", string(req.BytesValue))
 	resp.BytesValue = req.BytesValue
 	return nil
 }
 
-//@endpoints.method(message_types.VoidMessage, message_types.VoidMessage, path='empty_response', http_method='GET', scopes=[])
 func (s *TestService) EmptyResponse(_ *http.Request, _ *VoidMessage, _ *VoidMessage) error {
 	return nil
 }
 
-//@my_api.api_class(resource_name='extraname', path='extrapath')
 // Additional test methods in the test API.
 /*type ExtraMethods struct{}
 
@@ -136,22 +128,21 @@ func (em *ExtraMethods) Test(_ *http.Request, _ *VoidMessage, resp *TestResponse
 	return nil
 }*/
 
-//@endpoints.api(name='second_service', version='v1')
 // Second test class for Cloud Endpoints.
 type SecondService struct{}
 
-//@endpoints.method(message_types.VoidMessage, TestResponse, http_method='GET', name='test_name', path='test', scopes=[])
 func (ss *SecondService) SecondTest(_ *http.Request, _ *VoidMessage, resp *TestResponse) error {
 	resp.Text = "Second response"
 	return nil
 }
 
-//func initTestApi(t *testing.T) *httptest.Server {
-func init() {
+func initTestApi(t *testing.T) *httptest.Server {
+	spi := endpoints.NewServer("")
+
 	testService := &TestService{}
-	api, err := endpoints.RegisterService(testService,
+	api, err := spi.RegisterService(testService,
 		"test_service", "v1", "Test API", true)
-	//assert.NoError(t, err)
+	assert.NoError(t, err)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -183,9 +174,9 @@ func init() {
 
 	// Test a second API, same version, same path. Shouldn't collide.
 	secondService := &SecondService{}
-	api, err = endpoints.RegisterService(secondService,
+	api, err = spi.RegisterService(secondService,
 		"second_service", "v1", "Second service", false)
-	//assert.NoError(t, err)
+	assert.NoError(t, err)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -194,18 +185,17 @@ func init() {
 	info.Name, info.HttpMethod, info.Path = "test_name", "GET", "test"
 
 	mux := http.NewServeMux()
-	ts = httptest.NewServer(mux)
+	ts := httptest.NewServer(mux)
 
-	//endpoints.HandleHttp()
-	endpoints.DefaultServer.HandleHttp(mux)
+	spi.HandleHttp(mux)
 
 	u, err := url.Parse(ts.URL)
-	//assert.NoError(t, err)
+	assert.NoError(t, err)
 	if err != nil {
 		panic(err.Error())
 	}
 	server := NewEndpointsServer("", u)
 	server.HandleHttp(mux)
 
-	//return ts
+	return ts
 }

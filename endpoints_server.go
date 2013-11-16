@@ -283,8 +283,8 @@ func (ed *EndpointsServer) handleSpiResponse(origRequest, spiRequest *apiRequest
 		// Check if the response from the SPI was empty. Empty REST responses
 		// generate a HTTP 204.
 		emptyResponse := ed.checkEmptyResponse(origRequest, methodConfig, w)
-		if emptyResponse != "" {
-			return emptyResponse, nil
+		if emptyResponse {
+			return "", nil
 		}
 
 		body, err = ed.transformRestResponse(string(respBody))
@@ -620,15 +620,16 @@ func (ed *EndpointsServer) checkErrorResponse(response *http.Response) error {
 // response body that should be returned to the user.  If the SPI response
 // wasn't empty, this returns None, indicating that we should not exit early
 // with a 204.
-func (ed *EndpointsServer) checkEmptyResponse(origRequest *apiRequest, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) string {
+func (ed *EndpointsServer) checkEmptyResponse(origRequest *apiRequest, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) bool {
 	if methodConfig.Response.Body == "empty" {
 		// The response to this function should be empty.  We should return a 204.
 		// Note that it's possible that the SPI returned something, but we'll
 		// ignore it.  This matches the behavior in the Endpoints server.
 		corsHandler := newCheckCorsHeaders(origRequest.Request)
-		return sendNoContentResponse(w, corsHandler)
+		sendNoContentResponse(w, corsHandler)
+		return true
 	}
-	return ""
+	return false
 }
 
 // Translates an apiserving REST response so it's ready to return.
