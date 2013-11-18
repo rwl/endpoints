@@ -17,8 +17,8 @@ To run the tests execute:
 go test github.com/rwl/endpoints/server
 ```
 
-<a href="https://travis-ci.org/rwl/endpoints/server" target="_blank">
-  <img src="https://api.travis-ci.org/rwl/endpoints/server.png?branch=master,go1" alt="Build Status">
+<a href="https://travis-ci.org/rwl/endpoints" target="_blank">
+  <img src="https://api.travis-ci.org/rwl/endpoints.png?branch=master,go1" alt="Build Status">
 </a>
 
 ## Usage
