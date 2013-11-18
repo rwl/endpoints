@@ -1,10 +1,10 @@
-package endpoints_server_test
+package server_test
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/rwl/endpoints_server"
+	"github.com/rwl/endpoints/server"
 	"github.com/rwl/go-endpoints/endpoints"
 	"io/ioutil"
 	"net/http"
@@ -64,7 +64,7 @@ func ExampleEndpointsServer() {
 
 	// The URL that SPI requests should be dispatched to.
 	u, _ := url.Parse(ts.URL)
-	api := endpoints_server.NewEndpointsServer(u)
+	api := server.NewEndpointsServer(u)
 
 	api.HandleHttp(mux)
 

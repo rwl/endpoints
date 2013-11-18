@@ -1,5 +1,5 @@
 // Test service for regression testing of Cloud Endpoints support.
-package endpoints_server
+package server
 
 import (
 	"fmt"
