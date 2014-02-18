@@ -269,25 +269,31 @@ var buildSpiUrl = func(ed *EndpointsServer, spiRequest *apiRequest) string {
 
 // Handle SPI response, transforming output as needed.
 var handleSpiResponse = func(ed *EndpointsServer, origRequest, spiRequest *apiRequest, response *http.Response, methodConfig *endpoints.ApiMethod, w http.ResponseWriter) (string, error) {
-	respBody, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return "", err
-	}
-	response.Body.Close()
-
 	// Verify that the response is json.  If it isn"t treat, the body as an
 	// error message and wrap it in a json error response.
 	for header, value := range response.Header {
 		if header == "Content-Type" && !strings.HasPrefix(value[0], "application/json") {
+			respBody, err := ioutil.ReadAll(response.Body)
+			if err != nil {
+				return "", err
+			}
+			response.Body.Close()
+
 			return ed.failRequest(w, origRequest.Request,
 				fmt.Sprintf("Non-JSON reply: %s", respBody)), nil
 		}
 	}
 
-	err = ed.checkErrorResponse(response)
+	err := ed.checkErrorResponse(response)
 	if err != nil {
 		return "", err
 	}
+
+	respBody, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return "", err
+	}
+	response.Body.Close()
 
 	// Need to check isRpc() against the original request, because the
 	// incoming request here has had its path modified.
