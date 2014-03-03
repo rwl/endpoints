@@ -17,6 +17,7 @@ package server
 import (
 	"net/http"
 	"strings"
+	"fmt"
 )
 
 type route struct {
@@ -37,11 +38,23 @@ func (h *router) HandleFunc(pathPrefix string, handler func(http.ResponseWriter,
 	h.routes = append(h.routes, r)
 }
 
+// Routes the request if it matches one of our reserved URLs. This also
+// handles OPTIONS CORS requests.
 func (h *router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, route := range h.routes {
 		if strings.HasPrefix(r.URL.Path, route.pathPrefix) {
 			route.handler(w, r)
-			break
+			return
+		}
+	}
+
+	if r.Method == "OPTIONS" {
+		corsHandler := newCheckCorsHeaders(r)
+		if corsHandler.allowCorsRequest {
+			// The server returns 200 rather than 204, for some reason.
+			corsHandler.updateHeaders(w.Header())
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "")
 		}
 	}
 }
