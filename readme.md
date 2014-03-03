@@ -14,6 +14,7 @@ go get github.com/rwl/endpoints/server
 To run the tests execute:
 
 ```
+go get github.com/stretchr/testify/assert
 go test github.com/rwl/endpoints/server
 ```
 
